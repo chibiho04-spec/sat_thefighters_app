@@ -7756,41 +7756,7 @@
   }
 
   // 請求書マスターデータ（受注ノートから）
-  const invData = {
-    'Z26001': { client:'株式会社 エムプロ', zip:'〒100-0000', addr:'東京都〇〇区〇〇1-1', title:'全国放送番組 C:川崎', date:'2026/04/04〜17', staff:'川崎', lines:[
-      { code:'Z020', name:'SONY PXW-Z200 1チェーン(2名体制.機材.車両付)', unit:'日', qty:10, price:110000 },
-      { code:'Z022', name:'航空運賃2名分（税込）領収書別紙', unit:'式', qty:1, price:41940 },
-      { code:'Z023', name:'高速代（税込）利用証明書別紙', unit:'式', qty:1, price:1460 },
-      { code:'Z024', name:'燃料代（税込）領収書別紙', unit:'式', qty:1, price:5529 },
-    ]},
-    'Z26011': { client:'東都テレビ株式会社', zip:'〒900-0000', addr:'〇〇県〇〇市〇〇2-2', title:'世界遺産特番 ドローン撮影（4/14）', date:'2026/04/14', staff:'川野', lines:[
-      { code:'Z116', name:'ドローン空撮パイロット', unit:'日', qty:1, price:35000 },
-      { code:'Z117', name:'ドローン機材一式', unit:'日', qty:1, price:25000 },
-      { code:'Z001', name:'カメラマン', unit:'日', qty:1, price:30000 },
-      { code:'Z006', name:'超過勤務', unit:'時間', qty:2, price:1000 },
-    ]},
-    'Z26036': { client:'株式会社 南海テレビ', zip:'〒900-8510', addr:'〇〇県〇〇市〇〇2-2-1', title:'伝統音楽コンサート撮影（4/28・29）', date:'2026/04/28・29', staff:'新崎', lines:[
-      { code:'Z101', name:'カメラマン（南海テレビ）', unit:'日', qty:2, price:30000 },
-      { code:'Z104', name:'取材音声', unit:'日', qty:2, price:25000 },
-      { code:'Z102', name:'カメラマン 超過勤務', unit:'時間', qty:3, price:2000 },
-    ]},
-    'Z26010': { client:'東都テレビ株式会社', zip:'〒900-0000', addr:'〇〇県〇〇市〇〇2-2', title:'報道技術協力（4/1〜12）', date:'2026/04/01〜12', staff:'川崎', lines:[
-      { code:'Z001', name:'カメラマン', unit:'日', qty:8, price:30000 },
-      { code:'Z003', name:'カメラアシスタント', unit:'日', qty:4, price:20000 },
-      { code:'Z006', name:'超過勤務', unit:'時間', qty:5.5, price:1000 },
-    ]},
-    'Z26019': { client:'東都テレビ株式会社', zip:'〒900-0000', addr:'〇〇県〇〇市〇〇2-2', title:'報道技術協力（4/13〜19）', date:'2026/04/13〜19', staff:'川崎', lines:[
-      { code:'Z001', name:'カメラマン', unit:'日', qty:5, price:30000 },
-      { code:'Z006', name:'超過勤務', unit:'時間', qty:4.5, price:1000 },
-    ]},
-    'Z26006': { client:'合同会社 ワンクリエイト', zip:'〒900-0000', addr:'〇〇県〇〇市〇〇3-3', title:'飲料メーカー スチール撮影アシスタント', date:'2026/04/14', staff:'川野', lines:[
-      { code:'Z017', name:'補助Ｂ（玻座真）', unit:'日', qty:1, price:15000 },
-      { code:'Z018', name:'超過勤務', unit:'時間', qty:3.5, price:2000 },
-    ]},
-    'Z26016': { client:'株式会社 スカイワーク', zip:'〒900-0000', addr:'〇〇県〇〇市〇〇1-1', title:'食品メーカーTVCM 助監督（4/19）', date:'2026/04/19', staff:'平岡', lines:[
-      { code:'Z002', name:'助監督（平岡）', unit:'日', qty:1, price:55000 },
-    ]},
-  };
+  const invData = {};
 
   // ===== 請求書カード動的描画 =====
   function renderInvCards() {
@@ -11842,21 +11808,7 @@
     });
   }
 
-  const wsData = {
-    'Z26039': { title:'「バラエティ番組A」ロケ撮影', company:'株式会社 サンライズプロ',
-      date:'5/2', type:'TV', orderType:'撮影', crewC:'大浦', crewA:'正樹' },
-    'Z26036': { title:'伝統音楽コンサート撮影', company:'株式会社 南海テレビ',
-      date:'4/28・29', type:'TV', orderType:'スタッフ派遣', crewC:'新崎', crewA:'' },
-    'Z26032': { title:'アーティストライブ撮影＠商業施設', company:'株式会社 スターエージェンシー',
-      date:'5/9〜10', type:'PV', orderType:'撮影・編集', crewC:'平岡', crewA:'' },
-    'Z26029': { title:'ブランドCM 離島ロケ', company:'株式会社 ブルースカイ',
-      date:'4/26〜28・5/8〜10', type:'CM', orderType:'撮影', crewC:'城間 心', crewA:'' },
-    'Z26035': { title:'追悼式典 技術協力', company:'株式会社 南海テレビ',
-      date:'6/21〜23', type:'TV', orderType:'スタッフ派遣', crewC:'新崎', crewA:'下村' },
-    'Z26041': { title:'サンライズプロジェクト', company:'', date:'', type:'未定', orderType:'未定',
-      crewC:'', crewA:'', crewProducer:'', crewD:'', crewPm1:'', crewPm2:'',
-      crewA2:'', crewSound:'', crewEdit:'', memo:'' },
-  };
+  const wsData = {};
 
   // ワークシートから見積書・請求書 編集画面を起動（ワークシート画面は閉じずに上に重ねる）
   function openEstimateFromWS() {
