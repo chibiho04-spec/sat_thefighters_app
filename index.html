@@ -10716,16 +10716,18 @@
     showConfirm(
       '⚠️ すべてのデータをリセットしますか？\n\n保存した案件・ワークシート・請求データがすべて削除されます。\nプレビューと同じ初期状態に戻ります。',
       () => {
-        // localStorage の全アプリデータを削除
+        // localStorage の全アプリデータを削除（deleted_ws は保持：削除済み案件が復活しないよう）
+        const _keepDeletedWS = localStorage.getItem('deleted_ws');
         const keys = Object.keys(localStorage);
         keys.forEach(k => {
           if (k.startsWith('ws_') || k.startsWith('inv_') ||
-              k === 'projects_saved' || k === 'deleted_ws' || k === 'deleted_inv' ||
+              k === 'projects_saved' || k === 'deleted_inv' ||
               k === 'last_login_name' || k === 'last_login_time' ||
               k === 'equip_master') {
             localStorage.removeItem(k);
           }
         });
+        if (_keepDeletedWS) localStorage.setItem('deleted_ws', _keepDeletedWS);
         // ページをリロード
         location.reload();
       },
