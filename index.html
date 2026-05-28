@@ -4748,6 +4748,10 @@
         <div class="wsd-header-num" style="color:#aec6f0;">機材管理</div>
         <div class="wsd-header-title">よく使う機材を登録・管理</div>
       </div>
+      <button onclick="fetchEquipMaster(true).then(()=>renderEquipMasterList())" title="シートから取り込み"
+        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥</button>
+      <button onclick="sendEquipMasterToSheet(true)" title="シートへ送信"
+        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📤</button>
     </div>
 
     <div class="wsd-scroll">
@@ -6243,7 +6247,8 @@
       gas_url_child:  'https://script.google.com/macros/s/AKfycby0W4E-WPmxs6cNc97ao_59lA7LfD9Fv7xRdWjF1Q7eN4XfRT3APUg12fDTzjHOhKFm/exec',
       gas_url_client: 'https://script.google.com/macros/s/AKfycbwbUD8-m-0ZQNUoMQb-ShRaLdjXMSRSb5K2upf9MOf-RDVJgHnGcUWQ5ssWNSM-Q_c6/exec',
       gas_url_product:'https://script.google.com/macros/s/AKfycbw3u0KNFwPPcMW3-0VyC1ZxfiIPpjmUXP24VrK42cCJgGay4We60HZZcs2Dgh2GQoz4/exec',
-      gas_url_media:  'https://script.google.com/macros/s/AKfycbyfLmFtyEQ2p14MEFJPHM9k8bvtNO0B-FQYx55afVYh_kSgDpu1N2KYWbRj7sxMw1TH/exec'
+      gas_url_media:  'https://script.google.com/macros/s/AKfycbyfLmFtyEQ2p14MEFJPHM9k8bvtNO0B-FQYx55afVYh_kSgDpu1N2KYWbRj7sxMw1TH/exec',
+      gas_url_equip:  'https://script.google.com/macros/s/AKfycbz7dndFHQyMbBOxvt5nJGuWVoc_EUI2EjN-_fAP5gqzxiRAjbMOoUwNPWtEP5-jAhBy/exec'
     };
     // その他（未設定の端末のみ設定）
     const optionals = {
@@ -6274,6 +6279,9 @@
       }
       if (localStorage.getItem('gas_url_media')) {
         fetchMediaList(false);
+      }
+      if (localStorage.getItem('gas_url_equip')) {
+        fetchEquipMaster(false);
       }
       if (localStorage.getItem('gas_url_driving')) {
         fetchDrivingList(false);
@@ -11066,6 +11074,49 @@
     '📷 カメラ', '💾 メディア', '🔭 レンズ', '🔲 フィルター・マットボックス', '🎬 三脚/スタンド', '📡 映像伝送', '🖥 モニター',
     '🎚 ミキサー/REC', '🎤 マイク', '💡 照明', '🔋 バッテリー', '📦 その他'
   ];
+
+  async function fetchEquipMaster(showStatus) {
+    const url = (localStorage.getItem('gas_url_equip') || '').trim();
+    if (!url) return;
+    if (showStatus) setGasStatus('📥 機材マスタ取り込み中...', '#2980b9');
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '不明なエラー');
+      const items = (data.rows || []).map(r => ({
+        id:    String(r['ID']        || '').trim(),
+        cat:   String(r['カテゴリ']  || '').trim(),
+        name:  String(r['機材名']    || '').trim(),
+        code:  String(r['商品コード']|| '').trim(),
+        qty:   Number(r['数量']      || 1),
+        price: Number(r['単価（円）']|| 0)
+      })).filter(e => e.id && e.name);
+      if (items.length) saveEquipMaster(items);
+      if (showStatus) setGasStatus(`✅ 機材マスタ ${items.length}件 取り込み完了`, '#27ae60');
+    } catch(err) {
+      console.warn('fetchEquipMaster failed', err);
+      if (showStatus) setGasStatus('❌ 機材マスタ取り込み失敗：' + err.message, '#c0392b');
+    }
+  }
+
+  async function sendEquipMasterToSheet(showStatus) {
+    const url = (localStorage.getItem('gas_url_equip') || '').trim();
+    if (!url) { if (showStatus) setGasStatus('機材マスタのURLが未設定です', '#c0392b'); return; }
+    if (showStatus) setGasStatus('📤 機材マスタ送信中...', '#2980b9');
+    try {
+      const items = loadEquipMaster();
+      const res = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'sync', items })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '不明なエラー');
+      if (showStatus) setGasStatus(`✅ 機材マスタ ${data.count}件 送信完了`, '#27ae60');
+    } catch(err) {
+      console.warn('sendEquipMasterToSheet failed', err);
+      if (showStatus) setGasStatus('❌ 機材マスタ送信失敗：' + err.message, '#c0392b');
+    }
+  }
 
   function loadEquipMaster() {
     try {
