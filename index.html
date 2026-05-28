@@ -12922,6 +12922,18 @@
   // 起動時にカードを復元・ソート
   renderHomeCal();
   updateWsSortBtn();
+  // 旧デモデータを起動のたびに削除済みとしてマーク（シート同期で復活しないよう）
+  (function markLegacyDemoAsDeleted() {
+    const legacy = [
+      'Z26039','Z26036','Z26032','Z26029','Z26035','Z26041',
+      'Z26001','Z26006','Z26010','Z26011','Z26016','Z26019'
+    ];
+    try {
+      const cur = getDeletedWS();
+      const next = [...new Set([...cur, ...legacy])];
+      if (next.length !== cur.length) saveDeletedWS(next);
+    } catch(e) {}
+  })();
   applyDeletedWS();
   restoreSavedProjects();
   applyDeletedWS();
