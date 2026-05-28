@@ -4748,10 +4748,6 @@
         <div class="wsd-header-num" style="color:#aec6f0;">機材管理</div>
         <div class="wsd-header-title">よく使う機材を登録・管理</div>
       </div>
-      <button onclick="fetchEquipMaster(true).then(()=>renderEquipMasterList())" title="シートから取り込み"
-        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥</button>
-      <button onclick="sendEquipMasterToSheet(true)" title="シートへ送信"
-        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📤</button>
     </div>
 
     <div class="wsd-scroll">
@@ -4813,8 +4809,8 @@
       <!-- 最下部の保存ボタン -->
       <div style="padding:14px 12px 20px;border-top:2px solid #d4c8b0;margin-top:10px;background:rgba(255,255,255,0.5);">
         <button class="wsd-save-btn" style="width:100%;background:#27ae60;border-color:#1a7a40;box-shadow:3px 3px 0 #1a7a40;font-size:13px;padding:12px;"
-          onclick="closeEquipMaster()">💾 保存して戻る</button>
-        <div style="font-size:9px;color:#888;text-align:center;margin-top:6px;">※ 編集内容はその都度自動保存されています</div>
+          onclick="sendEquipMasterToSheet(true).then(()=>fetchEquipMaster(false)).then(()=>{renderEquipMasterList();closeEquipMaster();})">💾 保存して戻る</button>
+        <div style="font-size:9px;color:#888;text-align:center;margin-top:6px;">※ 保存時にシートへ自動送信・取り込みします</div>
       </div>
 
     </div>
