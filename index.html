@@ -3340,13 +3340,13 @@
         <div id="google-login-error" style="display:none;margin-top:8px;font-family:'DotGothic16',monospace;font-size:10px;color:#e74c3c;text-align:center;"></div>
       </div>
 
-      <!-- ローカルログイン（file:// で開いた時） -->
+      <!-- PINログイン（file:// / HTTPS 共通） -->
       <div id="local-login-section" style="display:none;">
-        <div class="login-form-title">▶ LOCAL LOGIN</div>
+        <div class="login-form-title">▶ LOGIN</div>
         <div style="font-family:'DotGothic16',monospace;font-size:10px;color:#aaa;text-align:center;margin-bottom:16px;line-height:1.8;">
-          名前を選んで続けてください
+          名前を選んで4桁のPINを入力
         </div>
-        <select id="local-login-name" style="font-family:'DotGothic16',monospace;font-size:13px;width:100%;padding:10px 8px;border-radius:4px;border:2px solid #f39c12;background:#1a1a2e;color:white;margin-bottom:14px;">
+        <select id="local-login-name" style="font-family:'DotGothic16',monospace;font-size:13px;width:100%;padding:10px 8px;border-radius:4px;border:2px solid #f39c12;background:#1a1a2e;color:white;margin-bottom:10px;">
           <option value="shin">城間 心</option>
           <option value="kawasaki">川崎 哲也</option>
           <option value="uehara">上原 健二</option>
@@ -3358,8 +3358,13 @@
           <option value="kamiji">上地 剛</option>
           <option value="matsuda">松田 義明</option>
         </select>
+        <input id="local-login-pin" type="password" inputmode="numeric" maxlength="4"
+          placeholder="● ● ● ●"
+          style="font-family:'DotGothic16',monospace;font-size:20px;width:100%;padding:10px 8px;border-radius:4px;border:2px solid #f39c12;background:#1a1a2e;color:white;margin-bottom:10px;text-align:center;letter-spacing:8px;box-sizing:border-box;"
+          onkeydown="if(event.key==='Enter')doLocalLogin()">
+        <div id="local-login-error" style="display:none;font-family:'DotGothic16',monospace;font-size:10px;color:#e74c3c;text-align:center;margin-bottom:8px;">⚠️ PINが違います</div>
         <button onclick="doLocalLogin()" style="font-family:'DotGothic16',monospace;font-size:14px;width:100%;padding:12px;background:linear-gradient(180deg,#f39c12,#d68910);border:2px solid #b7770d;color:white;border-radius:4px;cursor:pointer;letter-spacing:2px;">
-          ▶ 続ける
+          ▶ ログイン
         </button>
       </div>
     </div>
@@ -6797,7 +6802,19 @@
     setTimeout(initGoogleSignIn, 500);
   });
 
-  const USERS = { shin: '0000' }; // name(小文字): 4桁パスワード
+  // 各スタッフのPIN（4桁）— Googleログインに移行したら使わなくなります
+  const USERS = {
+    shin:     '0000',
+    kawasaki: '0000',
+    uehara:   '0000',
+    hiraoka:  '0000',
+    kawano:   '0000',
+    arasaki:  '0000',
+    hazama:   '0000',
+    morita:   '0000',
+    kamiji:   '0000',
+    matsuda:  '0000',
+  };
 
   // 現在のログインユーザーの名字を取得（カレンダー色分け用）
   function getCurrentUserSurname() {
@@ -6954,10 +6971,27 @@
     setTimeout(initGoogleSignIn, 200);
   }
 
-  // ローカルファイル用ログイン
+  // PINログイン
   function doLocalLogin() {
-    const sel = document.getElementById('local-login-name');
-    const name = sel ? sel.value : 'shin';
+    const sel    = document.getElementById('local-login-name');
+    const pinEl  = document.getElementById('local-login-pin');
+    const errEl  = document.getElementById('local-login-error');
+    const name   = sel  ? sel.value  : 'shin';
+    const pin    = pinEl ? pinEl.value.trim() : '';
+    const expected = USERS[name] || '';
+
+    // file:// の場合はPIN不要（選択だけでOK）
+    if (window.location.protocol === 'file:') {
+      loginSuccess(name);
+      return;
+    }
+
+    if (!pin || pin !== expected) {
+      if (errEl) errEl.style.display = 'block';
+      if (pinEl) { pinEl.value = ''; pinEl.focus(); }
+      return;
+    }
+    if (errEl) errEl.style.display = 'none';
     loginSuccess(name);
   }
 
@@ -6993,7 +7027,7 @@
         return;
       }
 
-      // HTTPS環境：30分以内なら自動スキップ
+      // HTTPS環境：30分以内なら自動スキップ、そうでなければPINログイン画面
       if (savedName && elapsed < THIRTY_MIN && _validUser) {
         localStorage.setItem('last_login_time', Date.now());
         const screen = document.getElementById('login-screen');
@@ -7005,6 +7039,12 @@
         if (bubble) bubble.innerHTML =
           `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
         renderUserStaffCard(savedName);
+      } else {
+        // PINログイン画面を表示（Googleログインは非表示）
+        const gSection = document.getElementById('google-login-section');
+        const lSection = document.getElementById('local-login-section');
+        if (gSection) gSection.style.display = 'none';
+        if (lSection) lSection.style.display = 'block';
       }
     } catch(e) { console.warn('auto login check failed', e); }
   })();
