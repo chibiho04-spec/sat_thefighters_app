@@ -6667,6 +6667,14 @@
   // ===== Google OAuth クライアントID =====
   const GOOGLE_CLIENT_ID = '896214034897-tjbgqdogdgq9hl8k6jngbfu9muaodrlb.apps.googleusercontent.com';
 
+  // ===== 許可するGmailアドレス一覧（小文字で記載）=====
+  // ここにないアドレスでのログインは拒否されます
+  // メール → スタッフキー の対応を書くと自動でそのスタッフとしてログインします
+  // 対応不明な場合は email: null でも登録可能（スタッフ選択画面が表示されます）
+  const STAFF_EMAILS = {
+    'office.satto@gmail.com': null, // ← どのスタッフか分かったら 'shin' 等に変更
+  };
+
   // ===== スタッフキー一覧（SUMO_FIGHTERSのインデックスと対応） =====
   const STAFF_KEYS = [
     'kawasaki', 'uehara', 'hiraoka', 'kawano', 'shin',
@@ -6705,8 +6713,29 @@
         atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
       ));
       const googleName  = payload.name  || '';
-      const googleEmail = payload.email || '';
-      showStaffPicker(googleName, googleEmail);
+      const googleEmail = (payload.email || '').toLowerCase();
+
+      // ===== メールアドレスのホワイトリストチェック =====
+      const errEl = document.getElementById('google-login-error');
+      if (!Object.prototype.hasOwnProperty.call(STAFF_EMAILS, googleEmail)) {
+        // 登録されていないアドレス → アクセス拒否
+        if (errEl) {
+          errEl.textContent = '⚠️ このGoogleアカウントはアクセス権がありません（' + googleEmail + '）';
+          errEl.style.display = 'block';
+        }
+        console.warn('Unauthorized Google login attempt:', googleEmail);
+        return;
+      }
+      if (errEl) errEl.style.display = 'none';
+
+      // メール → スタッフキーが紐付いていれば自動ログイン
+      const staffKey = STAFF_EMAILS[googleEmail];
+      if (staffKey && STAFF_KEYS.includes(staffKey)) {
+        loginSuccess(staffKey);
+      } else {
+        // 紐付けなし → スタッフ選択画面を表示
+        showStaffPicker(googleName, googleEmail);
+      }
     } catch(e) {
       console.error('Google credential decode failed:', e);
       const errEl = document.getElementById('google-login-error');
