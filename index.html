@@ -11103,6 +11103,8 @@
       const items = loadEquipMaster();
       const res = await fetch(url, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'sync', items })
       });
       const data = await res.json();
