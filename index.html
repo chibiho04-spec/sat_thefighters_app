@@ -8964,6 +8964,8 @@
     try {
       const res = await fetch(url, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'upsert', rows: [row] })
       });
       const data = await res.json();
@@ -9189,6 +9191,8 @@
     try {
       const res = await fetch(url, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'upsert', rows: [row] })
       });
       const data = await res.json();
@@ -9379,7 +9383,7 @@
     btn.disabled = true; btn.textContent = '送信中...';
     status.style.color = '#2980b9'; status.textContent = '📤 送信中...';
     try {
-      const res = await fetch(url, { method:'POST', body: JSON.stringify({ action:'upsert', rows:[row] }) });
+      const res = await fetch(url, { method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'upsert', rows:[row] }) });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       // キャッシュ反映
@@ -9539,7 +9543,7 @@
     btn.disabled = true; btn.textContent = '送信中...';
     status.style.color = '#2980b9'; status.textContent = '📤 送信中...';
     try {
-      const res = await fetch(url, { method:'POST', body: JSON.stringify({ action:'upsert', rows:[row] }) });
+      const res = await fetch(url, { method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'upsert', rows:[row] }) });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const cached = getCachedDriving();
@@ -10478,6 +10482,8 @@
     try {
       const res = await fetch(url, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'upsert', rows: [row] })
       });
       const data = await res.json();
@@ -10603,7 +10609,8 @@
     try {
       await fetch(url, {
         method: 'POST',
-        // CORS preflight 回避のため Content-Type を指定しない（text/plain 扱い）
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'upsert', rows: [projectToOrderRow(num, p)] })
       });
     } catch (err) {
@@ -10623,6 +10630,8 @@
       // 親送信
       const res = await fetch(url, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'upsert', rows })
       });
       const data = await res.json();
@@ -10637,6 +10646,8 @@
         try {
           const cres = await fetch(childUrl, {
             method: 'POST',
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({ action: 'upsert', rows: childRows })
           });
           const cdata = await cres.json();
@@ -12495,6 +12506,8 @@
     await Promise.all(urls.map(url =>
       fetch(url, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'delete', nums: [num] })
       }).catch(e => console.warn('sendDeleteToSheets', url, e))
     ));
