@@ -9910,6 +9910,22 @@
         });
       }
     } catch(e) { console.warn(e); }
+    // 保存済みの請求書データ（inv_*）— 案件一覧に無くても、同期で来た請求書を一覧に出す
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('inv_') !== 0) return;
+        const num = k.slice(4);
+        if (!num || seen.has(num)) return;
+        let inv = {};
+        try { inv = JSON.parse(localStorage.getItem(k)) || {}; } catch { return; }
+        // 中身のある請求書だけ（空のスタブは出さない）
+        const hasContent = (Array.isArray(inv.lines) && inv.lines.length) || inv.title || inv.company || inv.workDate;
+        if (!hasContent) return;
+        seen.add(num);
+        items.push({ num, source: 'inv-local',
+          title: inv.title || '', company: inv.company || '', date: inv.workDate || inv.invDate || '' });
+      });
+    } catch(e) { console.warn(e); }
     // 受注Noで降順ソート（新しい順）
     items.sort((a, b) => String(b.num).localeCompare(String(a.num), 'ja'));
     return items;
