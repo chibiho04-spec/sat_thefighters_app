@@ -10642,6 +10642,11 @@
         else          childMsg = ` / 子取り込み ${cr.fetched} 件`;
       }
 
+      // 機材マスタも一緒に取り込み
+      if (getChildGasUrl() || localStorage.getItem('gas_url_equip')) {
+        fetchEquipMaster(false).catch(e => console.warn('equip fetch', e));
+      }
+
       // 全画面を再描画（取り込み後に即時反映）
       if (typeof refreshHomeView === 'function') refreshHomeView(true);
       if (typeof renderWorksheetList === 'function') renderWorksheetList();
@@ -11215,7 +11220,7 @@
     if (!url) return;
     if (showStatus) setGasStatus('📥 機材マスタ取り込み中...', '#2980b9');
     try {
-      const res = await fetch(url, { method: 'GET' });
+      const res = await fetch(url, { method: 'GET', redirect: 'follow' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const items = (data.rows || []).map(r => ({
