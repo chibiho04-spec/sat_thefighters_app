@@ -1230,7 +1230,7 @@
 
   /* ===== 明細追加・編集モーダル ===== */
   #inv-line-modal {
-    position: absolute; inset: 0; z-index: 200; display: none;
+    position: fixed; inset: 0; z-index: 220; display: none;
     background: rgba(0,0,0,0.45); align-items: flex-end;
   }
   #inv-line-modal.open { display: flex; }
@@ -4861,55 +4861,6 @@
     </div><!-- /invd-scroll -->
 
     <!-- ===== 明細 追加／編集モーダル（freee風） ===== -->
-    <div id="inv-line-modal">
-      <div class="inv-modal-sheet">
-        <div class="inv-modal-head">
-          <span class="ttl" id="inv-modal-title">通常行を追加</span>
-          <button type="button" class="inv-modal-x" onclick="closeInvLineModal()">閉じる</button>
-        </div>
-        <div class="inv-modal-body">
-          <input type="hidden" id="inv-modal-index" value="">
-          <div class="inv-field">
-            <label>摘要（作業内容）</label>
-            <textarea id="inv-modal-name" placeholder="例）カメラマン人件費（撮影：城間）" oninput="_updateInvModalAmount()"></textarea>
-          </div>
-          <div class="inv-field-row">
-            <div class="inv-field">
-              <label>数量</label>
-              <input id="inv-modal-qty" type="number" inputmode="decimal" value="1" oninput="_updateInvModalAmount()">
-            </div>
-            <div class="inv-field">
-              <label>単位</label>
-              <input id="inv-modal-unit" type="text" value="日">
-            </div>
-          </div>
-          <div class="inv-field">
-            <label>単価（円）</label>
-            <input id="inv-modal-price" type="number" inputmode="numeric" value="0" oninput="_updateInvModalAmount()">
-          </div>
-          <div class="inv-field">
-            <label>消費税</label>
-            <select id="inv-modal-tax">
-              <option value="1">課税（10%）</option>
-              <option value="0">非課税</option>
-            </select>
-          </div>
-          <div class="inv-field">
-            <label>商品コード（任意）</label>
-            <input id="inv-modal-code" type="text" placeholder="例）Z020">
-          </div>
-          <div class="inv-toggle-row">
-            <span class="lbl">外注費として計上する</span>
-            <input id="inv-modal-outsource" type="checkbox" style="width:22px;height:22px;cursor:pointer;">
-          </div>
-        </div>
-        <div class="inv-modal-amount">金額　<b id="inv-modal-amount">¥0</b></div>
-        <div class="inv-modal-foot">
-          <button type="button" class="inv-modal-save" onclick="saveInvLineModal()">この内容で追加</button>
-        </div>
-      </div>
-    </div><!-- /inv-line-modal -->
-
   </div><!-- /inv-detail-screen -->
 
   <!-- ========== ゴミ箱画面（スライドイン） ========== -->
@@ -6337,6 +6288,56 @@
     </div><!-- /wsd-scroll -->
     </div><!-- /wsd-edit-panel -->
     </div><!-- /ws-detail-screen -->
+
+  <!-- ===== 明細 追加／編集モーダル（phone-frame直下・nav-barより上） ===== -->
+  <div id="inv-line-modal">
+    <div class="inv-modal-sheet">
+      <div class="inv-modal-head">
+        <span class="ttl" id="inv-modal-title">通常行を追加</span>
+        <button type="button" class="inv-modal-x" onclick="closeInvLineModal()">閉じる</button>
+      </div>
+      <div class="inv-modal-body">
+        <input type="hidden" id="inv-modal-index" value="">
+        <div class="inv-field">
+          <label>摘要（作業内容）</label>
+          <textarea id="inv-modal-name" placeholder="例）カメラマン人件費（撮影：城間）" oninput="_updateInvModalAmount()"></textarea>
+        </div>
+        <div class="inv-field-row">
+          <div class="inv-field">
+            <label>数量</label>
+            <input id="inv-modal-qty" type="number" inputmode="decimal" value="1" oninput="_updateInvModalAmount()">
+          </div>
+          <div class="inv-field">
+            <label>単位</label>
+            <input id="inv-modal-unit" type="text" value="日">
+          </div>
+        </div>
+        <div class="inv-field">
+          <label>単価（円）</label>
+          <input id="inv-modal-price" type="number" inputmode="numeric" value="0" oninput="_updateInvModalAmount()">
+        </div>
+        <div class="inv-field">
+          <label>消費税</label>
+          <select id="inv-modal-tax">
+            <option value="1">課税（10%）</option>
+            <option value="0">非課税</option>
+          </select>
+        </div>
+        <div class="inv-field">
+          <label>商品コード（任意）</label>
+          <input id="inv-modal-code" type="text" placeholder="例）Z020">
+        </div>
+        <div class="inv-toggle-row">
+          <span class="lbl">外注費として計上する</span>
+          <input id="inv-modal-outsource" type="checkbox" style="width:22px;height:22px;cursor:pointer;">
+        </div>
+      </div>
+      <div class="inv-modal-amount">金額　<b id="inv-modal-amount">¥0</b></div>
+      <div class="inv-modal-foot">
+        <button type="button" class="inv-modal-save" onclick="saveInvLineModal()">この内容で追加</button>
+      </div>
+    </div>
+  </div><!-- /inv-line-modal -->
 
 </div><!-- /phone-frame -->
 
