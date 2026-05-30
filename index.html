@@ -10603,7 +10603,11 @@
         else          childMsg = ` / 子取り込み ${cr.fetched} 件`;
       }
 
+      // 全画面を再描画（取り込み後に即時反映）
       if (typeof refreshHomeView === 'function') refreshHomeView(true);
+      if (typeof renderWorksheetList === 'function') renderWorksheetList();
+      if (typeof renderSalesScreen === 'function') { try { renderSalesScreen(); } catch(e) {} }
+
       const skipMsg = skipped > 0 ? `（予約番号 ${skipped} 件はスキップ）` : '';
       if (showStatus) setGasStatus(`✅ 取り込み：新規 ${added} / 更新 ${updated} / 削除 ${removed}${childMsg} ${skipMsg}`, '#27ae60');
     } catch (err) {
