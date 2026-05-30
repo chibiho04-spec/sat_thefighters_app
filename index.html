@@ -9951,7 +9951,13 @@
       `作成済の${isInvoice ? '請求書' : '見積書'}（${items.length}件）`;
 
     if (!items.length) {
-      list.innerHTML = '<div style="padding:30px 14px;text-align:center;color:#888;font-size:12px;">該当する案件がありません<br>上の「＋ 新規作成」から作成してください</div>';
+      // 診断：localStorage に何が入っているかが見えるように出す（原因切り分け用）
+      let invKeyCount = 0, projCount = 0, demoCount = 0, delCount = _deletedInvs.length;
+      try { invKeyCount = Object.keys(localStorage).filter(k => k.indexOf('inv_') === 0).length; } catch {}
+      try { projCount = (typeof getSavedProjects === 'function' ? getSavedProjects().length : 0); } catch {}
+      try { demoCount = (typeof invData === 'object' && invData) ? Object.keys(invData).length : 0; } catch {}
+      const diag = `（診断：案件 ${projCount}件 / 保存済請求書 ${invKeyCount}件 / デモ ${demoCount}件 / 削除済 ${delCount}件）`;
+      list.innerHTML = '<div style="padding:30px 14px;text-align:center;color:#888;font-size:12px;">該当する案件がありません<br>上の「＋ 新規作成」から作成してください<br><br><span style="font-size:10px;color:#aaa;">' + diag + '</span></div>';
       return;
     }
 
