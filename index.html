@@ -5024,13 +5024,16 @@
 
     <div style="display:flex;align-items:center;gap:10px;background:#f1c40f;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #b7950b;">
       <button class="wsd-back" onclick="closeProductMaster()">◀ 戻る</button>
-      <div class="wsd-header-info">
+      <div class="wsd-header-info" style="flex:1;">
         <div class="wsd-header-num" style="color:#5d4037;">商品管理</div>
         <div class="wsd-header-title" id="pm-header-title" style="color:#5d4037;">商品一覧</div>
       </div>
       <button onclick="fetchProductMaster(true); setTimeout(renderProductMasterList, 800);"
         style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(0,0,0,0.35);color:#5d4037;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;"
         title="シートから最新を取得">🔄 更新</button>
+      <a href="https://docs.google.com/spreadsheets/d/12JRY9CBauEAxbcDyM-BOBzyDJUbpwMKLTnuObq1xCIA/edit" target="_blank"
+        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(0,0,0,0.35);color:#5d4037;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-decoration:none;"
+        title="スプレッドシートを開く">📊 スプレッドシート</a>
     </div>
 
     <div style="padding:10px 12px;background:#fef9e7;border-bottom:2px solid #f5e8a0;flex-shrink:0;">
