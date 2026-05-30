@@ -8178,7 +8178,7 @@
             ? `<span style="font-size:10px;">${line.outsource ? '✓' : ''}</span>`
             : `<input type="checkbox" class="inv-line-outsource" ${line.outsource ? 'checked' : ''} onchange="calcInvTotal()" title="この行を外注費として計上する" style="width:16px;height:16px;cursor:pointer;">`}
         </td>
-        ${readonly ? '' : `<td class="inv-td"><button class="inv-del-btn" onclick="delInvLine(${i})">✕</button></td>`}
+        ${readonly ? '' : `<td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal();">✕</button></td>`}
       `;
       tbody.appendChild(tr);
     });
@@ -8249,7 +8249,7 @@
       <td class="inv-td inv-td-outsource" style="text-align:center;">
         <input type="checkbox" class="inv-line-outsource" onchange="calcInvTotal()" title="この行を外注費として計上する" style="width:16px;height:16px;cursor:pointer;">
       </td>
-      <td class="inv-td"><button class="inv-del-btn" onclick="delInvLine(${i})">✕</button></td>
+      <td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal();">✕</button></td>
     `;
     // 割引行の前に挿入
     tbody.insertBefore(tr, tbody.lastElementChild);
