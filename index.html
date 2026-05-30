@@ -11317,12 +11317,73 @@
   ];
 
   // このアプリの版（スマホが新しいコードを読み込めているか確認用）
-  const APP_BUILD = '2026-05-30b';
+  const APP_BUILD = '2026-05-30c';
 
   // 機材マスタ画面内のステータス欄を更新（スマホで取得結果を見えるようにする）
   function setEquipSyncStatus(msg, color) {
     const el = document.getElementById('em-sync-status');
     if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+  }
+
+  // 機材マスタのシート行を機材オブジェクトへ変換する。
+  // 機材シートには見出し行（ID/カテゴリ/機材名…）が無く、GAS が「先頭データ行の値」を
+  // キーにして返すため、見出し名での取得（r['ID'] 等）では 0 件になってしまう。
+  // そこで、見出しがあれば従来通り、無ければ各列の中身から列の役割を推定して取り込む。
+  function normalizeEquipRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const norm = (o) => ({
+      id:    String(o.id    == null ? '' : o.id).trim(),
+      cat:   String(o.cat   == null ? '' : o.cat).trim(),
+      name:  String(o.name  == null ? '' : o.name).trim(),
+      code:  String(o.code  == null ? '' : o.code).trim(),
+      qty:   Number(o.qty   || 1),
+      price: Number(o.price || 0)
+    });
+    const keys = Object.keys(rows[0]);
+    // ケースA：正しい見出し行がある場合（ID/機材名 など）
+    if (keys.indexOf('機材名') >= 0 || keys.indexOf('ID') >= 0) {
+      return rows.map(r => norm({
+        id: r['ID'], cat: r['カテゴリ'], name: r['機材名'],
+        code: r['商品コード'], qty: r['数量'], price: r['単価（円）']
+      })).filter(e => e.id && e.name);
+    }
+    // ケースB：見出し行が無い → 列の中身から役割を推定
+    const stats = {};
+    keys.forEach(k => {
+      const vals = rows.map(r => r[k]);
+      let emCount = 0, emojiCount = 0, zcodeCount = 0, emptyCount = 0, sum = 0, numN = 0, numAll = true;
+      vals.forEach(v => {
+        const s = String(v == null ? '' : v).trim();
+        if (s === '') { emptyCount++; return; }
+        if (/^em\w+/i.test(s)) emCount++;
+        if (/^Z\d/i.test(s)) zcodeCount++;
+        if (/[\u{1F300}-\u{1FAFF}☀-➿]/u.test(s)) emojiCount++;
+        const n = Number(s);
+        if (!isNaN(n)) { sum += n; numN++; } else { numAll = false; }
+      });
+      stats[k] = { emCount, emojiCount, zcodeCount, emptyCount, numAll, numN, avg: numN ? sum / numN : 0 };
+    });
+    const used = new Set();
+    const pick = (scoreFn) => {
+      let best = null, bestScore = -Infinity;
+      keys.forEach(k => {
+        if (used.has(k)) return;
+        const sc = scoreFn(stats[k]);
+        if (sc > bestScore) { bestScore = sc; best = k; }
+      });
+      if (best) used.add(best);
+      return best;
+    };
+    const idKey    = pick(s => s.emCount);                                  // em で始まる列
+    const catKey   = pick(s => s.emojiCount);                               // 絵文字を含む列
+    const priceKey = pick(s => (s.numAll && s.numN > 0) ? s.avg : -1);       // 全部数値・平均が大きい
+    const qtyKey   = pick(s => (s.numAll && s.numN > 0) ? (100000 - s.avg) : -1); // 全部数値・平均が小さい
+    const codeKey  = pick(s => s.zcodeCount + s.emptyCount);                 // Z始まり/空が多い列
+    const nameKey  = pick(() => 1);                                         // 残り（機材名）
+    return rows.map(r => norm({
+      id: r[idKey], cat: r[catKey], name: r[nameKey],
+      code: r[codeKey], qty: r[qtyKey], price: r[priceKey]
+    })).filter(e => e.id && e.name);
   }
 
   async function fetchEquipMaster(showStatus) {
@@ -11337,14 +11398,7 @@
       const res = await fetch(url + sep + '_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const items = (data.rows || []).map(r => ({
-        id:    String(r['ID']        || '').trim(),
-        cat:   String(r['カテゴリ']  || '').trim(),
-        name:  String(r['機材名']    || '').trim(),
-        code:  String(r['商品コード']|| '').trim(),
-        qty:   Number(r['数量']      || 1),
-        price: Number(r['単価（円）']|| 0)
-      })).filter(e => e.id && e.name);
+      const items = normalizeEquipRows(data.rows || []);
       if (items.length) {
         saveEquipMaster(items);
         // 機材マスタ画面が開いていれば即時再描画
@@ -11360,8 +11414,8 @@
         }
         setEquipSyncStatus(`✅ ${items.length}件を取得しました（${new Date().toLocaleTimeString('ja-JP')}・版${APP_BUILD}）`, '#1a7a40');
       } else {
-        // 通信は成功したが0件＝シートの列見出し（ID/カテゴリ/機材名…）がずれている可能性
-        setEquipSyncStatus(`⚠️ 取得0件。シートの見出し行（ID/カテゴリ/機材名/商品コード/数量/単価（円））を確認してください（版${APP_BUILD}）`, '#c0392b');
+        // 通信は成功したが0件＝シートが空、または列の中身が想定外
+        setEquipSyncStatus(`⚠️ 取得0件。シートに機材データが入っているか確認してください（版${APP_BUILD}）`, '#c0392b');
       }
       if (showStatus) setGasStatus(`✅ 機材マスタ ${items.length}件 取り込み完了`, '#27ae60');
     } catch(err) {
