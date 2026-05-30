@@ -3802,7 +3802,11 @@
           <span>🏦</span>
           <span class="status-header-title">会計室</span>
         </div>
-        <div style="padding:14px 14px 6px;font-size:11px;color:#888;letter-spacing:1px;">— 書類作成 —</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px 2px;">
+          <button onclick="manualSyncInvoices()" style="font-family:'DotGothic16',monospace;background:#2980b9;color:white;border:2px solid #1a5c8a;box-shadow:2px 2px 0 #1a5c8a;border-radius:3px;font-size:11px;padding:7px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0;letter-spacing:1px;">🔄 請求書を同期</button>
+          <div id="inv-sync-status" style="font-size:10px;color:#666;flex:1;min-width:0;line-height:1.35;">　</div>
+        </div>
+        <div style="padding:8px 14px 6px;font-size:11px;color:#888;letter-spacing:1px;">— 書類作成 —</div>
         <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;">
           <button onclick="openDocList('invoice')" style="font-family:'DotGothic16',monospace;font-size:15px;background:linear-gradient(180deg,#27ae60 0%,#1a7a40 100%);border:3px solid #145a2e;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #145a2e;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #145a2e;letter-spacing:2px;">
             <span style="font-size:32px;line-height:1;">💰</span>
@@ -5507,6 +5511,13 @@
         <input id="gas-url-driving-input" type="text" class="wsd-input" placeholder="運転記録 https://script.google.com/macros/s/.../exec"
           style="width:100%;font-size:11px;padding:8px;margin-bottom:8px;">
 
+        <div style="font-size:11px;color:#666;line-height:1.6;margin:10px 0 6px;">
+          <strong>請求書／見積書</strong>。請求書の内容を全端末で同期します。<br>
+          請求書用の <strong>Web App URL</strong> を貼り付けてください（任意）。
+        </div>
+        <input id="gas-url-invoice-input" type="text" class="wsd-input" placeholder="請求書 https://script.google.com/macros/s/.../exec"
+          style="width:100%;font-size:11px;padding:8px;margin-bottom:8px;">
+
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#0f9d58;border-color:#0a6e3e;box-shadow:3px 3px 0 #0a6e3e;font-size:12px;padding:10px;"
             onclick="saveGasUrl()">💾 URLを保存</button>
@@ -6322,6 +6333,9 @@
       }
       if (localStorage.getItem('gas_url_driving')) {
         fetchDrivingList(false);
+      }
+      if (localStorage.getItem('gas_url_invoice')) {
+        syncFromInvoiceSheet(false);
       }
     } catch(e) { console.warn('startup sync failed', e); }
   }, 1500);
@@ -8108,7 +8122,10 @@
     status.addr     = (document.getElementById('inv-screen-addr')?.textContent || '').trim();
     status.docMode  = _docMode || 'invoice';
     status.savedAt  = new Date().toLocaleString('ja-JP');
+    status._updatedAt = new Date().toISOString(); // 端末間同期の新旧判定用
     saveInvStatus(num, status);
+    // 請求書をシートへ自動送信（URL設定済みなら）
+    if (typeof scheduleInvoicePush === 'function') scheduleInvoicePush(num);
 
     // 売上表が開いていれば即時再描画
     if (typeof renderSalesScreen === 'function') {
@@ -8718,6 +8735,8 @@
     if (mediaEl) mediaEl.value = localStorage.getItem('gas_url_media') || '';
     const drivingEl = document.getElementById('gas-url-driving-input');
     if (drivingEl) drivingEl.value = localStorage.getItem('gas_url_driving') || '';
+    const invoiceEl = document.getElementById('gas-url-invoice-input');
+    if (invoiceEl) invoiceEl.value = localStorage.getItem('gas_url_invoice') || '';
     setGasStatus('');
   }
   function closeSettings() {
@@ -8739,6 +8758,7 @@
     const productUrl = (document.getElementById('gas-url-product-input').value || '').trim();
     const mediaUrl   = (document.getElementById('gas-url-media-input').value   || '').trim();
     const drivingUrl = (document.getElementById('gas-url-driving-input').value || '').trim();
+    const invoiceUrl = (document.getElementById('gas-url-invoice-input').value || '').trim();
     const urlRe = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/;
     if (!url) { setGasStatus('親URLを入力してください', '#c0392b'); return; }
     if (!urlRe.test(url))                       { setGasStatus('親URLの形式が正しくないようです', '#c0392b'); return; }
@@ -8747,18 +8767,21 @@
     if (productUrl && !urlRe.test(productUrl))  { setGasStatus('商品URLの形式が正しくないようです', '#c0392b'); return; }
     if (mediaUrl && !urlRe.test(mediaUrl))      { setGasStatus('メディアURLの形式が正しくないようです', '#c0392b'); return; }
     if (drivingUrl && !urlRe.test(drivingUrl))  { setGasStatus('運転記録URLの形式が正しくないようです', '#c0392b'); return; }
+    if (invoiceUrl && !urlRe.test(invoiceUrl))  { setGasStatus('請求書URLの形式が正しくないようです', '#c0392b'); return; }
     localStorage.setItem('gas_url', url);
     if (childUrl)   localStorage.setItem('gas_url_child', childUrl);     else localStorage.removeItem('gas_url_child');
     if (clientUrl)  localStorage.setItem('gas_url_client', clientUrl);   else localStorage.removeItem('gas_url_client');
     if (productUrl) localStorage.setItem('gas_url_product', productUrl); else localStorage.removeItem('gas_url_product');
     if (mediaUrl)   localStorage.setItem('gas_url_media', mediaUrl);     else localStorage.removeItem('gas_url_media');
     if (drivingUrl) localStorage.setItem('gas_url_driving', drivingUrl); else localStorage.removeItem('gas_url_driving');
-    const set = [url?'親':'', childUrl?'子':'', clientUrl?'取引先':'', productUrl?'商品':'', mediaUrl?'メディア':'', drivingUrl?'運転':''].filter(Boolean).join('・');
+    if (invoiceUrl) localStorage.setItem('gas_url_invoice', invoiceUrl); else localStorage.removeItem('gas_url_invoice');
+    const set = [url?'親':'', childUrl?'子':'', clientUrl?'取引先':'', productUrl?'商品':'', mediaUrl?'メディア':'', drivingUrl?'運転':'', invoiceUrl?'請求書':''].filter(Boolean).join('・');
     setGasStatus('✅ ' + set + ' URL を保存しました', '#27ae60');
     if (clientUrl)  fetchClientMaster(true);
     if (productUrl) fetchProductMaster(true);
     if (mediaUrl)   fetchMediaList(true);
     if (drivingUrl) fetchDrivingList(true);
+    if (invoiceUrl) syncFromInvoiceSheet(true);
   }
 
   function getGasUrl()        { return (localStorage.getItem('gas_url')         || '').trim(); }
@@ -8767,6 +8790,158 @@
   function getProductGasUrl() { return (localStorage.getItem('gas_url_product') || '').trim(); }
   function getMediaGasUrl()   { return (localStorage.getItem('gas_url_media')   || '').trim(); }
   function getDrivingGasUrl() { return (localStorage.getItem('gas_url_driving') || '').trim(); }
+  function getInvoiceGasUrl() { return (localStorage.getItem('gas_url_invoice') || '').trim(); }
+
+  // ===== 請求書／見積書のスプレッドシート同期 =====
+  // 1案件1行。受注No をキーに、請求書データ全体を JSON 文字列で「データ」列に保存する。
+  // （列ごとに分けると見出しズレで壊れやすいので、まるごとJSONにする方式）
+
+  // 編集保存後にシートへ自動送信（連続保存をまとめるためデバウンス）
+  let _invoicePushTimers = {};
+  function scheduleInvoicePush(num) {
+    if (!getInvoiceGasUrl() || !num) return;
+    if (_invoicePushTimers[num]) clearTimeout(_invoicePushTimers[num]);
+    _invoicePushTimers[num] = setTimeout(() => {
+      delete _invoicePushTimers[num];
+      sendInvoiceToSheet(num).catch(e => console.warn('invoice auto-push', e));
+    }, 1000);
+  }
+
+  async function sendInvoiceToSheet(num) {
+    const url = getInvoiceGasUrl();
+    if (!url || !num) return { skipped: true };
+    const inv = loadInvStatus(num) || {};
+    const row = {
+      '受注No': num,
+      'データ': JSON.stringify(inv),
+      '更新日時': inv._updatedAt || new Date().toISOString(),
+      '削除フラグ': ''
+    };
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'upsert', rows: [row] })
+      });
+      const data = await res.json();
+      console.log('[請求書送信]', { num, response: data });
+      return data;
+    } catch (err) {
+      console.warn('sendInvoiceToSheet failed', err, num);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  // 「🔄 請求書を同期」ボタン用：双方向の突き合わせ（この端末の請求書を送信＋シートの最新を取得）
+  // 初回はこのボタンで、データを持っている端末がシートを作る（シードする）。
+  async function manualSyncInvoices() {
+    const el = document.getElementById('inv-sync-status');
+    const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
+    if (!getInvoiceGasUrl()) { set('⚠️ 請求書の同期URLが未設定です（設定画面で登録してください）', '#c0392b'); return; }
+    set('🔄 同期中…（送信＋取得）', '#2980b9');
+    try {
+      const r = await reconcileInvoices();
+      set(`✅ 送信 ${r.pushed}件・取得 ${r.pulled}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
+    } catch (e) {
+      set('❌ 同期失敗：' + e.message, '#c0392b');
+    }
+  }
+
+  // 双方向の突き合わせ：更新日時を比べ、新しい方を採用する
+  async function reconcileInvoices() {
+    const url = getInvoiceGasUrl();
+    if (!url) return { pushed: 0, pulled: 0 };
+    // 1) シートの現状を取得
+    const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '不明なエラー');
+    const sheetRows = data.rows || [];
+    const sheetMap = {};
+    sheetRows.forEach(r => { const n = String(r['受注No'] || '').trim(); if (n) sheetMap[n] = r; });
+    let deleted = [];
+    try { deleted = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
+    // 2) ローカル → シート（シートに無い、またはローカルが新しいものを送る）
+    const localNums = Object.keys(localStorage).filter(k => k.indexOf('inv_') === 0).map(k => k.slice(4));
+    const toPush = [];
+    localNums.forEach(num => {
+      if (!num || deleted.indexOf(num) >= 0) return;
+      const local = loadInvStatus(num) || {};
+      if (!local._updatedAt) { local._updatedAt = new Date().toISOString(); saveInvStatus(num, local); }
+      const sheetRow = sheetMap[num];
+      const sheetUpd = sheetRow ? String(sheetRow['更新日時'] || '') : '';
+      if (!sheetRow || String(local._updatedAt) > sheetUpd) {
+        toPush.push({ '受注No': num, 'データ': JSON.stringify(local), '更新日時': local._updatedAt, '削除フラグ': '' });
+      }
+    });
+    let pushed = 0;
+    if (toPush.length) {
+      const pr = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'upsert', rows: toPush }) });
+      const pd = await pr.json();
+      if (!pd.ok) throw new Error(pd.error || '送信に失敗しました');
+      pushed = toPush.length;
+    }
+    // 3) シート → ローカル（ローカルに無い、またはシートが新しいものを取り込む）
+    let pulled = 0;
+    sheetRows.forEach(r => {
+      const num = String(r['受注No'] || '').trim();
+      if (!num || deleted.indexOf(num) >= 0) return;
+      if (String(r['削除フラグ'] || '') === '1') return;
+      let inv;
+      try { inv = JSON.parse(r['データ'] || '{}'); } catch { return; }
+      if (!inv || typeof inv !== 'object') return;
+      const sheetUpd = String(r['更新日時'] || inv._updatedAt || '');
+      const local = loadInvStatus(num) || {};
+      const localUpd = String(local._updatedAt || '');
+      if (!localUpd || sheetUpd > localUpd) { saveInvStatus(num, inv); pulled++; }
+    });
+    try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
+    try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
+    return { pushed, pulled };
+  }
+
+  // シートから全件取得 → 各 inv_${num} にマージ
+  //   ・削除済み（deleted_inv）は復活させない
+  //   ・更新日時を比べ、シート側が新しいときだけローカルを上書き（編集中の取りこぼし防止）
+  async function syncFromInvoiceSheet(showStatus) {
+    const url = getInvoiceGasUrl();
+    if (!url) { if (showStatus) setGasStatus('請求書URLが未設定です', '#c0392b'); return { fetched: 0 }; }
+    if (showStatus) setGasStatus('📥 請求書を取り込み中...', '#2980b9');
+    let deleted = [];
+    try { deleted = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
+    try {
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '不明なエラー');
+      let applied = 0;
+      (data.rows || []).forEach(row => {
+        const num = String(row['受注No'] || '').trim();
+        if (!num) return;
+        if (String(row['削除フラグ'] || '') === '1') return;
+        if (deleted.indexOf(num) >= 0) return;       // ローカルで削除済みは復活させない
+        let inv;
+        try { inv = JSON.parse(row['データ'] || '{}'); } catch { return; }
+        if (!inv || typeof inv !== 'object') return;
+        const sheetUpdated = String(row['更新日時'] || inv._updatedAt || '');
+        const local = loadInvStatus(num) || {};
+        const localUpdated = String(local._updatedAt || '');
+        // ローカルが無い、またはシートの方が新しいときだけ反映
+        if (!localUpdated || sheetUpdated > localUpdated) {
+          saveInvStatus(num, inv);
+          applied++;
+        }
+      });
+      if (showStatus) setGasStatus(`✅ 請求書 ${applied} 件を取り込みました`, '#27ae60');
+      // 請求書一覧が開いていれば再描画
+      try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
+      try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
+      return { fetched: applied };
+    } catch (err) {
+      console.warn('syncFromInvoiceSheet failed', err);
+      if (showStatus) setGasStatus('❌ 請求書取り込み失敗：' + err.message, '#c0392b');
+      return { fetched: 0, error: err.message };
+    }
+  }
 
   // 表示用：年の部分を取り除いて「M/d」「M/d〜M/d」形式に。
   // - 「2026/05/24」→「5/24」
