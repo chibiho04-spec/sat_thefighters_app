@@ -1029,6 +1029,7 @@
     overflow-y: auto;
     scrollbar-width: none;
     padding: 10px;
+    padding-bottom: 82px; /* nav-bar(72px)＋余白 */
   }
   .invd-scroll::-webkit-scrollbar { display: none; }
 
@@ -1232,6 +1233,7 @@
   #inv-line-modal {
     position: fixed; inset: 0; z-index: 220; display: none;
     background: rgba(0,0,0,0.45); align-items: flex-end;
+    padding-bottom: 72px; /* nav-barの上に出るよう押し上げ */
   }
   #inv-line-modal.open { display: flex; }
   .inv-modal-sheet {
