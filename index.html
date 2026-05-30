@@ -1176,6 +1176,108 @@
     box-sizing: border-box;
   }
   .inv-line-input:focus { border-color: #2980b9; background: white; }
+
+  /* ===== freee風 明細カード（スマホ作成UI） ===== */
+  .inv-cards-section { padding: 4px 10px 0; }
+  .inv-cards-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 2px 8px; border-bottom: 2px solid #2c3e50;
+  }
+  .inv-cards-title { font-size: 13px; font-weight: bold; color: #2c3e50; letter-spacing: 1px; }
+  #inv-cards { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
+  .inv-card {
+    background: #fff; border: 1px solid #d9d9d9; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 10px 12px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .inv-card-body { flex: 1; min-width: 0; cursor: pointer; }
+  .inv-card-name {
+    font-size: 13px; font-weight: bold; color: #222;
+    word-break: break-word; line-height: 1.35; margin-bottom: 4px;
+  }
+  .inv-card-name.is-empty { color: #aaa; font-weight: normal; }
+  .inv-card-sub { font-size: 11px; color: #777; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .inv-card-badge {
+    font-size: 9px; padding: 1px 6px; border-radius: 10px;
+    background: #eef4fb; color: #2980b9; border: 1px solid #cfe0f2;
+  }
+  .inv-card-badge.tax-off { background: #fdeeee; color: #c0392b; border-color: #f2cccc; }
+  .inv-card-badge.outsrc  { background: #fef6e7; color: #b9770e; border-color: #f5e0b0; }
+  .inv-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .inv-card-amount { font-size: 14px; font-weight: bold; color: #1a5c8a; white-space: nowrap; }
+  .inv-card-del {
+    font-size: 14px; line-height: 1; background: #fde8e8; border: 1px solid #e74c3c;
+    color: #e74c3c; border-radius: 6px; cursor: pointer; padding: 4px 8px;
+  }
+  .inv-card-empty { font-size: 12px; color: #999; text-align: center; padding: 16px 0; }
+  .inv-add-card-btn {
+    width: 100%; font-family: 'DotGothic16', monospace; font-size: 13px;
+    background: #fff; color: #2980b9; border: 2px dashed #2980b9;
+    border-radius: 8px; padding: 11px 0; cursor: pointer; letter-spacing: 1px;
+  }
+  .inv-add-card-btn:active { background: #eef4fb; }
+  .inv-discount-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; margin: 8px 10px 0; background: #faf7f0;
+    border: 1px solid #e6ddc8; border-radius: 8px;
+  }
+  .inv-discount-row .inv-discount-label { font-size: 12px; color: #666; }
+  .inv-discount-row input {
+    width: 110px; text-align: right; font-family: 'DotGothic16', monospace;
+    font-size: 13px; border: 1px solid #d9d9d9; border-radius: 5px; padding: 5px 7px;
+  }
+
+  /* ===== 明細追加・編集モーダル ===== */
+  #inv-line-modal {
+    position: absolute; inset: 0; z-index: 200; display: none;
+    background: rgba(0,0,0,0.45); align-items: flex-end;
+  }
+  #inv-line-modal.open { display: flex; }
+  .inv-modal-sheet {
+    width: 100%; max-height: 92%; overflow-y: auto;
+    background: #f4f6f8; border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
+    animation: invSheetUp 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes invSheetUp { from { transform: translateY(100%);} to { transform: translateY(0);} }
+  .inv-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: #2c3e50; color: #fff;
+    border-radius: 16px 16px 0 0; position: sticky; top: 0;
+  }
+  .inv-modal-head .ttl { font-size: 14px; font-weight: bold; letter-spacing: 1px; }
+  .inv-modal-x {
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.4);
+    color: #fff; font-size: 13px; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+  }
+  .inv-modal-body { padding: 14px 16px 4px; }
+  .inv-field { margin-bottom: 14px; }
+  .inv-field > label { display: block; font-size: 12px; color: #555; margin-bottom: 5px; font-weight: bold; }
+  .inv-field input, .inv-field textarea, .inv-field select {
+    width: 100%; box-sizing: border-box; font-family: 'DotGothic16', monospace;
+    font-size: 15px; border: 1px solid #cfd6dd; border-radius: 8px;
+    padding: 10px 12px; background: #fff; color: #222; outline: none;
+  }
+  .inv-field input:focus, .inv-field textarea:focus, .inv-field select:focus { border-color: #2980b9; }
+  .inv-field textarea { min-height: 64px; resize: vertical; line-height: 1.4; }
+  .inv-field-row { display: flex; gap: 10px; }
+  .inv-field-row .inv-field { flex: 1; }
+  .inv-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fff; border: 1px solid #cfd6dd; border-radius: 8px; padding: 11px 12px; margin-bottom: 14px;
+  }
+  .inv-toggle-row .lbl { font-size: 13px; color: #333; }
+  .inv-modal-foot { padding: 6px 16px 22px; display: flex; flex-direction: column; gap: 10px; }
+  .inv-modal-save {
+    width: 100%; font-family: 'DotGothic16', monospace; font-size: 15px;
+    background: #27ae60; color: #fff; border: 2px solid #1a7a40;
+    box-shadow: 3px 3px 0 #1a7a40; border-radius: 8px; padding: 13px 0; cursor: pointer; letter-spacing: 1px;
+  }
+  .inv-modal-save:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #1a7a40; }
+  .inv-modal-amount {
+    text-align: center; font-size: 13px; color: #555; padding: 2px 0 6px;
+  }
+  .inv-modal-amount b { font-size: 16px; color: #1a5c8a; }
   .inv-del-btn {
     font-size: 11px;
     background: #fde8e8;
@@ -4660,8 +4762,25 @@
           <span class="invd-total-amount" id="inv-total-big">¥0</span>
         </div>
 
-        <!-- 明細テーブル -->
-        <div class="invd-table-wrap">
+        <!-- 明細（freee風カードUI・編集はモーダルで行う） -->
+        <div class="inv-cards-section">
+          <div class="inv-cards-head">
+            <span class="inv-cards-title">明細</span>
+          </div>
+          <div id="inv-cards"></div>
+          <div id="inv-add-line-wrap" style="padding:10px 2px 4px;">
+            <button type="button" class="inv-add-card-btn" onclick="openInvLineModal(null)">＋ 通常行を追加</button>
+          </div>
+        </div>
+
+        <!-- 値引き -->
+        <div class="inv-discount-row" id="inv-discount-wrap">
+          <span class="inv-discount-label">お値引き</span>
+          <span>¥&nbsp;<input id="inv-discount" type="number" value="0" oninput="calcInvTotal()"></span>
+        </div>
+
+        <!-- 明細データ保管用テーブル（非表示・印刷／集計が参照する） -->
+        <div class="invd-table-wrap" style="display:none;" aria-hidden="true">
           <table class="invd-table">
             <thead>
               <tr>
@@ -4678,12 +4797,6 @@
             </thead>
             <tbody id="inv-lines-body"></tbody>
           </table>
-        </div>
-
-        <!-- 行追加ボタン（明細テーブル直下・左寄せ） -->
-        <div style="padding:8px 12px 4px;">
-          <button onclick="addInvLine()"
-            style="font-family:'DotGothic16',monospace;font-size:11px;background:#2980b9;border:2px solid #1a5c8a;color:white;padding:6px 14px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #1a5c8a;">＋ 行を追加</button>
         </div>
 
         <!-- 税計算 -->
@@ -4736,6 +4849,57 @@
       </div>
 
     </div><!-- /invd-scroll -->
+
+    <!-- ===== 明細 追加／編集モーダル（freee風） ===== -->
+    <div id="inv-line-modal">
+      <div class="inv-modal-sheet">
+        <div class="inv-modal-head">
+          <span class="ttl" id="inv-modal-title">通常行を追加</span>
+          <button type="button" class="inv-modal-x" onclick="closeInvLineModal()">閉じる</button>
+        </div>
+        <div class="inv-modal-body">
+          <input type="hidden" id="inv-modal-index" value="">
+          <div class="inv-field">
+            <label>摘要（作業内容）</label>
+            <textarea id="inv-modal-name" placeholder="例）カメラマン人件費（撮影：城間）" oninput="_updateInvModalAmount()"></textarea>
+          </div>
+          <div class="inv-field-row">
+            <div class="inv-field">
+              <label>数量</label>
+              <input id="inv-modal-qty" type="number" inputmode="decimal" value="1" oninput="_updateInvModalAmount()">
+            </div>
+            <div class="inv-field">
+              <label>単位</label>
+              <input id="inv-modal-unit" type="text" value="日">
+            </div>
+          </div>
+          <div class="inv-field">
+            <label>単価（円）</label>
+            <input id="inv-modal-price" type="number" inputmode="numeric" value="0" oninput="_updateInvModalAmount()">
+          </div>
+          <div class="inv-field">
+            <label>消費税</label>
+            <select id="inv-modal-tax">
+              <option value="1">課税（10%）</option>
+              <option value="0">非課税</option>
+            </select>
+          </div>
+          <div class="inv-field">
+            <label>商品コード（任意）</label>
+            <input id="inv-modal-code" type="text" placeholder="例）Z020">
+          </div>
+          <div class="inv-toggle-row">
+            <span class="lbl">外注費として計上する</span>
+            <input id="inv-modal-outsource" type="checkbox" style="width:22px;height:22px;cursor:pointer;">
+          </div>
+        </div>
+        <div class="inv-modal-amount">金額　<b id="inv-modal-amount">¥0</b></div>
+        <div class="inv-modal-foot">
+          <button type="button" class="inv-modal-save" onclick="saveInvLineModal()">この内容で追加</button>
+        </div>
+      </div>
+    </div><!-- /inv-line-modal -->
+
   </div><!-- /inv-detail-screen -->
 
   <!-- ========== ゴミ箱画面（スライドイン） ========== -->
@@ -8310,23 +8474,213 @@
       `;
       tbody.appendChild(tr);
     });
-    // 割引行（編集9列：コード,項目,単位,数量,単価 / 金額 / 課税 / 外注 / 削除）
-    //         （閲覧8列：コード,項目,単位,数量,単価 / 金額 / 課税 / 外注）
-    const discTr = document.createElement('tr');
-    discTr.innerHTML = `
-      <td class="inv-td" colspan="5" style="text-align:right;font-size:10px;color:#888;">お値引き</td>
-      <td class="inv-td inv-td-amount">
-        ${readonly ? '<span style="font-size:10px;">―</span>'
-          : '<input class="inv-line-input" id="inv-discount" type="number" value="0" style="width:80px;" oninput="calcInvTotal()">'}
+    // 値引き入力（フッターに移設済み）を初期化
+    _invReadonly = !!readonly;
+    const disc = document.getElementById('inv-discount');
+    if (disc) { disc.value = 0; disc.disabled = !!readonly; }
+    const discWrap = document.getElementById('inv-discount-wrap');
+    if (discWrap) discWrap.style.display = readonly ? 'none' : 'flex';
+    // freee風カードを描画
+    renderInvLineCards();
+  }
+
+  // ===== freee風 明細カード ＋ 追加/編集モーダル =====
+  let _invReadonly = false;
+
+  // 非表示テーブルの行データを読み取ってオブジェクト配列を返す
+  function _readInvLineRows() {
+    const out = [];
+    document.querySelectorAll('#inv-lines-body .inv-line-row').forEach(tr => {
+      const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
+      const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
+      const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
+      const priceEl = tr.querySelector('.inv-line-price');
+      const priceTextEl = tr.querySelector('.inv-td-price span');
+      const codeEl  = tr.querySelector('.inv-td-code');
+      const taxEl   = tr.querySelector('.inv-line-tax');
+      const taxTextEl = tr.querySelector('.inv-td-tax span');
+      const outEl   = tr.querySelector('.inv-line-outsource');
+      const outTextEl = tr.querySelector('.inv-td-outsource span');
+      const name = (nameEl?.value ?? nameEl?.textContent ?? '').trim();
+      const unit = (unitEl?.value ?? unitEl?.textContent ?? '').trim();
+      const qty  = Number(String(qtyEl?.value ?? qtyEl?.textContent ?? '').replace(/[^\d.]/g, '')) || 0;
+      const price = Number(String(priceEl?.value ?? (priceTextEl?.textContent ?? '')).replace(/[¥,]/g, '')) || 0;
+      const code = (codeEl?.textContent ?? '').trim();
+      const taxable = taxEl ? (taxEl.value === '1')
+                            : (taxTextEl ? taxTextEl.textContent.trim() !== '非課税' : true);
+      const outsource = outEl ? !!outEl.checked
+                              : (outTextEl ? outTextEl.textContent.trim() === '✓' : false);
+      out.push({ code, name, unit, qty, price, taxable, outsource });
+    });
+    return out;
+  }
+
+  function renderInvLineCards() {
+    const wrap = document.getElementById('inv-cards');
+    if (!wrap) return;
+    const rows = _readInvLineRows();
+    const addWrap = document.getElementById('inv-add-line-wrap');
+    if (addWrap) addWrap.style.display = _invReadonly ? 'none' : 'block';
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="inv-card-empty">明細がありません。下のボタンから追加してください。</div>';
+      return;
+    }
+    wrap.innerHTML = rows.map((l, i) => {
+      const amt = Math.round((l.qty || 0) * (l.price || 0));
+      const nameTxt = l.name ? _esc(l.name) : '（摘要未入力）';
+      const nameCls = l.name ? '' : ' is-empty';
+      const taxBadge = l.taxable === false
+        ? '<span class="inv-card-badge tax-off">非課税</span>'
+        : '<span class="inv-card-badge">課税</span>';
+      const outBadge = l.outsource ? '<span class="inv-card-badge outsrc">外注</span>' : '';
+      const codeBadge = l.code ? `<span class="inv-card-badge">${_esc(l.code)}</span>` : '';
+      const tapAttr = _invReadonly ? '' : `onclick="openInvLineModal(${i})"`;
+      const delBtn  = _invReadonly ? '' :
+        `<button type="button" class="inv-card-del" title="削除" onclick="delInvLineCard(${i})">🗑</button>`;
+      return `
+        <div class="inv-card">
+          <div class="inv-card-body" ${tapAttr}>
+            <div class="inv-card-name${nameCls}">${nameTxt}</div>
+            <div class="inv-card-sub">
+              <span>¥${(l.price||0).toLocaleString()} × ${l.qty || 0}${_esc(l.unit||'')}</span>
+              ${taxBadge}${outBadge}${codeBadge}
+            </div>
+          </div>
+          <div class="inv-card-right">
+            <div class="inv-card-amount">¥${amt.toLocaleString()}</div>
+            ${delBtn}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // カードから削除：対応する非表示テーブル行を消して再描画
+  function delInvLineCard(i) {
+    const rows = document.querySelectorAll('#inv-lines-body .inv-line-row');
+    if (rows[i]) rows[i].remove();
+    calcInvTotal();
+    renderInvLineCards();
+  }
+
+  function _updateInvModalAmount() {
+    const qty   = parseFloat(document.getElementById('inv-modal-qty').value) || 0;
+    const price = parseFloat(document.getElementById('inv-modal-price').value) || 0;
+    const el = document.getElementById('inv-modal-amount');
+    if (el) el.textContent = '¥' + Math.round(qty * price).toLocaleString();
+  }
+
+  // モーダルを開く（idx=null で新規追加、数値で既存行を編集）
+  function openInvLineModal(idx) {
+    if (_invReadonly) return;
+    const rows = _readInvLineRows();
+    const isNew = (idx === null || idx === undefined);
+    const l = isNew ? { code:'', name:'', unit:'日', qty:1, price:0, taxable:true, outsource:false }
+                    : (rows[idx] || {});
+    document.getElementById('inv-modal-index').value = isNew ? '' : String(idx);
+    document.getElementById('inv-modal-title').textContent = isNew ? '通常行を追加' : '明細を編集';
+    document.getElementById('inv-modal-name').value  = l.name || '';
+    document.getElementById('inv-modal-qty').value   = (l.qty != null ? l.qty : 1);
+    document.getElementById('inv-modal-unit').value  = l.unit || '日';
+    document.getElementById('inv-modal-price').value = (l.price != null ? l.price : 0);
+    document.getElementById('inv-modal-tax').value   = (l.taxable === false ? '0' : '1');
+    document.getElementById('inv-modal-code').value  = l.code || '';
+    document.getElementById('inv-modal-outsource').checked = !!l.outsource;
+    document.querySelector('#inv-line-modal .inv-modal-save').textContent = isNew ? 'この内容で追加' : '変更を保存';
+    _updateInvModalAmount();
+    document.getElementById('inv-line-modal').classList.add('open');
+  }
+
+  function closeInvLineModal() {
+    document.getElementById('inv-line-modal').classList.remove('open');
+  }
+
+  // モーダルの入力を非表示テーブルへ書き込む（新規は行追加、既存は上書き）
+  function saveInvLineModal() {
+    const idxRaw = document.getElementById('inv-modal-index').value;
+    const isNew  = (idxRaw === '');
+    const data = {
+      name:  document.getElementById('inv-modal-name').value.trim(),
+      qty:   parseFloat(document.getElementById('inv-modal-qty').value) || 0,
+      unit:  document.getElementById('inv-modal-unit').value.trim() || '式',
+      price: parseFloat(document.getElementById('inv-modal-price').value) || 0,
+      taxable:   document.getElementById('inv-modal-tax').value === '1',
+      code:  document.getElementById('inv-modal-code').value.trim(),
+      outsource: document.getElementById('inv-modal-outsource').checked
+    };
+    if (!data.name && !data.price) {
+      alert('摘要または単価を入力してください。');
+      return;
+    }
+    let tr;
+    if (isNew) {
+      tr = _createInvLineRow();
+      const tbody = document.getElementById('inv-lines-body');
+      tbody.appendChild(tr);
+    } else {
+      const rows = document.querySelectorAll('#inv-lines-body .inv-line-row');
+      tr = rows[parseInt(idxRaw, 10)];
+      if (!tr) { closeInvLineModal(); return; }
+    }
+    _writeInvLineRow(tr, data);
+    _reindexInvAmounts();
+    calcInvTotal();
+    renderInvLineCards();
+    closeInvLineModal();
+  }
+
+  // 編集可能な明細行（非表示テーブル用）を生成
+  function _createInvLineRow() {
+    const tr = document.createElement('tr');
+    tr.className = 'inv-line-row';
+    tr.innerHTML = `
+      <td class="inv-td inv-td-code"></td>
+      <td class="inv-td inv-td-name"><input class="inv-line-input inv-line-name" oninput="calcInvTotal()"></td>
+      <td class="inv-td inv-td-unit"><input class="inv-line-input inv-line-unit" oninput="calcInvTotal()"></td>
+      <td class="inv-td inv-td-qty"><input class="inv-line-input inv-line-qty" type="number" oninput="calcInvTotal()"></td>
+      <td class="inv-td inv-td-price"><input class="inv-line-input inv-line-price" type="number" oninput="calcInvTotal()"></td>
+      <td class="inv-td inv-td-amount">¥0</td>
+      <td class="inv-td inv-td-tax">
+        <select class="inv-line-tax" onchange="calcInvTotal()">
+          <option value="1">課税</option><option value="0">非課税</option>
+        </select>
       </td>
-      <td class="inv-td"></td>
-      <td class="inv-td"></td>
-      ${readonly ? '' : '<td class="inv-td"></td>'}
-    `;
-    tbody.appendChild(discTr);
+      <td class="inv-td inv-td-outsource" style="text-align:center;">
+        <input type="checkbox" class="inv-line-outsource" onchange="calcInvTotal()">
+      </td>
+      <td class="inv-td"></td>`;
+    return tr;
+  }
+
+  function _writeInvLineRow(tr, d) {
+    const codeEl = tr.querySelector('.inv-td-code');
+    if (codeEl) codeEl.textContent = d.code || '';
+    const set = (sel, v) => { const e = tr.querySelector(sel); if (e) e.value = v; };
+    set('.inv-line-name', d.name);
+    set('.inv-line-unit', d.unit);
+    set('.inv-line-qty', d.qty);
+    set('.inv-line-price', d.price);
+    const taxEl = tr.querySelector('.inv-line-tax');
+    if (taxEl) taxEl.value = d.taxable ? '1' : '0';
+    const outEl = tr.querySelector('.inv-line-outsource');
+    if (outEl) outEl.checked = !!d.outsource;
+  }
+
+  // 金額セルの id を行順に振り直す（calcInvTotal が inv-amount-i を更新するため）
+  function _reindexInvAmounts() {
+    document.querySelectorAll('#inv-lines-body .inv-line-row').forEach((tr, i) => {
+      const amt = tr.querySelector('.inv-td-amount');
+      if (amt) amt.id = 'inv-amount-' + i;
+    });
   }
 
   function calcInvTotal() {
+    if (typeof _reindexInvAmounts === 'function') _reindexInvAmounts();
     let subtotal     = 0;  // 全明細の合計（課税＋非課税）
     let taxableSubtotal = 0;  // 課税対象の合計
     document.querySelectorAll('.inv-line-row').forEach((tr, i) => {
