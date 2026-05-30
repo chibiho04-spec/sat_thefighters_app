@@ -10642,10 +10642,12 @@
         else          childMsg = ` / 子取り込み ${cr.fetched} 件`;
       }
 
-      // 機材マスタも一緒に取り込み
-      if (getChildGasUrl() || localStorage.getItem('gas_url_equip')) {
-        fetchEquipMaster(false).catch(e => console.warn('equip fetch', e));
-      }
+      // 各マスタ・リストも一緒に取り込み（URL設定済みのもののみ）
+      if (localStorage.getItem('gas_url_equip'))   fetchEquipMaster(false).catch(e => console.warn('equip fetch', e));
+      if (localStorage.getItem('gas_url_client'))  fetchClientMaster(false).catch(e => console.warn('client fetch', e));
+      if (localStorage.getItem('gas_url_product')) fetchProductMaster(false).catch(e => console.warn('product fetch', e));
+      if (localStorage.getItem('gas_url_media'))   fetchMediaList(false).catch(e => console.warn('media fetch', e));
+      if (localStorage.getItem('gas_url_driving')) fetchDrivingList(false).catch(e => console.warn('driving fetch', e));
 
       // 全画面を再描画（取り込み後に即時反映）
       if (typeof refreshHomeView === 'function') refreshHomeView(true);
