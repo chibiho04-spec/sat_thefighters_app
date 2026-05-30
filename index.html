@@ -612,7 +612,15 @@
     align-items: center;
     gap: 6px;
     border-bottom: 1px solid #333;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
+  .api-bar > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+  .api-bar > .api-dot { flex-shrink: 0; }
   .api-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
@@ -628,8 +636,10 @@
     font-size: 8px;
     color: #aaa;
     font-family: 'DotGothic16', monospace;
+    white-space: nowrap;
   }
   .api-label span { color: var(--accent-green); }
+  #clock { flex-shrink: 0; }
 
   /* ========== QUEST BANNER ========== */
   .quest-banner {
@@ -2285,7 +2295,8 @@
   @keyframes zabutonFall {
     0%   { transform: translateY(0)                  translateX(0)              rotate(0deg);                   opacity: 0; }
     10%  { opacity: 1; }
-    100% { transform: translateY(var(--ty,420px))   translateX(var(--tx,0))   rotate(var(--rot,360deg));      opacity: 0.6; }
+    85%  { opacity: 1; }
+    100% { transform: translateY(var(--ty,420px))   translateX(var(--tx,0))   rotate(var(--rot,360deg));      opacity: 0; }
   }
   /* SUMO 決まり手アニメ：押し出される（場外へ） */
   .sumo-pushed-right { animation: pushedRight 1.2s forwards; }
@@ -3390,8 +3401,7 @@
   </div>
   <div class="api-bar">
     <div class="api-dot"></div>
-    <div class="api-label">Google Sheets API: <span>接続済み</span></div>
-    <div style="flex:1"></div>
+    <div class="api-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">Google Sheets API: <span>接続済み</span></div>
     <div style="display:inline-flex;align-items:center;gap:2px;margin-right:6px;border:1px solid rgba(255,255,255,0.3);border-radius:3px;overflow:hidden;background:rgba(255,255,255,0.10);">
       <button onclick="changeFontScale(-0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:13px;padding:2px 8px;cursor:pointer;font-weight:bold;" title="文字を小さく">A−</button>
       <span id="font-scale-label" style="color:#ffe;font-family:'DotGothic16',monospace;font-size:10px;padding:0 4px;min-width:30px;text-align:center;">100%</span>
@@ -6673,14 +6683,40 @@
       z.style.setProperty('--rot', finalRot + 'deg');
       z.style.animation = `zabutonFall ${duration}s ${delay}s linear forwards`;
       container.appendChild(z);
-      setTimeout(() => z.remove(), (parseFloat(duration) + parseFloat(delay)) * 1000 + 300);
+      // animationend で確実に削除（モバイルSafariの setTimeout スロットリング対策）。
+      // 念のため setTimeout もフォールバックとして併用。
+      let zRemoved = false;
+      const killZ = () => { if (!zRemoved) { zRemoved = true; z.remove(); } };
+      z.addEventListener('animationend', killZ);
+      setTimeout(killZ, (parseFloat(duration) + parseFloat(delay)) * 1000 + 500);
     }
   }
 
   function resetSumo() {
     if (sumoTimer) clearTimeout(sumoTimer);
+    // 残った座布団・力士の決まり手アニメを全クリア（消えないアニメ対策）
+    document.querySelectorAll('.zabuton').forEach(z => z.remove());
+    ['sumo-p1-fighter','sumo-p2-fighter'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove(
+        'sumo-win-shake','sumo-pushed-left','sumo-pushed-right',
+        'sumo-fallen-left','sumo-fallen-right','sumo-attack-left','sumo-attack-right'
+      );
+    });
     document.getElementById('sumo-arena').style.display = 'none';
     document.getElementById('sumo-select-panel').style.display = 'block';
+  }
+
+  // SUMO画面以外へ移動したとき等に残留アニメを掃除する
+  function cleanupSumoAnimations() {
+    document.querySelectorAll('.zabuton').forEach(z => z.remove());
+    ['sumo-p1-fighter','sumo-p2-fighter'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove(
+        'sumo-win-shake','sumo-pushed-left','sumo-pushed-right',
+        'sumo-fallen-left','sumo-fallen-right','sumo-attack-left','sumo-attack-right'
+      );
+    });
   }
 
   // ===== ログイン =====
@@ -7474,6 +7510,13 @@
     if (t.indexOf('translatex(100%') >= 0) return false;
     return true;
   }
+  // 取り込み後、対象画面が開いていたら再描画する（同期反映漏れ防止）
+  function _rerenderIfOpen(screenId, renderFn) {
+    const scr = document.getElementById(screenId);
+    if (scr && _isPanelOpen(scr) && typeof renderFn === 'function') {
+      try { renderFn(); } catch (e) { console.warn('rerender failed', screenId, e); }
+    }
+  }
   function _findOpenEditPanel() {
     for (const s of _NAV_EDIT_PANELS) {
       if (_isPanelOpen(document.getElementById(s.id))) return s;
@@ -7540,6 +7583,8 @@
     if (idx === 2) renderSchedule();
     if (idx === 3) renderInvCards();
     if (idx === 5) { initSumoSelects(); adjustSumoScale(); }
+    // SUMO以外へ移動したら残留アニメ（座布団・力士）を掃除
+    if (idx !== 5 && typeof cleanupSumoAnimations === 'function') cleanupSumoAnimations();
   }
 
   // ===== 全体の文字サイズ調整（テキストのみ、レイアウトは触らない） =====
@@ -8788,7 +8833,7 @@
     const url = getClientGasUrl();
     if (!url) { if (showStatus) setGasStatus('取引先URLが未設定です', '#c0392b'); return; }
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET' });
+      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = (data.rows || []).filter(r => {
@@ -8803,6 +8848,7 @@
         return getCachedClients();
       }
       localStorage.setItem('client_master_cache', JSON.stringify({ at: Date.now(), rows }));
+      _rerenderIfOpen('client-master-screen', renderClientMasterList);
       if (showStatus) setGasStatus(`✅ 取引先 ${rows.length} 件を読み込み`, '#27ae60');
       return rows;
     } catch (err) {
@@ -9018,7 +9064,7 @@
     const url = getProductGasUrl();
     if (!url) { if (showStatus) setGasStatus('商品URLが未設定です', '#c0392b'); return; }
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET' });
+      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = (data.rows || []).filter(r => {
@@ -9033,6 +9079,7 @@
         return getCachedProducts();
       }
       localStorage.setItem('product_master_cache', JSON.stringify({ at: Date.now(), rows }));
+      _rerenderIfOpen('product-master-screen', renderProductMasterList);
       if (showStatus) setGasStatus(`✅ 商品 ${rows.length} 件を読み込み`, '#27ae60');
       return rows;
     } catch (err) {
@@ -9241,14 +9288,15 @@
   }
 
   // ===== メディア管理 / 運転記録表：共通ヘルパー =====
-  async function _genericFetch(url, cacheKey, statusMsgPrefix, showStatus) {
+  async function _genericFetch(url, cacheKey, statusMsgPrefix, showStatus, rerender) {
     if (!url) { if (showStatus) setGasStatus(statusMsgPrefix + 'URLが未設定です', '#c0392b'); return []; }
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET' });
+      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = (data.rows || []).filter(r => String(r['削除フラグ'] || '') !== '1');
       localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), rows }));
+      if (typeof rerender === 'function') { try { rerender(); } catch (e) { console.warn('rerender failed', cacheKey, e); } }
       if (showStatus) setGasStatus('✅ ' + statusMsgPrefix + rows.length + ' 件を読み込み', '#27ae60');
       return rows;
     } catch (err) {
@@ -9266,7 +9314,8 @@
 
   // ===== メディア管理 =====
   async function fetchMediaList(showStatus) {
-    return _genericFetch(getMediaGasUrl(), 'media_cache', 'メディア', showStatus);
+    return _genericFetch(getMediaGasUrl(), 'media_cache', 'メディア', showStatus,
+      () => _rerenderIfOpen('media-list-screen', renderMediaList));
   }
   function getCachedMedia() { return _getCached('media_cache'); }
 
@@ -9419,7 +9468,8 @@
 
   // ===== 運転記録表 =====
   async function fetchDrivingList(showStatus) {
-    return _genericFetch(getDrivingGasUrl(), 'driving_cache', '運転記録', showStatus);
+    return _genericFetch(getDrivingGasUrl(), 'driving_cache', '運転記録', showStatus,
+      () => _rerenderIfOpen('driving-list-screen', renderDrivingList));
   }
   function getCachedDriving() { return _getCached('driving_cache'); }
 
@@ -10545,18 +10595,31 @@
   }
 
   // 子シート全件取得 → 各 ws_${num} にマージ
+  // ※ 子シートは「詳細データの補完」専用。親シートが作成済みの案件にのみ適用し、
+  //   予約番号・削除済み・親に存在しない番号で新規ワークシートを勝手に作らない。
   async function syncFromChildSheet() {
     const url = getChildGasUrl();
     if (!url) return { fetched: 0 };
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET' });
+      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
-      (data.rows || []).forEach(row => {
-        if (!String(row['受注No'] || '').trim()) return;
-        applyChildRowToWorksheet(row);
+      // ローカルに実在する案件番号セット（親シート取り込み済み＋静的カード）
+      const known = new Set();
+      getSavedProjects().forEach(p => { if (p && p.num) known.add(p.num); });
+      document.querySelectorAll('.ws-card[data-wsnum]').forEach(c => {
+        if (c.dataset.wsnum) known.add(c.dataset.wsnum);
       });
-      return { fetched: (data.rows || []).length };
+      let applied = 0;
+      (data.rows || []).forEach(row => {
+        const num = String(row['受注No'] || '').trim();
+        if (!num) return;
+        if (isDeletedWS(num)) return;     // 削除済みは復活させない
+        if (!known.has(num)) return;      // 親シートに無い番号は新規作成しない（無題案件防止）
+        applyChildRowToWorksheet(row);
+        applied++;
+      });
+      return { fetched: applied };
     } catch (err) {
       console.warn('syncFromChildSheet failed', err);
       return { fetched: 0, error: err.message };
@@ -10573,7 +10636,7 @@
     if (!url) { if (showStatus) setGasStatus('先にURLを保存してください', '#c0392b'); return; }
     if (showStatus) setGasStatus('📥 取り込み中...', '#2980b9');
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET' });
+      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = data.rows || [];
@@ -11338,16 +11401,20 @@
 
     // 全ワークシート番号を収集（projects_saved + ws_${num} + 静的カード）
     const numSet = new Set();
-    getSavedProjects().forEach(p => p.num && numSet.add(p.num));
-    // localStorage の ws_ キーから直接拾う
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('ws_')) numSet.add(k.substring(3));
-    }
+    const knownNums = new Set();
+    getSavedProjects().forEach(p => { if (p.num) { numSet.add(p.num); knownNums.add(p.num); } });
     // 静的HTMLのカードからも拾う
     document.querySelectorAll('.ws-card[data-wsnum]').forEach(c => {
-      if (c.dataset.wsnum) numSet.add(c.dataset.wsnum);
+      if (c.dataset.wsnum) { numSet.add(c.dataset.wsnum); knownNums.add(c.dataset.wsnum); }
     });
+    // localStorage の ws_ キーから直接拾う（ただし中身が空の孤立エントリは除外＝無題案件対策）
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('ws_')) {
+        const num = k.substring(3);
+        if (knownNums.has(num) || _wsHasContent(num)) numSet.add(num);
+      }
+    }
 
     const deletedSet = new Set(getDeletedWS());
     let nums = [...numSet];
@@ -12907,6 +12974,23 @@
       'スタッフ派遣': 'staff',
       '撮影・編集': 'edit',
     }[orderType] || 'shooting';
+  }
+
+  // ws_${num} に意味のある中身があるか（空の孤立エントリ判定用）
+  function _wsHasContent(num) {
+    const s = loadWS(num);
+    if (!s || typeof s !== 'object') return false;
+    // タイトル・取引先・日程・記入者・各種テキストのいずれかがあれば実データあり
+    const textFields = ['edit_title','edit_company','edit_contact','wsd-shootdate',
+      'creator','wsd-media','wsd-report','wsd-memo','wsd-private','wsd-order-amount',
+      'crew_producer','crew_d','crew_pm1','crew_pm2','crew_c','crew_a','crew_a2',
+      'crew_sound','crew_edit','crew_extra'];
+    if (textFields.some(f => String(s[f] || '').trim() !== '')) return true;
+    // リスト系・機材選択があれば実データあり
+    if (Array.isArray(s.rental_list)    && s.rental_list.length)    return true;
+    if (Array.isArray(s.outsource_list) && s.outsource_list.length) return true;
+    if (s.equip && Object.values(s.equip).some(e => e && e.checked)) return true;
+    return false;
   }
 
   function getWsDisplayData(num) {
