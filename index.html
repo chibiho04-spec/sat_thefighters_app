@@ -10612,19 +10612,22 @@
     }
   }
 
-  // 1件だけ受注ノートに送信（新規案件登録時に使用、fire-and-forget）
+  // 1件だけ受注ノートに送信（保存時に呼び出し）
   async function sendOrderToSheet(num, p) {
     const url = getGasUrl();
-    if (!url) return; // URL 未設定なら何もしない
+    if (!url) return { skipped: true };
     try {
-      await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         redirect: 'follow',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'upsert', rows: [projectToOrderRow(num, p)] })
       });
+      const data = await res.json();
+      return data;
     } catch (err) {
       console.warn('sendOrderToSheet failed', err);
+      return { ok: false, error: err.message };
     }
   }
 
@@ -12717,31 +12720,40 @@
     updateWSDProgress(num, data);
     refreshHomeView(true);
 
-    // 親シートも更新送信（クルー情報含む）
-    try { sendOrderToSheet(num, wsData[num] || {}); } catch(e) { console.warn(e); }
-
-    // 子シート（ワークシート詳細）にも送信して結果を画面表示
+    // 親シート＋子シートに同時送信して両方の結果を表示
     const btn = document.getElementById('wsd-save-btn');
     btn.textContent = '✓ 保存しました！ 📤 同期中…';
     btn.style.background = '#27ae60';
 
-    sendWorksheetToChild(num).then(r => {
-      if (r.skipped) {
-        btn.textContent = '✓ 保存（子URL未設定）';
-      } else if (r.ok) {
-        const ins = (r.result && r.result.inserted) || 0;
-        const upd = (r.result && r.result.updated)  || 0;
-        btn.textContent = '✓ 子シート同期OK（追加' + ins + ' / 更新' + upd + '）';
+    Promise.all([
+      sendOrderToSheet(num, wsData[num] || {}),
+      sendWorksheetToChild(num)
+    ]).then(([parentRes, childRes]) => {
+      const parentOK = parentRes && (parentRes.ok || parentRes.skipped);
+      const childOK  = childRes  && (childRes.ok  || childRes.skipped);
+
+      if (parentOK && childOK) {
+        const pR = (parentRes.result) || {};
+        const cR = (childRes.result)  || {};
+        const pUpd = (pR.inserted || 0) + (pR.updated || 0);
+        const cUpd = (cR.inserted || 0) + (cR.updated || 0);
+        if (parentRes.skipped && childRes.skipped) {
+          btn.textContent = '✓ 保存（URL未設定のためシート同期スキップ）';
+        } else {
+          btn.textContent = `✓ 同期OK（親${pUpd > 0 ? '更新' : '0'}件 / 子${cUpd > 0 ? '更新' : '0'}件）`;
+        }
       } else {
-        btn.style.background = '#c0392b';
-        btn.textContent = '⚠️ 子シート同期失敗';
-        alert('⚠️ 子シートへの送信に失敗しました\n\n' + (r.error || 'GASからの応答が異常です') +
-              '\n\n確認ポイント:\n・子URLが正しいか（データ管理画面）\n・子GASの SHEET_NAME が「ワークシート詳細」になっているか\n・子GASが「アクセス：全員」でデプロイ済みか');
+        btn.style.background = '#e67e22';
+        const parentErr = !parentOK ? `親シート失敗: ${parentRes?.error || 'エラー'}` : '';
+        const childErr  = !childOK  ? `子シート失敗: ${childRes?.error  || 'エラー'}` : '';
+        btn.textContent = `⚠️ 一部同期失敗`;
+        console.warn('sheet sync partial failure', { parentRes, childRes });
+        alert(`⚠️ シートへの送信に失敗した箇所があります\n\n${[parentErr, childErr].filter(Boolean).join('\n')}\n\n確認ポイント:\n・GASが「アクセス：全員」で再デプロイ済みか\n・URLが正しいか（データ管理画面）`);
       }
     }).catch(e => {
       btn.style.background = '#c0392b';
       btn.textContent = '⚠️ 同期エラー';
-      console.warn('sendWorksheetToChild promise error', e);
+      console.warn('sheet sync error', e);
     });
 
     setTimeout(() => {
@@ -12749,7 +12761,7 @@
       btn.style.background = '';
       renderWsView(num, data);
       toggleWsEdit(false);
-    }, 2500);
+    }, 3000);
   }
 
   function loadWS(num) {
