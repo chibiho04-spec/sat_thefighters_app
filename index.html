@@ -10439,9 +10439,11 @@
       '数量':             saved['wsd-media-qty'] || '',
       'レンタル機材':     saved['wsd-rental']      || '',
       'レンタル料金':     saved['wsd-rental-cost'] || '',
+      'レンタルリストJSON': JSON.stringify(saved.rental_list   || []),
       '私物機材':         saved['wsd-private']     || '',
       '外注':             saved['wsd-outsource'] || '',
       '外注費':           saved['wsd-outsource-cost'] || '',
+      '外注リストJSON':   JSON.stringify(saved.outsource_list || []),
       '受注金額':         saved['wsd-order-amount'] || '',
       '機材選択コード':   equipCodes,
       '作業報告':         saved['wsd-report']    || '',
@@ -10462,10 +10464,20 @@
     set('wsd-media-qty', row['数量']);
     set('wsd-rental',         row['レンタル機材']);
     set('wsd-rental-cost',    row['レンタル料金']);
+    // レンタルリストJSON → rental_list 配列に展開
+    try {
+      const rj = row['レンタルリストJSON'];
+      if (rj && rj !== '[]') saved.rental_list = JSON.parse(rj);
+    } catch(e) {}
     set('wsd-private',        row['私物機材']);
     set('wsd-order-amount',   row['受注金額']);
     set('wsd-outsource',      row['外注']);
     set('wsd-outsource-cost', row['外注費']);
+    // 外注リストJSON → outsource_list 配列に展開
+    try {
+      const oj = row['外注リストJSON'];
+      if (oj && oj !== '[]') saved.outsource_list = JSON.parse(oj);
+    } catch(e) {}
     set('wsd-report',         row['作業報告']);
     set('report_item',        row['報告事項']);
     set('crew_extra',         row['追加スタッフ']);
