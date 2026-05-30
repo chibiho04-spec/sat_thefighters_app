@@ -6166,7 +6166,7 @@
   </div>
   <!-- プレビュー本体 -->
   <!-- プレビュー本体 -->
-  <div style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center;align-items:flex-start;background:#666;">
+  <div id="print-content-wrapper" style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center;align-items:flex-start;background:#666;">
     <div id="print-content" style="
       background:white;width:210mm;height:297mm;
       padding:2mm 5mm;
@@ -8556,33 +8556,28 @@
     window.addEventListener('resize', scalePrintContent);
   }
 
-  // プレビューの A4 シート(210×297mm)をビューポート幅・高さに合わせて縮小表示
+  // プレビューの A4 シート(210×297mm)をビューポート幅に合わせて縮小表示
   function scalePrintContent() {
-    const overlay = document.getElementById('print-preview-overlay');
     const content = document.getElementById('print-content');
-    if (!overlay || !content || overlay.style.display === 'none') return;
-    const wrapper = overlay.querySelector('div[style*="flex:1"]');
-    if (!wrapper) return;
-    // 元寸法（A4縦：210mm×297mm → px換算は CSS の mm単位を信頼）
-    const sheetW = content.offsetWidth  || 794; // 210mm
-    const sheetH = content.offsetHeight || 1123; // 297mm
-    // 余白を取った利用可能サイズ
-    const padding = 40;
-    const availW = wrapper.clientWidth  - padding;
-    const availH = wrapper.clientHeight - padding;
-    // 一旦スケールをリセットして実寸を測り直す
+    const wrapper = document.getElementById('print-content-wrapper');
+    if (!content || !wrapper) return;
+
+    // 一旦スケールをリセットして実寸を取得
     content.style.transform = '';
-    content.style.transformOrigin = 'top center';
-    // 横優先で縮小（高さは縦スクロール許可）
+    content.style.marginBottom = '';
+
+    const sheetW = content.offsetWidth  || 794;  // 210mm
+    const sheetH = content.offsetHeight || 1123; // 297mm
+
+    // 利用可能幅（ラッパーのpadding 20px×2 を引く）
+    const availW = (wrapper.clientWidth || window.innerWidth) - 40;
+
     const scale = Math.min(1, availW / sheetW);
     if (scale < 1) {
       content.style.transform = `scale(${scale})`;
       content.style.transformOrigin = 'top center';
-      // スケール後の見た目の高さに合わせてラッパーがスクロールできるよう、
-      // content の下マージンで負分を吸収
+      // transform はレイアウトに影響しないため、縮小した分の余白を負マージンで吸収
       content.style.marginBottom = `${(scale - 1) * sheetH}px`;
-    } else {
-      content.style.marginBottom = '';
     }
   }
   function issueFromPreview() {
@@ -10926,6 +10921,8 @@
     document.getElementById('print-preview-label').textContent = 'ワークシート 印刷プレビュー';
     document.getElementById('preview-issue-btn').style.display = 'none';
     document.getElementById('print-preview-overlay').style.display = 'flex';
+    requestAnimationFrame(scalePrintContent);
+    window.removeEventListener('resize', scalePrintContent);
     window.addEventListener('resize', scalePrintContent);
   }
 
