@@ -7523,6 +7523,29 @@
     }
     return null;
   }
+  // 取り込み後、ワークシート詳細が開いていれば最新データで再描画する。
+  // ※ 編集中（編集パネル表示中）は入力を壊さないため何もしない。
+  function _refreshOpenWsDetail() {
+    const scr = document.getElementById('ws-detail-screen');
+    if (!scr || !_isPanelOpen(scr)) return;
+    const editPanel = document.getElementById('wsd-edit-panel');
+    const isEditing = editPanel && editPanel.style.display !== 'none';
+    if (isEditing) return; // 編集中はクロバーしない
+    const num = (document.getElementById('ws-detail-num') || {}).textContent;
+    if (!num) return;
+    const saved = loadWS(num);
+    try { if (typeof renderWsView === 'function') renderWsView(num, saved); } catch (e) { console.warn('wsView refresh', e); }
+    // 編集パネル（非表示）の入力欄も最新に揃えておく
+    try {
+      if (typeof renderRentalRows === 'function')    renderRentalRows(loadRentalItems(saved));
+      if (typeof renderOutsourceRows === 'function') renderOutsourceRows(loadOutsourceItems(saved));
+      if (typeof renderEquipChecklist === 'function') renderEquipChecklist(num, saved.equip || {});
+      ['wsd-private','wsd-media','wsd-report','wsd-memo','wsd-shootdate','wsd-order-amount'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && saved[id] !== undefined) el.value = saved[id];
+      });
+    } catch (e) { console.warn('wsDetail inputs refresh', e); }
+  }
   function _closeAllOpenListPanels() {
     _NAV_LIST_PANELS.forEach(s => {
       if (_isPanelOpen(document.getElementById(s.id))) {
@@ -10716,6 +10739,8 @@
       if (typeof refreshHomeView === 'function') refreshHomeView(true);
       if (typeof renderWorksheetList === 'function') renderWorksheetList();
       if (typeof renderSalesScreen === 'function') { try { renderSalesScreen(); } catch(e) {} }
+      // ワークシート詳細を開いたまま取り込んだ場合も、レンタル等を即反映
+      if (typeof _refreshOpenWsDetail === 'function') _refreshOpenWsDetail();
 
       const skipMsg = skipped > 0 ? `（予約番号 ${skipped} 件はスキップ）` : '';
       if (showStatus) setGasStatus(`✅ 取り込み：新規 ${added} / 更新 ${updated} / 削除 ${removed}${childMsg} ${skipMsg}`, '#27ae60');
@@ -11353,6 +11378,24 @@
     localStorage.setItem('equip_master', JSON.stringify(list));
   }
 
+  // 機材マスタを編集したらシートへ自動送信（連続編集をまとめるためデバウンス）
+  // ※ saveEquipMaster には入れない（取り込み時の保存で送信ループになるため）
+  let _equipPushTimer = null;
+  function scheduleEquipPush() {
+    if (!(localStorage.getItem('gas_url_equip') || '').trim()) return; // URL未設定なら何もしない
+    if (_equipPushTimer) clearTimeout(_equipPushTimer);
+    _equipPushTimer = setTimeout(() => {
+      _equipPushTimer = null;
+      sendEquipMasterToSheet(false).catch(e => console.warn('equip auto-push', e));
+    }, 1200);
+  }
+  // 画面を閉じる前など、保留中の送信を即実行する
+  function flushEquipPush() {
+    if (_equipPushTimer) { clearTimeout(_equipPushTimer); _equipPushTimer = null; }
+    if (!(localStorage.getItem('gas_url_equip') || '').trim()) return Promise.resolve();
+    return sendEquipMasterToSheet(false).catch(e => console.warn('equip flush', e));
+  }
+
   // 機材マスター画面を開く
   function openEquipMaster() {
     renderEquipMasterList();
@@ -11492,6 +11535,7 @@
   }
 
   function closeEquipMaster() {
+    flushEquipPush(); // 未送信の編集をシートへ送ってから閉じる
     document.getElementById('equip-master-screen').style.transform = 'translateX(100%)';
     // ワークシート詳細が開いていれば機材リストを再描画
     const wsNum = document.getElementById('ws-detail-num')?.textContent;
@@ -11638,6 +11682,7 @@
       else newMaster.push(...master.filter(e => e.cat === c));
     });
     saveEquipMaster(newMaster);
+    scheduleEquipPush();
     renderEquipMasterList();
   }
 
@@ -11703,6 +11748,7 @@
       master.push({ id: 'em' + Date.now(), cat, name, code, qty, price });
     }
     saveEquipMaster(master);
+    scheduleEquipPush();
     cancelEditEquip(); // フォームをリセット
     renderEquipMasterList();
   }
@@ -11718,6 +11764,7 @@
     if (isNaN(p) || p < 0) { alert('正しい数値を入力してください'); return; }
     item.price = p;
     saveEquipMaster(master);
+    scheduleEquipPush();
     renderEquipMasterList();
   }
 
@@ -11773,6 +11820,7 @@
       }
       item[field] = val;
       saveEquipMaster(master);
+      scheduleEquipPush();
       renderEquipMasterList();
     };
     const cleanup = () => {
@@ -11794,6 +11842,7 @@
   function deleteEquipItem(id) {
     const master = loadEquipMaster().filter(e => e.id !== id);
     saveEquipMaster(master);
+    scheduleEquipPush();
     renderEquipMasterList();
   }
 
