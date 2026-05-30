@@ -8856,7 +8856,7 @@
     const url = getClientGasUrl();
     if (!url) { if (showStatus) setGasStatus('取引先URLが未設定です', '#c0392b'); return; }
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = (data.rows || []).filter(r => {
@@ -9087,7 +9087,7 @@
     const url = getProductGasUrl();
     if (!url) { if (showStatus) setGasStatus('商品URLが未設定です', '#c0392b'); return; }
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = (data.rows || []).filter(r => {
@@ -9314,7 +9314,7 @@
   async function _genericFetch(url, cacheKey, statusMsgPrefix, showStatus, rerender) {
     if (!url) { if (showStatus) setGasStatus(statusMsgPrefix + 'URLが未設定です', '#c0392b'); return []; }
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = (data.rows || []).filter(r => String(r['削除フラグ'] || '') !== '1');
@@ -10624,7 +10624,7 @@
     const url = getChildGasUrl();
     if (!url) return { fetched: 0 };
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       // ローカルに実在する案件番号セット（親シート取り込み済み＋静的カード）
@@ -10659,7 +10659,7 @@
     if (!url) { if (showStatus) setGasStatus('先にURLを保存してください', '#c0392b'); return; }
     if (showStatus) setGasStatus('📥 取り込み中...', '#2980b9');
     try {
-      const res = await fetch(url + '?action=list', { method: 'GET', redirect: 'follow' });
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const rows = data.rows || [];
@@ -11310,7 +11310,10 @@
     if (!url) return;
     if (showStatus) setGasStatus('📥 機材マスタ取り込み中...', '#2980b9');
     try {
-      const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+      // スマホのブラウザが古い応答をキャッシュして更新が反映されない問題を防ぐため、
+      // 毎回ユニークな _ts を付けて cache:'no-store' で取得する
+      const sep = url.indexOf('?') >= 0 ? '&' : '?';
+      const res = await fetch(url + sep + '_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       const items = (data.rows || []).map(r => ({
