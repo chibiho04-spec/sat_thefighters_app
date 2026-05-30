@@ -2,6 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- アプリ本体（HTML）をブラウザがキャッシュして古いままになるのを防ぐ -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -4769,6 +4773,13 @@
     </div>
 
     <div class="wsd-scroll">
+
+      <!-- 同期ステータス＆手動更新（スマホで取得結果を見えるようにする） -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#eaf2fb;border-bottom:1px solid #cdddf0;">
+        <button onclick="manualFetchEquip()"
+          style="background:#2980b9;color:white;border:2px solid #1a5c8a;box-shadow:2px 2px 0 #1a5c8a;border-radius:3px;font-size:11px;padding:7px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 シートから最新取得</button>
+        <div id="em-sync-status" style="font-size:10px;color:#555;flex:1;min-width:0;line-height:1.35;">　</div>
+      </div>
 
       <!-- 新規追加フォーム -->
       <div id="em-form-head" class="wsd-section-head wsd-sec-blue">＋ 機材を追加</div>
@@ -11305,10 +11316,20 @@
     '🎚 ミキサー/REC', '🎤 マイク', '💡 照明', '🔋 バッテリー', '📦 その他'
   ];
 
+  // このアプリの版（スマホが新しいコードを読み込めているか確認用）
+  const APP_BUILD = '2026-05-30b';
+
+  // 機材マスタ画面内のステータス欄を更新（スマホで取得結果を見えるようにする）
+  function setEquipSyncStatus(msg, color) {
+    const el = document.getElementById('em-sync-status');
+    if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+  }
+
   async function fetchEquipMaster(showStatus) {
     const url = (localStorage.getItem('gas_url_equip') || '').trim();
-    if (!url) return;
+    if (!url) { setEquipSyncStatus('⚠️ 機材マスタURLが未設定です（データ管理から設定してください）', '#c0392b'); return; }
     if (showStatus) setGasStatus('📥 機材マスタ取り込み中...', '#2980b9');
+    setEquipSyncStatus('🔄 シートから取得中…', '#2980b9');
     try {
       // スマホのブラウザが古い応答をキャッシュして更新が反映されない問題を防ぐため、
       // 毎回ユニークな _ts を付けて cache:'no-store' で取得する
@@ -11337,12 +11358,23 @@
           const wsNum = document.getElementById('ws-detail-num') && document.getElementById('ws-detail-num').textContent;
           if (wsNum && typeof renderEquipChecklist === 'function') renderEquipChecklist(wsNum, (loadWS(wsNum) || {}).equip || {});
         }
+        setEquipSyncStatus(`✅ ${items.length}件を取得しました（${new Date().toLocaleTimeString('ja-JP')}・版${APP_BUILD}）`, '#1a7a40');
+      } else {
+        // 通信は成功したが0件＝シートの列見出し（ID/カテゴリ/機材名…）がずれている可能性
+        setEquipSyncStatus(`⚠️ 取得0件。シートの見出し行（ID/カテゴリ/機材名/商品コード/数量/単価（円））を確認してください（版${APP_BUILD}）`, '#c0392b');
       }
       if (showStatus) setGasStatus(`✅ 機材マスタ ${items.length}件 取り込み完了`, '#27ae60');
     } catch(err) {
       console.warn('fetchEquipMaster failed', err);
+      setEquipSyncStatus('❌ 取得失敗：' + err.message + `（版${APP_BUILD}）`, '#c0392b');
       if (showStatus) setGasStatus('❌ 機材マスタ取り込み失敗：' + err.message, '#c0392b');
     }
+  }
+
+  // 「🔄 シートから最新取得」ボタン用：取得して結果を画面に表示
+  function manualFetchEquip() {
+    setEquipSyncStatus('🔄 シートから取得中…', '#2980b9');
+    fetchEquipMaster(false).catch(e => setEquipSyncStatus('❌ 取得失敗：' + e.message, '#c0392b'));
   }
 
   async function sendEquipMasterToSheet(showStatus) {
@@ -11403,8 +11435,10 @@
   function openEquipMaster() {
     renderEquipMasterList();
     document.getElementById('equip-master-screen').style.transform = 'translateX(0)';
+    // 画面を開いた時点で版を表示（スマホが新コードを読めているか一目で分かる）
+    setEquipSyncStatus(`版${APP_BUILD}・最新を取得中…`, '#2980b9');
     // バックグラウンドで最新データ取得→完了したら再描画（fetchEquipMaster内で呼ばれる）
-    fetchEquipMaster(false).catch(e => console.warn('openEquipMaster fetch', e));
+    fetchEquipMaster(false).catch(e => setEquipSyncStatus('❌ 取得失敗：' + e.message, '#c0392b'));
   }
 
   // ========== ワークシート一覧画面 ==========
