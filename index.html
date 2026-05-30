@@ -11233,7 +11233,20 @@
         qty:   Number(r['数量']      || 1),
         price: Number(r['単価（円）']|| 0)
       })).filter(e => e.id && e.name);
-      if (items.length) saveEquipMaster(items);
+      if (items.length) {
+        saveEquipMaster(items);
+        // 機材マスタ画面が開いていれば即時再描画
+        const scr = document.getElementById('equip-master-screen');
+        if (scr && scr.style.transform !== 'translateX(100%)') {
+          if (typeof renderEquipMasterList === 'function') renderEquipMasterList();
+        }
+        // ワークシート詳細の機材チェックリストも開いていれば再描画
+        const wsScr = document.getElementById('ws-detail-screen');
+        if (wsScr && wsScr.style.display !== 'none' && wsScr.style.transform !== 'translateX(100%)') {
+          const wsNum = document.getElementById('ws-detail-num') && document.getElementById('ws-detail-num').textContent;
+          if (wsNum && typeof renderEquipChecklist === 'function') renderEquipChecklist(wsNum, (loadWS(wsNum) || {}).equip || {});
+        }
+      }
       if (showStatus) setGasStatus(`✅ 機材マスタ ${items.length}件 取り込み完了`, '#27ae60');
     } catch(err) {
       console.warn('fetchEquipMaster failed', err);
@@ -11281,6 +11294,8 @@
   function openEquipMaster() {
     renderEquipMasterList();
     document.getElementById('equip-master-screen').style.transform = 'translateX(0)';
+    // バックグラウンドで最新データ取得→完了したら再描画（fetchEquipMaster内で呼ばれる）
+    fetchEquipMaster(false).catch(e => console.warn('openEquipMaster fetch', e));
   }
 
   // ========== ワークシート一覧画面 ==========
