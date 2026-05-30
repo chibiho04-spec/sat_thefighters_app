@@ -4873,13 +4873,16 @@
     <!-- ヘッダー -->
     <div style="display:flex;align-items:center;gap:10px;background:#c0392b;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #7b1f12;">
       <button class="wsd-back" onclick="closeWorksheetList()">◀ 戻る</button>
-      <div class="wsd-header-info">
+      <div class="wsd-header-info" style="flex:1;">
         <div class="wsd-header-num" style="color:#fadbd8;">ワークシート</div>
         <div class="wsd-header-title" id="wl-header-title">案件一覧</div>
       </div>
       <button onclick="fetchOrderMaster && fetchOrderMaster(true); setTimeout(renderWorksheetList, 800);"
         style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;"
         title="シートから最新を取得">🔄 更新</button>
+      <a href="https://docs.google.com/spreadsheets/d/1Y95sJfIqnjDHaTen9GkqmCx1z4PQhqZEAH1uY5c81KI/edit" target="_blank"
+        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-decoration:none;"
+        title="スプレッドシートを開く">📊 スプレッドシート</a>
     </div>
 
     <!-- 検索 + フィルタ -->
