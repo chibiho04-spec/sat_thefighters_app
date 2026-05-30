@@ -7908,11 +7908,42 @@
     // タブ移動せず、現在の画面のまま請求書作成画面を開く
     _openBlankInvScreen('create');
   }
+  // 案件と紐づかない独立した請求書／見積書用に番号を自動採番する。
+  //   ・請求書：INV-{年2桁}{連番3桁}  例 INV-26001
+  //   ・見積書：EST-{年2桁}{連番3桁}  例 EST-26001
+  //   ・連番はローカルの inv_ キーの最大値+1。さらに同じセッション中で
+  //     保存前に連続採番した分は sessionStorage で覚えて重複を防ぐ。
+  //   （案件由来の T26xxx/Z26xxx とは番号体系で区別できる）
+  function generateNewInvNum(mode) {
+    const prefix = (mode === 'estimate') ? 'EST-' : 'INV-';
+    const year   = String(new Date().getFullYear()).slice(-2);
+    const head   = prefix + year;
+    let maxSeq = 0;
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('inv_' + head) !== 0) return;
+        const seq = parseInt(k.slice(('inv_' + head).length), 10);
+        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+      });
+    } catch (e) {}
+    const skey = 'next_seq_' + head;
+    let cachedNext = 0;
+    try {
+      const v = parseInt(sessionStorage.getItem(skey), 10);
+      if (!isNaN(v) && v > 0) cachedNext = v;
+    } catch (e) {}
+    const nextSeq = Math.max(maxSeq + 1, cachedNext);
+    try { sessionStorage.setItem(skey, String(nextSeq + 1)); } catch (e) {}
+    return head + String(nextSeq).padStart(3, '0');
+  }
+
   function _openBlankInvScreen(action) {
     _attachInvCompanyAc();
     const today = new Date().toLocaleDateString('ja-JP',
       {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
-    document.getElementById('inv-screen-num').textContent     = '新規';
+    // 自動採番（'新規' という固定文字列ではなく実番号を入れて保存可能にする）
+    const newNum = generateNewInvNum(action === 'estimate' ? 'estimate' : 'invoice');
+    document.getElementById('inv-screen-num').textContent     = newNum;
     _setInvClientFields('', '');
     document.getElementById('inv-screen-zip').textContent     = '';
     document.getElementById('inv-screen-addr').textContent    = '';
@@ -7920,7 +7951,7 @@
     document.getElementById('inv-screen-workdate').value      = '';
     document.getElementById('inv-screen-staff').value         = '';
     document.getElementById('inv-screen-invdate').value       = today;
-    document.getElementById('inv-detail-num').textContent     = '新規';
+    document.getElementById('inv-detail-num').textContent     = newNum;
     renderInvLines([], [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
     calcInvTotal();
     // 見積書・請求書 どちらも編集画面で開く（編集可能）
