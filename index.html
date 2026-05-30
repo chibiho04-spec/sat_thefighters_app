@@ -5117,12 +5117,15 @@
     display:flex; flex-direction:column; overflow:hidden;">
     <div style="display:flex;align-items:center;gap:10px;background:#16a085;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #0b5345;">
       <button class="wsd-back" onclick="closeMediaList()">◀ 戻る</button>
-      <div class="wsd-header-info">
+      <div class="wsd-header-info" style="flex:1;">
         <div class="wsd-header-num" style="color:#d1f2eb;">💾 メディア管理</div>
         <div class="wsd-header-title" id="media-count-label">使用記録</div>
       </div>
       <button onclick="fetchMediaList(true); setTimeout(renderMediaList, 800);"
         style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 更新</button>
+      <a href="https://docs.google.com/spreadsheets/d/1c7O5kB1IIT8DwV5uRTcwsvlBnZZYlfWQfZnVV9AkneU/edit" target="_blank"
+        style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-decoration:none;"
+        title="スプレッドシートを開く">📊 スプレッドシート</a>
     </div>
     <div style="padding:10px 12px;background:#e8f8f4;border-bottom:2px solid #a3e4d7;flex-shrink:0;">
       <input id="media-search" type="text" class="wsd-input" placeholder="🔍 メディア種別・現場・使用者で検索..." oninput="renderMediaList()" style="width:100%;font-size:13px;padding:8px;">
