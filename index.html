@@ -8988,6 +8988,8 @@
         localStorage.setItem('deleted_inv', JSON.stringify([...new Set(deleted)]));
         localStorage.removeItem('inv_' + num);
       } catch(e) { console.warn('deleteInvDoc error', e); }
+      // シートにも削除を伝える（他端末で復活しないように）。fire-and-forget。
+      try { if (typeof sendInvoiceDeleteToSheet === 'function') sendInvoiceDeleteToSheet(num); } catch(e) { console.warn(e); }
       closeInv();
     }, { okText: '🗑 削除する', okBg: '#c0392b', okBorder: '#7b241c' });
   }
@@ -9233,6 +9235,33 @@
     }
   }
 
+  // 請求書をシート上で「削除済み」にする（削除フラグ=1, 更新日時=今）
+  // 他端末は取り込み時にこのフラグを見て、ローカルの請求書を消す（削除の伝播）
+  async function sendInvoiceDeleteToSheet(num) {
+    const url = getInvoiceGasUrl();
+    if (!url || !num) return { skipped: true };
+    const row = {
+      '受注No': num,
+      'データ': '',
+      '更新日時': new Date().toISOString(),
+      '削除フラグ': '1'
+    };
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'upsert', rows: [row] })
+      });
+      const data = await res.json();
+      console.log('[請求書削除送信]', { num, response: data });
+      return data;
+    } catch (err) {
+      console.warn('sendInvoiceDeleteToSheet failed', err, num);
+      return { ok: false, error: err.message };
+    }
+  }
+
   // 「🔄 請求書を同期」ボタン用：双方向の突き合わせ（この端末の請求書を送信＋シートの最新を取得）
   // 初回はこのボタンで、データを持っている端末がシートを作る（シードする）。
   async function manualSyncInvoices() {
@@ -9283,18 +9312,32 @@
     }
     // 3) シート → ローカル（ローカルに無い、またはシートが新しいものを取り込む）
     let pulled = 0;
+    let removed = 0;
     sheetRows.forEach(r => {
       const num = String(r['受注No'] || '').trim();
-      if (!num || deleted.indexOf(num) >= 0) return;
-      if (String(r['削除フラグ'] || '') === '1') return;
+      if (!num) return;
+      const sheetUpd = String(r['更新日時'] || '');
+      // シート側で削除フラグが立っている請求書：ローカルにあって削除が新しければ消す（削除の伝播）
+      if (String(r['削除フラグ'] || '') === '1') {
+        const localDel = loadInvStatus(num) || {};
+        const localDelUpd = String(localDel._updatedAt || '');
+        if (localStorage.getItem('inv_' + num) && (!localDelUpd || sheetUpd > localDelUpd)) {
+          localStorage.removeItem('inv_' + num);
+          if (deleted.indexOf(num) < 0) deleted.push(num);
+          removed++;
+        }
+        return;
+      }
+      if (deleted.indexOf(num) >= 0) return;
       let inv;
       try { inv = JSON.parse(r['データ'] || '{}'); } catch { return; }
       if (!inv || typeof inv !== 'object') return;
-      const sheetUpd = String(r['更新日時'] || inv._updatedAt || '');
+      const sheetUpd2 = sheetUpd || String(inv._updatedAt || '');
       const local = loadInvStatus(num) || {};
       const localUpd = String(local._updatedAt || '');
-      if (!localUpd || sheetUpd > localUpd) { saveInvStatus(num, inv); pulled++; }
+      if (!localUpd || sheetUpd2 > localUpd) { saveInvStatus(num, inv); pulled++; }
     });
+    if (removed > 0) localStorage.setItem('deleted_inv', JSON.stringify([...new Set(deleted)]));
     try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
     try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
     return { pushed, pulled };
@@ -9314,24 +9357,38 @@
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       let applied = 0;
+      let removed = 0;
       (data.rows || []).forEach(row => {
         const num = String(row['受注No'] || '').trim();
         if (!num) return;
-        if (String(row['削除フラグ'] || '') === '1') return;
+        const sheetUpdated = String(row['更新日時'] || '');
+        // シート側で削除フラグが立っている請求書：ローカルにあって削除の方が新しければ消す（削除の伝播）
+        if (String(row['削除フラグ'] || '') === '1') {
+          const localDel = loadInvStatus(num) || {};
+          const localDelUpd = String(localDel._updatedAt || '');
+          if (localStorage.getItem('inv_' + num) && (!localDelUpd || sheetUpdated > localDelUpd)) {
+            localStorage.removeItem('inv_' + num);
+            if (deleted.indexOf(num) < 0) deleted.push(num);
+            removed++;
+          }
+          return;
+        }
         if (deleted.indexOf(num) >= 0) return;       // ローカルで削除済みは復活させない
         let inv;
         try { inv = JSON.parse(row['データ'] || '{}'); } catch { return; }
         if (!inv || typeof inv !== 'object') return;
-        const sheetUpdated = String(row['更新日時'] || inv._updatedAt || '');
+        const sheetUpdatedApply = sheetUpdated || String(inv._updatedAt || '');
         const local = loadInvStatus(num) || {};
         const localUpdated = String(local._updatedAt || '');
         // ローカルが無い、またはシートの方が新しいときだけ反映
-        if (!localUpdated || sheetUpdated > localUpdated) {
+        if (!localUpdated || sheetUpdatedApply > localUpdated) {
           saveInvStatus(num, inv);
           applied++;
         }
       });
-      if (showStatus) setGasStatus(`✅ 請求書 ${applied} 件を取り込みました`, '#27ae60');
+      // 削除を反映したら deleted_inv を保存（再取り込みでの復活も防ぐ）
+      if (removed > 0) localStorage.setItem('deleted_inv', JSON.stringify([...new Set(deleted)]));
+      if (showStatus) setGasStatus(`✅ 請求書 ${applied} 件を取り込み${removed ? `・${removed} 件を削除` : ''}`, '#27ae60');
       // 請求書一覧が開いていれば再描画
       try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
       try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
