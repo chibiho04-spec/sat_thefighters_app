@@ -2152,8 +2152,7 @@
     #settings-screen,
     #worksheet-list-screen,
     #inv-trash-screen,
-    #new-project-screen,
-    #dept-sales-screen {
+    #new-project-screen {
       top:    36px !important; /* api-bar(36px)の下から開始 */
       right:  0 !important;
       bottom: 0 !important;
@@ -2221,8 +2220,7 @@
     #settings-screen,
     #worksheet-list-screen,
     #inv-trash-screen,
-    #new-project-screen,
-    #dept-sales-screen {
+    #new-project-screen {
       top:    36px !important; /* api-bar(36px)の下から開始 */
       right:  0 !important;
       bottom: 0 !important;
@@ -2812,8 +2810,7 @@
   #settings-screen,
   #worksheet-list-screen,
   #inv-trash-screen,
-  #new-project-screen,
-  #dept-sales-screen {
+  #new-project-screen {
     transition: none !important;
   }
 
@@ -5160,8 +5157,6 @@
       </div>
       <button id="sales-export-btn" onclick="exportSalesCSV()" title="CSVダウンロード"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 CSV</button>
-      <button id="dept-sales-btn" onclick="openDeptSales()" title="部門別売上"
-        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">🏢 部門別</button>
     </div>
 
     <!-- 期間フィルタ -->
@@ -5186,43 +5181,16 @@
       <!-- JSで動的生成 -->
     </div>
 
+    <!-- 部門別売上（売上サマリーの下に別枠で表示） -->
+    <div id="sales-dept-breakdown" style="padding:10px 12px;background:#faf5fc;border-bottom:2px solid #d2b4de;flex-shrink:0;">
+      <!-- JSで動的生成 -->
+    </div>
+
     <!-- 月別合計 + 案件別明細 -->
     <div id="sales-body" class="wsd-scroll" style="padding:6px 8px 20px;">
       <!-- JSで動的生成 -->
     </div>
   </div><!-- /sales-screen -->
-
-  <div id="dept-sales-screen" style="
-    position:absolute; inset:0; z-index:200;
-    background:var(--panel-bg);
-    transform:translateX(100%);
-    transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
-    display:flex; flex-direction:column; overflow:hidden;">
-
-    <div style="display:flex;align-items:center;gap:10px;background:#6c3483;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #4a235a;">
-      <button class="wsd-back" onclick="closeDeptSales()">◀ 戻る</button>
-      <div class="wsd-header-info">
-        <div class="wsd-header-num" style="color:#e8daef;">🏢 部門別売上</div>
-        <div class="wsd-header-title">編集・撮影・プロデュース</div>
-      </div>
-    </div>
-
-    <!-- 期間フィルタ -->
-    <div style="padding:10px 12px;background:#f4ecf7;border-bottom:2px solid #d2b4de;flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:12px;color:#666;">期間：</span>
-      <select id="dept-period" onchange="renderDeptSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
-        <option value="all">すべて</option>
-        <option value="2026">2026年</option>
-        <option value="2025">2025年</option>
-      </select>
-    </div>
-
-    <!-- サマリー（横帯バー＋凡例） -->
-    <div id="dept-summary" style="padding:12px;background:#fff;border-bottom:2px solid #ddd;flex-shrink:0;"></div>
-
-    <!-- 部門ごとの案件内訳 -->
-    <div id="dept-body" class="wsd-scroll" style="padding:8px 10px 20px;"></div>
-  </div><!-- /dept-sales-screen -->
 
   <!-- ========== 商品マスタ画面（スライドイン） ========== -->
   <div id="product-master-screen" style="
@@ -7704,7 +7672,6 @@
   // 編集画面：確認ダイアログを出してOKなら閉じる
   const _NAV_LIST_PANELS = [
     { id: 'equip-master-screen',     close: () => closeEquipMaster() },
-    { id: 'dept-sales-screen',       close: () => closeDeptSales() },
     { id: 'client-master-screen',    close: () => closeClientMaster() },
     { id: 'product-master-screen',   close: () => closeProductMaster() },
     { id: 'media-list-screen',       close: () => closeMediaList() },
@@ -10442,23 +10409,12 @@
     el.style.transform = 'translateX(100%)';
   }
 
-  function openDeptSales() {
-    renderDeptSalesScreen();
-    const el = document.getElementById('dept-sales-screen');
-    el.style.transform = 'translateX(0)';
-    _applyFullPageStyle(el, 10001);
-  }
-
-  function closeDeptSales() {
-    const el = document.getElementById('dept-sales-screen');
-    _resetFullPageStyle(el);
-    el.style.transform = 'translateX(100%)';
-  }
-
-  function renderDeptSalesScreen() {
-    const periodEl = document.getElementById('dept-period');
-    const period = periodEl ? periodEl.value : 'all';
-    const { totals, cases, grand } = _collectDeptBreakdown(period);
+  // 売上サマリーの下に表示する「部門別売上」の別枠を描画
+  // 期間（sales-period）に連動。各案件の売上(net)を編集・撮影・プロデュース・未分類へ按分した合計を帯バー＋凡例で表示
+  function renderSalesDeptBox(period) {
+    const box = document.getElementById('sales-dept-breakdown');
+    if (!box) return;
+    const { totals, grand } = _collectDeptBreakdown(period);
     const fmt = n => '¥' + Math.round(Number(n) || 0).toLocaleString();
     const DEPTS = [
       { key: 'produce', label: 'プロデュース', color: '#8e44ad' },
@@ -10468,15 +10424,12 @@
     ];
     const base = grand || 1;
     const pct = v => Math.max(0, (v / base) * 100);
-
-    // サマリー
-    const summary = document.getElementById('dept-summary');
-    summary.innerHTML = `
-      <div style="font-size:13px;color:#333;margin-bottom:6px;font-weight:bold;">売上合計 ${fmt(grand)}</div>
-      <div style="display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid #ddd;">
+    box.innerHTML = `
+      <div style="font-size:13px;color:#6c3483;font-weight:bold;margin-bottom:8px;">🏢 部門別売上 <span style="color:#999;font-weight:normal;font-size:11px;">（編集・撮影・プロデュース）</span></div>
+      <div style="display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid #d2b4de;">
         ${DEPTS.map(d => `<div title="${d.label}" style="width:${pct(totals[d.key]).toFixed(2)}%;background:${d.color};"></div>`).join('')}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;">
         ${DEPTS.map(d => `
           <div style="display:flex;align-items:center;gap:5px;font-size:12px;">
             <span style="width:11px;height:11px;border-radius:2px;background:${d.color};display:inline-block;"></span>
@@ -10485,30 +10438,6 @@
             <span style="color:#999;">(${pct(totals[d.key]).toFixed(1)}%)</span>
           </div>`).join('')}
       </div>`;
-
-    // 本体：部門ごとに貢献案件リスト
-    const body = document.getElementById('dept-body');
-    if (!cases.length) {
-      body.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">対象データがありません</div>';
-      return;
-    }
-    body.innerHTML = DEPTS.map(d => {
-      const rows = cases
-        .filter(c => (c[d.key] || 0) > 0)
-        .sort((a, b) => b[d.key] - a[d.key])
-        .map(c => `
-          <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:12px;">
-            <span style="color:#333;min-width:0;word-break:break-word;">${escapeHtml(c.title || '無題')} <span style="color:#aaa;font-size:10px;">${escapeHtml(c.num)}</span></span>
-            <b style="color:${d.color};white-space:nowrap;">${fmt(c[d.key])}</b>
-          </div>`).join('');
-      return `
-        <div style="margin-bottom:14px;border:1px solid #eee;border-radius:5px;overflow:hidden;">
-          <div style="background:${d.color};color:#fff;padding:6px 10px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between;">
-            <span>${d.label}</span><span>${fmt(totals[d.key])}</span>
-          </div>
-          ${rows || '<div style="padding:8px 10px;color:#bbb;font-size:11px;">該当案件なし</div>'}
-        </div>`;
-    }).join('');
   }
 
   // 案件1件ぶんの売上情報を集計（明細行＋ステータス＋外注費）
@@ -10795,6 +10724,9 @@
 
       </div>
     `;
+
+    // 部門別売上の別枠（期間に連動。ステータスフィルタには非連動＝期間内の全売上が対象）
+    renderSalesDeptBox(period);
 
     // 月別グルーピング
     const byMonth = {};
