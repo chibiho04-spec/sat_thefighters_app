@@ -2139,6 +2139,7 @@
     #ws-detail-screen,
     #inv-detail-screen,
     #equip-master-screen,
+    #staff-edit-screen,
     #client-master-screen,
     #new-client-screen,
     #doc-list-screen,
@@ -2207,6 +2208,7 @@
     #ws-detail-screen,
     #inv-detail-screen,
     #equip-master-screen,
+    #staff-edit-screen,
     #client-master-screen,
     #new-client-screen,
     #doc-list-screen,
@@ -2797,6 +2799,7 @@
   #ws-detail-screen,
   #inv-detail-screen,
   #equip-master-screen,
+  #staff-edit-screen,
   #client-master-screen,
   #new-client-screen,
   #doc-list-screen,
@@ -4997,6 +5000,94 @@
     </div>
   </div><!-- /equip-master-screen -->
 
+  <!-- ========== スタッフ編集画面（スライドイン） ========== -->
+  <div id="staff-edit-screen" style="
+    position:absolute; inset:0; z-index:176;
+    background:var(--panel-bg);
+    transform:translateX(100%);
+    transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
+    display:flex; flex-direction:column; overflow:hidden;">
+
+    <div style="display:flex;align-items:center;gap:10px;background:#6c3483;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #4a235a;">
+      <button class="wsd-back" onclick="closeStaffEdit()">◀ 戻る</button>
+      <div class="wsd-header-info" style="flex:1;">
+        <div class="wsd-header-num" style="color:#d7bde2;">スタッフ編集</div>
+        <div class="wsd-header-title" id="se-title">スタッフ情報を編集</div>
+      </div>
+    </div>
+
+    <div class="wsd-scroll">
+
+      <div style="padding:8px 10px;font-size:11px;color:#888;line-height:1.5;">
+        ※ 保存すると全社で共有されます（シート同期が設定済みの場合）。アバターの絵柄は変更できません。
+      </div>
+
+      <div class="wsd-section-head" style="background:#6c3483;color:white;">基本情報</div>
+      <div class="wsd-field-group" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:6px;">
+          <div style="flex:1;">
+            <div class="wsd-crew-label">名前（苗字）</div>
+            <input id="se-name" class="wsd-input" type="text" placeholder="例: 川崎">
+          </div>
+          <div style="flex:1;">
+            <div class="wsd-crew-label">読み（ふりがな）</div>
+            <input id="se-reading" class="wsd-input" type="text" placeholder="例: かわさき">
+          </div>
+        </div>
+        <div>
+          <div class="wsd-crew-label">ステータス</div>
+          <select id="se-status" class="wsd-select">
+            <option>稼働中</option>
+            <option>撮影中</option>
+            <option>待機中</option>
+            <option>休暇中</option>
+          </select>
+        </div>
+        <div>
+          <div class="wsd-crew-label">役割バッジ（カンマ区切り・例: P, D）</div>
+          <input id="se-roles" class="wsd-input" type="text" placeholder="例: C, CA">
+        </div>
+      </div>
+
+      <div class="wsd-section-head" style="background:#6c3483;color:white;">詳細</div>
+      <div class="wsd-field-group" style="display:flex;flex-direction:column;gap:8px;">
+        <div>
+          <div class="wsd-crew-label">🎬 役職</div>
+          <input id="se-role" class="wsd-input" type="text" placeholder="例: カメラマン / ディレクター">
+        </div>
+        <div>
+          <div class="wsd-crew-label">🏆 専門</div>
+          <input id="se-specialty" class="wsd-input" type="text" placeholder="例: TV番組・CM">
+        </div>
+        <div style="display:flex;gap:6px;">
+          <div style="flex:1;">
+            <div class="wsd-crew-label">📅 当月稼働（件）</div>
+            <input id="se-jobs" class="wsd-input" type="number" min="0" value="0" style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <div class="wsd-crew-label">⏱ 経験（年）</div>
+            <input id="se-years" class="wsd-input" type="number" min="0" value="0" style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <div class="wsd-crew-label">⭐ 星（0〜5）</div>
+            <input id="se-stars" class="wsd-input" type="number" min="0" max="5" value="0" style="width:100%;">
+          </div>
+        </div>
+        <div>
+          <div class="wsd-crew-label">💬 ひとこと</div>
+          <input id="se-note" class="wsd-input" type="text" placeholder="例: チーフカメラマン。現場リーダー。">
+        </div>
+      </div>
+
+      <div style="padding:14px 12px 20px;border-top:2px solid #d4c8b0;margin-top:10px;background:rgba(255,255,255,0.5);">
+        <button class="wsd-save-btn" style="width:100%;background:#6c3483;border-color:#4a235a;box-shadow:3px 3px 0 #4a235a;font-size:14px;padding:12px;"
+          onclick="saveStaffEdit()">💾 保存する</button>
+        <div id="se-save-status" style="font-size:11px;color:#888;text-align:center;margin-top:8px;min-height:14px;"></div>
+      </div>
+
+    </div>
+  </div><!-- /staff-edit-screen -->
+
   <!-- ========== 取引先マスタ画面（スライドイン） ========== -->
   <div id="client-master-screen" style="
     position:absolute; inset:0; z-index:170;
@@ -5696,6 +5787,18 @@
         </div>
         <input id="gas-url-invoice-input" type="text" class="wsd-input" placeholder="請求書 https://script.google.com/macros/s/.../exec"
           style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
+
+        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
+          <strong>スタッフ（漢たち）</strong>。スタッフ情報を全端末で同期します。<br>
+          スタッフ用の <strong>Web App URL</strong> を貼り付けてください（任意）。
+        </div>
+        <input id="gas-url-staff-input" type="text" class="wsd-input" placeholder="スタッフ https://script.google.com/macros/s/.../exec"
+          style="width:100%;font-size:12px;padding:8px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <button class="wsd-save-btn" style="background:#6c3483;border-color:#4a235a;box-shadow:2px 2px 0 #4a235a;font-size:12px;padding:7px 12px;white-space:nowrap;flex-shrink:0;"
+            onclick="manualSyncStaff()">🔄 スタッフを同期</button>
+          <div id="staff-sync-status" style="font-size:11px;color:#666;flex:1;min-width:0;line-height:1.35;">　</div>
+        </div>
 
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#0f9d58;border-color:#0a6e3e;box-shadow:3px 3px 0 #0a6e3e;font-size:13px;padding:10px;"
@@ -6583,6 +6686,11 @@
       }
       if (localStorage.getItem('gas_url_invoice')) {
         syncFromInvoiceSheet(false);
+      }
+      // スタッフ：まずローカルの内容をカードへ反映 → URL設定済みならシートからも取り込み
+      if (typeof applyStaffToCards === 'function') applyStaffToCards();
+      if (localStorage.getItem('gas_url_staff')) {
+        syncFromStaffSheet(false).catch(e => console.warn('staff fetch', e));
       }
     } catch(e) { console.warn('startup sync failed', e); }
   }, 1500);
@@ -7730,6 +7838,7 @@
   // 編集画面：確認ダイアログを出してOKなら閉じる
   const _NAV_LIST_PANELS = [
     { id: 'equip-master-screen',     close: () => closeEquipMaster() },
+    { id: 'staff-edit-screen',       close: () => closeStaffEdit() },
     { id: 'client-master-screen',    close: () => closeClientMaster() },
     { id: 'product-master-screen',   close: () => closeProductMaster() },
     { id: 'media-list-screen',       close: () => closeMediaList() },
@@ -9197,6 +9306,8 @@
     if (drivingEl) drivingEl.value = localStorage.getItem('gas_url_driving') || '';
     const invoiceEl = document.getElementById('gas-url-invoice-input');
     if (invoiceEl) invoiceEl.value = localStorage.getItem('gas_url_invoice') || '';
+    const staffEl = document.getElementById('gas-url-staff-input');
+    if (staffEl) staffEl.value = localStorage.getItem('gas_url_staff') || '';
     const tokenEl = document.getElementById('gas-token-input');
     if (tokenEl) tokenEl.value = localStorage.getItem('gas_token') || '';
     const tokenStatusEl = document.getElementById('gas-token-status');
@@ -9228,6 +9339,8 @@
     const mediaUrl   = (document.getElementById('gas-url-media-input').value   || '').trim();
     const drivingUrl = (document.getElementById('gas-url-driving-input').value || '').trim();
     const invoiceUrl = (document.getElementById('gas-url-invoice-input').value || '').trim();
+    const staffEl    = document.getElementById('gas-url-staff-input');
+    const staffUrl   = (staffEl ? staffEl.value : '').trim();
     const urlRe = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/;
     if (!url) { setGasStatus('親URLを入力してください', '#c0392b'); return; }
     if (!urlRe.test(url))                       { setGasStatus('親URLの形式が正しくないようです', '#c0392b'); return; }
@@ -9237,6 +9350,7 @@
     if (mediaUrl && !urlRe.test(mediaUrl))      { setGasStatus('メディアURLの形式が正しくないようです', '#c0392b'); return; }
     if (drivingUrl && !urlRe.test(drivingUrl))  { setGasStatus('運転記録URLの形式が正しくないようです', '#c0392b'); return; }
     if (invoiceUrl && !urlRe.test(invoiceUrl))  { setGasStatus('請求書URLの形式が正しくないようです', '#c0392b'); return; }
+    if (staffUrl && !urlRe.test(staffUrl))      { setGasStatus('スタッフURLの形式が正しくないようです', '#c0392b'); return; }
     localStorage.setItem('gas_url', url);
     if (childUrl)   localStorage.setItem('gas_url_child', childUrl);     else localStorage.removeItem('gas_url_child');
     if (clientUrl)  localStorage.setItem('gas_url_client', clientUrl);   else localStorage.removeItem('gas_url_client');
@@ -9244,13 +9358,15 @@
     if (mediaUrl)   localStorage.setItem('gas_url_media', mediaUrl);     else localStorage.removeItem('gas_url_media');
     if (drivingUrl) localStorage.setItem('gas_url_driving', drivingUrl); else localStorage.removeItem('gas_url_driving');
     if (invoiceUrl) localStorage.setItem('gas_url_invoice', invoiceUrl); else localStorage.removeItem('gas_url_invoice');
-    const set = [url?'親':'', childUrl?'子':'', clientUrl?'取引先':'', productUrl?'商品':'', mediaUrl?'メディア':'', drivingUrl?'運転':'', invoiceUrl?'請求書':''].filter(Boolean).join('・');
+    if (staffUrl)   localStorage.setItem('gas_url_staff', staffUrl);     else localStorage.removeItem('gas_url_staff');
+    const set = [url?'親':'', childUrl?'子':'', clientUrl?'取引先':'', productUrl?'商品':'', mediaUrl?'メディア':'', drivingUrl?'運転':'', invoiceUrl?'請求書':'', staffUrl?'スタッフ':''].filter(Boolean).join('・');
     setGasStatus('✅ ' + set + ' URL を保存しました', '#27ae60');
     if (clientUrl)  fetchClientMaster(true);
     if (productUrl) fetchProductMaster(true);
     if (mediaUrl)   fetchMediaList(true);
     if (drivingUrl) fetchDrivingList(true);
     if (invoiceUrl) syncFromInvoiceSheet(true);
+    if (staffUrl)   syncFromStaffSheet(true).catch(e => console.warn('staff sync', e));
   }
 
   // 合言葉（token）を保存。コードには埋めず、この端末の localStorage にだけ保存する。
@@ -9322,6 +9438,7 @@
             case 'invoiceDelete': res = await sendInvoiceDeleteToSheet(item.num); break;
             case 'wsDelete':      res = await sendDeleteToSheets(item.num); res = res || { ok: true }; break;
             case 'equip':         res = await sendEquipMasterToSheet(false); res = res || { ok: true }; break;
+            case 'staff':         res = await sendStaffToSheet(item.num); break;
             default:              res = { ok: true }; // 不明な種類は捨てる
           }
           if (res && (res.ok || res.skipped)) { pendingClear(item.kind, item.num); ok++; }
@@ -9340,6 +9457,217 @@
     const n = getSyncPending().length;
     if (n > 0) { el.textContent = `⚠️ 未送信 ${n} 件（あとで自動再送します）`; el.style.color = '#e67e22'; }
     else { el.textContent = '✅ 未送信なし'; el.style.color = '#27ae60'; }
+  }
+
+  // ===== スタッフ（漢たち）情報の編集・同期 =====
+  // 10名固定。カードをタップ→編集フォーム→保存でローカル保存＋シート送信（全社共有）。
+  // アバターの絵柄（SVG）は変更しない。同期は請求書と同じ方式（1人1行・JSON丸ごと・更新日時で後勝ち）。
+  // STAFF_KEYS は上部（ログイン処理）で既に定義済み。同じ順序を使う。
+  const STAFF_STATUS_COLOR = { '稼働中':'#27ae60', '撮影中':'#e67e22', '待機中':'#2980b9', '休暇中':'#95a5a6' };
+  const _defaultStaffMaster = [
+    { key:'kawasaki', name:'川崎', reading:'かわさき', status:'稼働中', roles:['P','D'], role:'カメラマン / ディレクター', specialty:'TV番組・CM', jobs:8, years:15, stars:5, note:'チーフカメラマン。現場リーダー。' },
+    { key:'uehara',   name:'上原', reading:'うえはら', status:'待機中', roles:['C'],     role:'カメラマン', specialty:'PV・イベント', jobs:5, years:10, stars:3, note:'広角・動画演出が得意。' },
+    { key:'hiraoka',  name:'平岡', reading:'ひらおか', status:'撮影中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・WEB', jobs:6, years:5, stars:1, note:'機材管理担当。' },
+    { key:'kawano',   name:'川野', reading:'かわの',   status:'稼働中', roles:['PM'],    role:'プロデューサー / PM', specialty:'大型イベント・CM', jobs:10, years:12, stars:4, note:'スケジュール・予算管理。' },
+    { key:'shin',     name:'城間', reading:'しろま',   status:'待機中', roles:['C','CA'],role:'カメラマン', specialty:'CM・PV', jobs:4, years:8, stars:2, note:'照明プランニングも対応可。' },
+    { key:'arasaki',  name:'新崎', reading:'あらさき', status:'待機中', roles:['S'],     role:'音声・サウンドエンジニア', specialty:'TV・イベント', jobs:5, years:9, stars:3, note:'収録・MA対応。' },
+    { key:'hazama',   name:'玻座間', reading:'はざま', status:'休暇中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・WEB', jobs:0, years:3, stars:1, note:'6/1〜復帰予定。' },
+    { key:'morita',   name:'森田', reading:'もりた',   status:'稼働中', roles:['E'],     role:'映像編集・カラコレ', specialty:'CM・PV・WEB', jobs:7, years:11, stars:3, note:'DaVinci Resolve / Premiere対応。' },
+    { key:'kamiji',   name:'上地', reading:'うえち',   status:'待機中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・イベント', jobs:3, years:2, stars:0, note:'フットワーク軽い。' },
+    { key:'matsuda',  name:'松田', reading:'まつだ',   status:'稼働中', roles:['D'],     role:'ディレクター', specialty:'TV番組・ドキュメント', jobs:9, years:13, stars:4, note:'構成・演出・取材が得意。' }
+  ];
+  function loadStaffMaster() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('staff_master') || 'null');
+      if (Array.isArray(raw) && raw.length) {
+        return STAFF_KEYS.map(k => {
+          const def = _defaultStaffMaster.find(s => s.key === k) || {};
+          const found = raw.find(s => s && s.key === k);
+          return Object.assign({}, def, found || {});
+        });
+      }
+    } catch {}
+    return _defaultStaffMaster.map(s => Object.assign({}, s));
+  }
+  function saveStaffMaster(list) { localStorage.setItem('staff_master', JSON.stringify(list)); }
+  function getStaffByKey(key) { return loadStaffMaster().find(s => s.key === key); }
+
+  // ローカルのスタッフ情報を「漢たち」タブのカードに反映（テキストのみ書き換え・アバターは触らない）
+  function applyStaffToCards() {
+    const cards = document.querySelectorAll('#tab-4 .staff-card');
+    const list = loadStaffMaster();
+    cards.forEach((card, i) => {
+      const s = list[i];
+      if (!s) return;
+      const header   = card.children[0];
+      const rolesDiv = card.children[1];
+      const infoDiv  = card.children[2];
+      const noteDiv  = card.children[3];
+      if (header) {
+        const namewrap = header.children[1];
+        if (namewrap) {
+          if (namewrap.children[0]) namewrap.children[0].textContent = s.name || '';
+          if (namewrap.children[1]) namewrap.children[1].textContent = s.reading || '';
+        }
+        const badge = header.children[2];
+        if (badge) { badge.textContent = s.status || ''; badge.style.background = STAFF_STATUS_COLOR[s.status] || '#2980b9'; }
+      }
+      if (rolesDiv) {
+        rolesDiv.innerHTML = (s.roles || []).map(r =>
+          `<span style="background:#6c3483;color:white;font-size:10px;padding:1px 6px;border-radius:2px;">${_esc(r)}</span>`).join('');
+      }
+      if (infoDiv) {
+        const stars = '⭐'.repeat(Math.max(0, Math.min(5, Number(s.stars) || 0)));
+        infoDiv.innerHTML = `🎬 ${_esc(s.role)}<br>🏆 専門: ${_esc(s.specialty)}<br>📅 当月稼働: ${Number(s.jobs) || 0}件　⏱ 経験: ${Number(s.years) || 0}年　${stars}`;
+      }
+      if (noteDiv) noteDiv.textContent = s.note || '';
+      card.style.cursor = 'pointer';
+      card.onclick = () => openStaffEdit(s.key);
+    });
+  }
+
+  // 編集フォームの開閉・保存
+  let _editingStaffKey = null;
+  function openStaffEdit(key) {
+    const s = getStaffByKey(key);
+    if (!s) return;
+    _editingStaffKey = key;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    document.getElementById('se-title').textContent = (s.name || '') + ' を編集';
+    set('se-name', s.name || '');
+    set('se-reading', s.reading || '');
+    set('se-status', s.status || '待機中');
+    set('se-roles', (s.roles || []).join(', '));
+    set('se-role', s.role || '');
+    set('se-specialty', s.specialty || '');
+    set('se-jobs', Number(s.jobs) || 0);
+    set('se-years', Number(s.years) || 0);
+    set('se-stars', Number(s.stars) || 0);
+    set('se-note', s.note || '');
+    const ss = document.getElementById('se-save-status'); if (ss) ss.textContent = '';
+    document.getElementById('staff-edit-screen').style.transform = 'translateX(0)';
+  }
+  function closeStaffEdit() {
+    document.getElementById('staff-edit-screen').style.transform = 'translateX(100%)';
+    _editingStaffKey = null;
+  }
+  function saveStaffEdit() {
+    if (!_editingStaffKey) return;
+    const list = loadStaffMaster();
+    const idx = list.findIndex(s => s.key === _editingStaffKey);
+    if (idx < 0) return;
+    const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const roles = String(val('se-roles') || '').split(',').map(r => r.trim()).filter(Boolean);
+    const upd = {
+      name: String(val('se-name') || '').trim(),
+      reading: String(val('se-reading') || '').trim(),
+      status: val('se-status') || '待機中',
+      roles: roles,
+      role: String(val('se-role') || '').trim(),
+      specialty: String(val('se-specialty') || '').trim(),
+      jobs: Math.max(0, Number(val('se-jobs')) || 0),
+      years: Math.max(0, Number(val('se-years')) || 0),
+      stars: Math.max(0, Math.min(5, Number(val('se-stars')) || 0)),
+      note: String(val('se-note') || '').trim(),
+      _updatedAt: new Date().toISOString()
+    };
+    list[idx] = Object.assign({}, list[idx], upd);
+    saveStaffMaster(list);
+    applyStaffToCards();
+    const key = _editingStaffKey;
+    const ss = document.getElementById('se-save-status');
+    if (ss) ss.textContent = getStaffGasUrl() ? '✅ 保存しました（全社へ送信中）' : '✅ 保存しました（この端末のみ）';
+    scheduleStaffPush(key);
+    setTimeout(closeStaffEdit, 600);
+  }
+
+  // ----- スタッフのスプレッドシート同期 -----
+  function getStaffGasUrl() { return (localStorage.getItem('gas_url_staff') || '').trim(); }
+  let _staffPushTimers = {};
+  function scheduleStaffPush(key) {
+    if (!getStaffGasUrl() || !key) return;
+    if (_staffPushTimers[key]) clearTimeout(_staffPushTimers[key]);
+    _staffPushTimers[key] = setTimeout(() => {
+      delete _staffPushTimers[key];
+      sendStaffToSheet(key).catch(e => console.warn('staff auto-push', e));
+    }, 1000);
+  }
+  async function sendStaffToSheet(key) {
+    const url = getStaffGasUrl();
+    if (!url || !key) return { skipped: true };
+    const s = getStaffByKey(key);
+    if (!s) return { skipped: true };
+    const row = {
+      'キー': key,
+      'データ': JSON.stringify(s),
+      '更新日時': s._updatedAt || new Date().toISOString(),
+      '削除フラグ': ''
+    };
+    try {
+      const res = await fetch(url, {
+        method: 'POST', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'upsert', rows: [row] })
+      });
+      const data = await res.json();
+      console.log('[スタッフ送信]', { key, response: data });
+      if (data && data.ok) pendingClear('staff', key); else pendingAdd('staff', key);
+      return data;
+    } catch (err) {
+      console.warn('sendStaffToSheet failed', err, key);
+      pendingAdd('staff', key);
+      return { ok: false, error: err.message };
+    }
+  }
+  // シートから取り込み（更新日時で後勝ち。未知キーは無視＝10名固定）
+  async function syncFromStaffSheet(showStatus) {
+    const url = getStaffGasUrl();
+    if (!url) return { pulled: 0 };
+    let pulled = 0;
+    try {
+      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '不明なエラー');
+      const rows = data.rows || [];
+      const list = loadStaffMaster();
+      let changed = false;
+      rows.forEach(r => {
+        const key = String(r['キー'] || '').trim();
+        if (!key) return;
+        const idx = list.findIndex(s => s.key === key);
+        if (idx < 0) return;
+        let parsed; try { parsed = JSON.parse(r['データ'] || '{}'); } catch { return; }
+        const sheetUpd = String(r['更新日時'] || '');
+        const localUpd = String(list[idx]._updatedAt || '');
+        if (!localUpd || sheetUpd > localUpd) {
+          list[idx] = Object.assign({}, list[idx], parsed, { key });
+          changed = true; pulled++;
+        }
+      });
+      if (changed) { saveStaffMaster(list); applyStaffToCards(); }
+    } catch (e) {
+      console.warn('syncFromStaffSheet failed', e);
+      if (showStatus) throw e;
+    }
+    return { pulled };
+  }
+  // 「🔄 スタッフを同期」ボタン用：全員送信（シード）＋取得
+  async function manualSyncStaff() {
+    const el = document.getElementById('staff-sync-status');
+    const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
+    if (!getStaffGasUrl()) { set('⚠️ スタッフの同期URLが未設定です（設定画面で登録してください）', '#c0392b'); return; }
+    set('🔄 同期中…（送信＋取得）', '#2980b9');
+    try {
+      let pushed = 0;
+      for (const k of STAFF_KEYS) {
+        const r = await sendStaffToSheet(k);
+        if (r && r.ok) pushed++;
+      }
+      const pr = await syncFromStaffSheet(true);
+      set(`✅ 送信 ${pushed}件・取得 ${pr.pulled || 0}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
+    } catch (e) {
+      set('❌ 同期失敗：' + e.message, '#c0392b');
+    }
   }
 
   // ===== 請求書／見積書のスプレッドシート同期 =====
