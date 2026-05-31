@@ -5157,6 +5157,8 @@
       </div>
       <button id="sales-export-btn" onclick="exportSalesCSV()" title="CSVダウンロード"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 CSV</button>
+      <button id="dept-sales-btn" onclick="openDeptSales()" title="部門別売上"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">🏢 部門別</button>
     </div>
 
     <!-- 期間フィルタ -->
@@ -7699,6 +7701,7 @@
   // 編集画面：確認ダイアログを出してOKなら閉じる
   const _NAV_LIST_PANELS = [
     { id: 'equip-master-screen',     close: () => closeEquipMaster() },
+    { id: 'dept-sales-screen',       close: () => closeDeptSales() },
     { id: 'client-master-screen',    close: () => closeClientMaster() },
     { id: 'product-master-screen',   close: () => closeProductMaster() },
     { id: 'media-list-screen',       close: () => closeMediaList() },
@@ -10432,6 +10435,19 @@
 
   function closeSalesScreen() {
     const el = document.getElementById('sales-screen');
+    _resetFullPageStyle(el);
+    el.style.transform = 'translateX(100%)';
+  }
+
+  function openDeptSales() {
+    renderDeptSalesScreen();
+    const el = document.getElementById('dept-sales-screen');
+    el.style.transform = 'translateX(0)';
+    _applyFullPageStyle(el, 10001);
+  }
+
+  function closeDeptSales() {
+    const el = document.getElementById('dept-sales-screen');
     _resetFullPageStyle(el);
     el.style.transform = 'translateX(100%)';
   }
