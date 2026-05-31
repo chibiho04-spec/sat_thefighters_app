@@ -2183,6 +2183,23 @@
     #confirm-overlay { /* fixed, already centered */ }
 
     /* === 印刷プレビューはfixed全画面でOK === */
+
+    /* === 明細モーダル：デスクトップはセンター表示 === */
+    #inv-line-modal {
+      left: 200px;          /* サイドバー(200px)の右側に表示 */
+      padding-bottom: 0;    /* デスクトップはボトムナビなし */
+      align-items: center;  /* 縦方向中央 */
+      justify-content: center; /* 横方向中央 */
+    }
+    .inv-modal-sheet {
+      max-width: 580px;
+      width: 90%;
+      max-height: 88vh;
+      border-radius: 12px;  /* 全周丸める */
+    }
+    .inv-modal-head {
+      border-radius: 12px 12px 0 0;
+    }
   }
 
   /* より広い画面（1200px+）では詳細パネルをさらに小さく */
