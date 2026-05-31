@@ -6460,13 +6460,6 @@
   </div>
 </div>
 
-<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
-  <div style="background:#fffbf0;border:3px solid #d4a017;border-radius:4px;padding:20px;width:320px;box-shadow:6px 6px 0 #8b6914;">
-    <div class="modal-title" style="font-size:14px;margin-bottom:12px;color:#2c3e50;border-bottom:2px dashed #e8d5a0;padding-bottom:8px;">⚔️ 操作</div>
-    <div class="modal-body" style="font-size:11px;color:#5d4037;margin-bottom:12px;">この機能はフェーズ2で実装予定です。<br>現在はプロトタイプ表示モードです。</div>
-    <button onclick="hideModal()" style="width:100%;padding:10px;background:#e67e22;border:3px solid #8b4500;color:white;font-family:'DotGothic16',monospace;font-size:12px;cursor:pointer;box-shadow:3px 3px 0 #8b4500;">閉じる</button>
-  </div>
-</div>
 
 <script>
   // localStorage の T26xxx → Z26xxx キー移行
@@ -7167,37 +7160,6 @@
     card.style.display = 'flex';
   }
 
-  function pinNext(idx) {
-    const el = document.getElementById('pin' + idx);
-    // 数字のみ許可
-    el.value = el.value.replace(/[^0-9]/g, '');
-    if (el.value.length === 1 && idx < 3) {
-      document.getElementById('pin' + (idx + 1)).focus();
-    }
-    // pin3まで入力されたら自動ログイン試行
-    if (idx === 3 && el.value.length === 1) doLogin();
-  }
-
-  function doLogin() {
-    const name = document.getElementById('login-name').value.trim().toLowerCase();
-    const pass  = ['pin0','pin1','pin2','pin3'].map(id => document.getElementById(id).value).join('');
-    const err   = document.getElementById('login-error');
-
-    if (!name || pass.length < 4) {
-      err.textContent = '⚠️ 名前と4桁パスワードを入力してください';
-      err.style.display = 'block';
-      return;
-    }
-    if (USERS[name] !== pass) {
-      err.textContent = '⚠️ 名前またはパスワードが違います';
-      err.style.display = 'block';
-      ['pin0','pin1','pin2','pin3'].forEach(id => document.getElementById(id).value = '');
-      document.getElementById('pin0').focus();
-      return;
-    }
-    loginSuccess(name);
-  }
-
   function loginSuccess(name) {
     // 最終ログイン情報を保存
     try {
@@ -7205,8 +7167,6 @@
       localStorage.setItem('last_login_time', Date.now());
     } catch(e) { console.warn('login save failed', e); }
 
-    const err = document.getElementById('login-error');
-    if (err) err.style.display = 'none';
     const screen = document.getElementById('login-screen');
     screen.classList.add('login-fade-out');
 
@@ -14017,14 +13977,6 @@
   refreshHomeView(true);
   applyLayout(); // デスクトップレイアウト適用
   adjustHomeCalScale(); // ホームカレンダー初期スケール
-
-  // モーダル
-  function showModal() {
-    document.getElementById('modal').style.display = 'flex';
-  }
-  function hideModal() {
-    document.getElementById('modal').style.display = 'none';
-  }
 
   // 力士のドット絵（16×24px、川崎会長と同じ40×60px枠に収まる縦長）
   const SUMO_WRESTLER_SVG = `
