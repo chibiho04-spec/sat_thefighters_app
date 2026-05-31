@@ -10425,7 +10425,10 @@
     const base = grand || 1;
     const pct = v => Math.max(0, (v / base) * 100);
     box.innerHTML = `
-      <div style="font-size:13px;color:#6c3483;font-weight:bold;margin-bottom:8px;">🏢 部門別売上 <span style="color:#999;font-weight:normal;font-size:11px;">（編集・撮影・プロデュース）</span></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin-bottom:8px;">
+        <span style="font-size:13px;color:#6c3483;font-weight:bold;">🏢 部門別売上 <span style="color:#999;font-weight:normal;font-size:11px;">（編集・撮影・プロデュース）</span></span>
+        <span style="font-size:12px;color:#666;">もとになる売上：<b style="font-size:15px;color:#6c3483;">${fmt(grand)}</b> <span style="color:#aaa;font-size:11px;">＝各部門の合計</span></span>
+      </div>
       <div style="display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid #d2b4de;">
         ${DEPTS.map(d => `<div title="${d.label}" style="width:${pct(totals[d.key]).toFixed(2)}%;background:${d.color};"></div>`).join('')}
       </div>
