@@ -12239,7 +12239,11 @@
       const res = await fetch(url + sep + '_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const items = normalizeEquipRows(data.rows || []);
+      const sheetItems = normalizeEquipRows(data.rows || []);
+      // シートとローカルを id 単位で和集合マージ（重複はシート優先）。
+      // これで「他端末が追加した機材」も「自端末だけにある機材」も両方残る。
+      const localItems = loadEquipMaster();
+      const items = sheetItems.length ? _unionEquip(localItems, sheetItems, true) : localItems;
       if (items.length) {
         saveEquipMaster(items);
         // 機材マスタ画面が開いていれば即時再描画
@@ -12277,7 +12281,19 @@
     if (!url) { if (showStatus) setGasStatus('機材マスタのURLが未設定です', '#c0392b'); return; }
     if (showStatus) setGasStatus('📤 機材マスタ送信中...', '#2980b9');
     try {
-      const items = loadEquipMaster();
+      // 送信は「シート全体を置き換え」なので、古いリストのまま送ると他端末の追加を消してしまう。
+      // 送る直前にシートの現状を取得し、ローカルと和集合マージ（重複はローカル優先）してから送る。
+      const localItems = loadEquipMaster();
+      let items = localItems;
+      try {
+        const sheetItems = await _fetchEquipRows();
+        if (sheetItems) {
+          items = _unionEquip(localItems, sheetItems, false);
+          saveEquipMaster(items); // マージ結果をローカルにも反映（追加・削除を取り込む）
+        }
+      } catch (e) {
+        console.warn('equip merge before push failed (送信はローカルのみで継続)', e);
+      }
       const res = await fetch(url, {
         method: 'POST',
         redirect: 'follow',
@@ -12306,6 +12322,52 @@
 
   function saveEquipMaster(list) {
     localStorage.setItem('equip_master', JSON.stringify(list));
+  }
+
+  // ===== 機材マスタ：同時編集で消えないためのマージ ＆ 削除の墓標（tombstone）=====
+  // 機材は「シート全体を置き換え（action:'sync'）」で送るため、古いリストを持つ端末が
+  // 保存すると他端末の追加を消してしまう。これを防ぐため、送信前・取り込み時に id 単位で
+  // ユニオン（和集合）マージする。削除は墓標 equip_deleted に積み、マージ時に除外して伝播させる。
+  function getEquipDeleted() {
+    try { return JSON.parse(localStorage.getItem('equip_deleted') || '[]'); } catch { return []; }
+  }
+  function addEquipDeleted(id) {
+    if (!id) return;
+    const s = new Set(getEquipDeleted());
+    s.add(id);
+    localStorage.setItem('equip_deleted', JSON.stringify([...s]));
+  }
+
+  // id 単位の和集合。並び順は orderList を基準にし、orderList に無い otherList 専用 id は末尾へ。
+  // preferOther=true なら重複 id は otherList の値を採用（取り込み：シート優先）。
+  // preferOther=false なら orderList の値を採用（送信：ローカル優先）。墓標 id は常に除外。
+  function _unionEquip(orderList, otherList, preferOther) {
+    const tomb = new Set(getEquipDeleted());
+    const orderById = new Map(); (orderList || []).forEach(it => { if (it && it.id) orderById.set(it.id, it); });
+    const otherById = new Map(); (otherList || []).forEach(it => { if (it && it.id) otherById.set(it.id, it); });
+    const out = [];
+    const seen = new Set();
+    (orderList || []).forEach(it => {
+      if (!it || !it.id || tomb.has(it.id) || seen.has(it.id)) return;
+      const v = (preferOther && otherById.has(it.id)) ? otherById.get(it.id) : orderById.get(it.id);
+      out.push(v); seen.add(it.id);
+    });
+    (otherList || []).forEach(it => {
+      if (!it || !it.id || tomb.has(it.id) || seen.has(it.id)) return;
+      out.push(otherById.get(it.id)); seen.add(it.id);
+    });
+    return out;
+  }
+
+  // 機材シートの現在の中身を取得して正規化（失敗時は例外、URL未設定は null）
+  async function _fetchEquipRows() {
+    const url = (localStorage.getItem('gas_url_equip') || '').trim();
+    if (!url) return null;
+    const sep = url.indexOf('?') >= 0 ? '&' : '?';
+    const res = await fetch(url + sep + '_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '不明なエラー');
+    return normalizeEquipRows(data.rows || []);
   }
 
   // 機材マスタを編集したらシートへ自動送信（連続編集をまとめるためデバウンス）
@@ -12772,6 +12834,7 @@
 
   // 機材削除
   function deleteEquipItem(id) {
+    addEquipDeleted(id); // 墓標に積む（マージで復活させない・他端末へ削除を伝える）
     const master = loadEquipMaster().filter(e => e.id !== id);
     saveEquipMaster(master);
     scheduleEquipPush();
