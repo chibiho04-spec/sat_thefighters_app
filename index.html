@@ -5635,6 +5635,18 @@
         <div id="gas-token-status" style="margin-top:8px;font-size:12px;color:#666;min-height:14px;"></div>
       </div>
 
+      <!-- 未送信（再送キュー） -->
+      <div class="wsd-section-head" style="background:#b9770e;color:white;">📡 未送信の再送</div>
+      <div style="padding:12px 14px;">
+        <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:10px;">
+          ネットの不調などで<strong>シートに送れなかった変更</strong>は、ここに溜めておき、起動時などに自動で再送します。<br>
+          すぐ送り直したいときは下のボタンを押してください。
+        </div>
+        <div id="sync-pending-display" style="font-size:13px;font-weight:bold;color:#27ae60;margin-bottom:8px;min-height:16px;">✅ 未送信なし</div>
+        <button class="wsd-save-btn" style="width:100%;background:#b9770e;border-color:#7a4e09;box-shadow:3px 3px 0 #7a4e09;font-size:13px;padding:10px;"
+          onclick="retrySyncPending(true)">🔁 いま再送する</button>
+      </div>
+
       <!-- Google スプレッドシート同期 -->
       <div class="wsd-section-head" style="background:#0f9d58;color:white;">📊 案件マスタ同期（親シート）</div>
       <div style="padding:12px 14px;">
@@ -6574,6 +6586,14 @@
       }
     } catch(e) { console.warn('startup sync failed', e); }
   }, 1500);
+
+  // 起動して取り込みが落ち着いた頃に、前回送れなかった分（未送信）をまとめて再送する
+  setTimeout(() => {
+    try {
+      updatePendingDisplay();
+      if (getSyncPending().length) retrySyncPending(false).catch(e => console.warn('startup retry', e));
+    } catch(e) { console.warn('startup retry failed', e); }
+  }, 4000);
 
   // ===== デスクトップレイアウト（CSS競合を回避するためJS適用） =====
   function applyLayout() {
@@ -9185,6 +9205,7 @@
       tokenStatusEl.textContent = hasToken ? '✅ 合言葉は設定済みです' : '⚠️ 合言葉は未設定です';
       tokenStatusEl.style.color = hasToken ? '#27ae60' : '#e67e22';
     }
+    if (typeof updatePendingDisplay === 'function') updatePendingDisplay();
     setGasStatus('');
   }
   function closeSettings() {
@@ -9256,6 +9277,71 @@
   function getDrivingGasUrl() { return (localStorage.getItem('gas_url_driving') || '').trim(); }
   function getInvoiceGasUrl() { return (localStorage.getItem('gas_url_invoice') || '').trim(); }
 
+  // ===== 送信失敗の再送キュー（sync_pending）=====
+  // ネット不調などで送信に失敗したら、その「種類＋番号」を sync_pending に積んでおき、
+  // 起動時／保存成功時／手動同期時にまとめて再送する。アプリは止めない（裏で再送）。
+  // 保存するのは中身そのものではなく「何を送るか（kind と num）」だけ。
+  // 再送時に最新の localStorage から作り直すので、古い内容で上書きしない。
+  function getSyncPending() {
+    try { const a = JSON.parse(localStorage.getItem('sync_pending') || '[]'); return Array.isArray(a) ? a : []; }
+    catch { return []; }
+  }
+  function _saveSyncPending(list) { localStorage.setItem('sync_pending', JSON.stringify(list)); }
+  function _pendKey(kind, num) { return kind + ':' + (num || 'all'); }
+  // 失敗を積む（同じ key は最新の1件だけ残す）
+  function pendingAdd(kind, num) {
+    const key = _pendKey(kind, num);
+    const list = getSyncPending().filter(p => p.key !== key);
+    list.push({ key, kind, num: num || '', ts: Date.now() });
+    _saveSyncPending(list);
+    updatePendingDisplay();
+  }
+  // 成功したら取り除く
+  function pendingClear(kind, num) {
+    const key = _pendKey(kind, num);
+    const list = getSyncPending();
+    const next = list.filter(p => p.key !== key);
+    if (next.length !== list.length) { _saveSyncPending(next); updatePendingDisplay(); }
+  }
+  // 保留中の再送をまとめて実行（多重起動を防ぐ）
+  let _retryingPending = false;
+  async function retrySyncPending(showStatus) {
+    if (_retryingPending) return { ok: 0, fail: 0, skipped: true };
+    const list = getSyncPending();
+    if (!list.length) { if (showStatus) setGasStatus('再送する保留はありません', '#888'); return { ok: 0, fail: 0 }; }
+    _retryingPending = true;
+    let ok = 0, fail = 0;
+    try {
+      for (const item of list) {
+        try {
+          let res;
+          switch (item.kind) {
+            case 'order':         res = await sendOrderToSheet(item.num, (getSavedProjects().find(p => p.num === item.num)) || wsData[item.num] || {}); break;
+            case 'child':         res = await sendWorksheetToChild(item.num); break;
+            case 'invoice':       res = await sendInvoiceToSheet(item.num); break;
+            case 'invoiceDelete': res = await sendInvoiceDeleteToSheet(item.num); break;
+            case 'wsDelete':      res = await sendDeleteToSheets(item.num); res = res || { ok: true }; break;
+            case 'equip':         res = await sendEquipMasterToSheet(false); res = res || { ok: true }; break;
+            default:              res = { ok: true }; // 不明な種類は捨てる
+          }
+          if (res && (res.ok || res.skipped)) { pendingClear(item.kind, item.num); ok++; }
+          else { fail++; }
+        } catch (e) { console.warn('retrySyncPending item failed', item, e); fail++; }
+      }
+    } finally { _retryingPending = false; }
+    updatePendingDisplay();
+    if (showStatus) setGasStatus(`🔁 再送：成功 ${ok}件 / 失敗 ${fail}件`, fail ? '#e67e22' : '#27ae60');
+    return { ok, fail };
+  }
+  // データ管理画面の「未送信◯件」表示を更新（要素が無ければ何もしない）
+  function updatePendingDisplay() {
+    const el = document.getElementById('sync-pending-display');
+    if (!el) return;
+    const n = getSyncPending().length;
+    if (n > 0) { el.textContent = `⚠️ 未送信 ${n} 件（あとで自動再送します）`; el.style.color = '#e67e22'; }
+    else { el.textContent = '✅ 未送信なし'; el.style.color = '#27ae60'; }
+  }
+
   // ===== 請求書／見積書のスプレッドシート同期 =====
   // 1案件1行。受注No をキーに、請求書データ全体を JSON 文字列で「データ」列に保存する。
   // （列ごとに分けると見出しズレで壊れやすいので、まるごとJSONにする方式）
@@ -9290,9 +9376,11 @@
       });
       const data = await res.json();
       console.log('[請求書送信]', { num, response: data });
+      if (data && data.ok) pendingClear('invoice', num); else pendingAdd('invoice', num);
       return data;
     } catch (err) {
       console.warn('sendInvoiceToSheet failed', err, num);
+      pendingAdd('invoice', num);
       return { ok: false, error: err.message };
     }
   }
@@ -9317,9 +9405,11 @@
       });
       const data = await res.json();
       console.log('[請求書削除送信]', { num, response: data });
+      if (data && data.ok) pendingClear('invoiceDelete', num); else pendingAdd('invoiceDelete', num);
       return data;
     } catch (err) {
       console.warn('sendInvoiceDeleteToSheet failed', err, num);
+      pendingAdd('invoiceDelete', num);
       return { ok: false, error: err.message };
     }
   }
@@ -11462,9 +11552,11 @@
       });
       const data = await res.json();
       console.log('[子シート送信]', { sent: row, response: data });
+      if (data && data.ok) pendingClear('child', num); else pendingAdd('child', num);
       return data;
     } catch (err) {
       console.warn('sendWorksheetToChild failed', err, row);
+      pendingAdd('child', num);
       return { ok: false, error: err.message };
     }
   }
@@ -11614,9 +11706,11 @@
         body: JSON.stringify({ action: 'upsert', rows: [projectToOrderRow(num, p)] })
       });
       const data = await res.json();
+      if (data && data.ok) pendingClear('order', num); else pendingAdd('order', num);
       return data;
     } catch (err) {
       console.warn('sendOrderToSheet failed', err);
+      pendingAdd('order', num);
       return { ok: false, error: err.message };
     }
   }
@@ -12303,9 +12397,13 @@
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       if (showStatus) setGasStatus(`✅ 機材マスタ ${data.count}件 送信完了`, '#27ae60');
+      pendingClear('equip', null);
+      return { ok: true, count: data.count };
     } catch(err) {
       console.warn('sendEquipMasterToSheet failed', err);
       if (showStatus) setGasStatus('❌ 機材マスタ送信失敗：' + err.message, '#c0392b');
+      pendingAdd('equip', null);
+      return { ok: false, error: err.message };
     }
   }
 
@@ -13693,15 +13791,25 @@
   // 親・子シートに削除フラグを立てる
   async function sendDeleteToSheets(num) {
     const urls = [getGasUrl(), getChildGasUrl()].filter(Boolean);
-    if (!urls.length) return;
-    await Promise.all(urls.map(url =>
-      fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'delete', nums: [num] })
-      }).catch(e => console.warn('sendDeleteToSheets', url, e))
-    ));
+    if (!urls.length) return { skipped: true };
+    try {
+      const results = await Promise.all(urls.map(url =>
+        fetch(url, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ action: 'delete', nums: [num] })
+        }).then(r => r.ok).catch(e => { console.warn('sendDeleteToSheets', url, e); return false; })
+      ));
+      const allOK = results.every(Boolean);
+      if (allOK) { pendingClear('wsDelete', num); return { ok: true }; }
+      pendingAdd('wsDelete', num);
+      return { ok: false };
+    } catch (e) {
+      console.warn('sendDeleteToSheets failed', e);
+      pendingAdd('wsDelete', num);
+      return { ok: false, error: e.message };
+    }
   }
 
   function deleteWS(num) {
