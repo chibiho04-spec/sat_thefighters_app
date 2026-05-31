@@ -5187,6 +5187,38 @@
     </div>
   </div><!-- /sales-screen -->
 
+  <div id="dept-sales-screen" style="
+    position:absolute; inset:0; z-index:200;
+    background:var(--panel-bg);
+    transform:translateX(100%);
+    transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
+    display:flex; flex-direction:column; overflow:hidden;">
+
+    <div style="display:flex;align-items:center;gap:10px;background:#6c3483;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #4a235a;">
+      <button class="wsd-back" onclick="closeDeptSales()">◀ 戻る</button>
+      <div class="wsd-header-info">
+        <div class="wsd-header-num" style="color:#e8daef;">🏢 部門別売上</div>
+        <div class="wsd-header-title">編集・撮影・プロデュース</div>
+      </div>
+    </div>
+
+    <!-- 期間フィルタ -->
+    <div style="padding:10px 12px;background:#f4ecf7;border-bottom:2px solid #d2b4de;flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:#666;">期間：</span>
+      <select id="dept-period" onchange="renderDeptSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
+        <option value="all">すべて</option>
+        <option value="2026">2026年</option>
+        <option value="2025">2025年</option>
+      </select>
+    </div>
+
+    <!-- サマリー（横帯バー＋凡例） -->
+    <div id="dept-summary" style="padding:12px;background:#fff;border-bottom:2px solid #ddd;flex-shrink:0;"></div>
+
+    <!-- 部門ごとの案件内訳 -->
+    <div id="dept-body" class="wsd-scroll" style="padding:8px 10px 20px;"></div>
+  </div><!-- /dept-sales-screen -->
+
   <!-- ========== 商品マスタ画面（スライドイン） ========== -->
   <div id="product-master-screen" style="
     position:absolute; inset:0; z-index:172;
