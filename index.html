@@ -10505,6 +10505,95 @@
     return items;
   }
 
+  // ===== 部門別売上：集計ロジック（編集・撮影・プロデュース・未分類） =====
+  // 請求明細の name（役割ラベル）から部門を判定する
+  function _classifyLineDept(name) {
+    const s = String(name || '');
+    if (/プロデュース/.test(s)) return 'produce';
+    if (/企画・演出|監督/.test(s)) return 'produce';
+    if (/プロダクションマネージャー/.test(s)) return 'produce';
+    if (/カメラマン/.test(s)) return 'shoot';
+    if (/撮影助手/.test(s)) return 'shoot';
+    if (/音声/.test(s)) return 'shoot';
+    if (/撮影機材/.test(s)) return 'shoot';
+    if (/編集/.test(s)) return 'edit';
+    return 'other';
+  }
+
+  // 1案件の売上(netInhouse)を3部門+未分類へ振り分ける（合計はnetInhouseに一致）
+  // item は _collectSalesItems() の1要素（num, netInhouse, date 等を持つ）
+  function _caseDeptSplit(item) {
+    const net = Number(item.netInhouse) || 0;
+    const res = { produce: 0, shoot: 0, edit: 0, other: 0 };
+    const status = (typeof loadInvStatus === 'function') ? (loadInvStatus(item.num) || {}) : {};
+    const lines = (status.lines && status.lines.length) ? status.lines : null;
+
+    if (lines) {
+      // A. 明細あり：非外注行を部門別グロスに集計 → net を比率按分
+      const gross = { produce: 0, shoot: 0, edit: 0, other: 0 };
+      let totalGross = 0;
+      lines.forEach(l => {
+        if (l && l.outsource) return; // 外注行は除外
+        const amt = (Number(l.qty) || 0) * (Number(l.price) || 0);
+        if (amt <= 0) return;
+        gross[_classifyLineDept(l.name)] += amt;
+        totalGross += amt;
+      });
+      if (totalGross > 0) {
+        ['produce', 'shoot', 'edit', 'other'].forEach(d => {
+          res[d] = net * (gross[d] / totalGross);
+        });
+        return res;
+      }
+      res.other = net; // グロス0は未分類へ
+      return res;
+    }
+
+    // B. 明細なし：クルー欄の役割人数で按分
+    const saved = (typeof loadWS === 'function') ? (loadWS(item.num) || {}) : {};
+    const _has = k => (String(saved[k] || '').trim() ? 1 : 0);
+    const cnt = {
+      produce: _has('crew_producer') + _has('crew_d') + _has('crew_pm1') + _has('crew_pm2'),
+      shoot:   _has('crew_c') + _has('crew_a') + _has('crew_a2') + _has('crew_sound'),
+      edit:    _has('crew_edit')
+    };
+    const totalCnt = cnt.produce + cnt.shoot + cnt.edit;
+    if (totalCnt > 0) {
+      res.produce = net * (cnt.produce / totalCnt);
+      res.shoot   = net * (cnt.shoot   / totalCnt);
+      res.edit    = net * (cnt.edit    / totalCnt);
+      return res;
+    }
+    res.other = net; // クルー未入力は未分類へ
+    return res;
+  }
+
+  // 期間でフィルタした全案件を部門別に集計
+  // period: 'all' | '2026' | '2025' ...
+  function _collectDeptBreakdown(period) {
+    let items = (typeof _collectSalesItems === 'function') ? _collectSalesItems() : [];
+    if (period && period !== 'all') {
+      const y = parseInt(period, 10);
+      items = items.filter(it => {
+        const d = _parseDateForSales(it.date);
+        return d && d.y === y;
+      });
+    }
+    const totals = { produce: 0, shoot: 0, edit: 0, other: 0 };
+    const cases = [];
+    items.forEach(it => {
+      const sp = _caseDeptSplit(it);
+      totals.produce += sp.produce;
+      totals.shoot   += sp.shoot;
+      totals.edit    += sp.edit;
+      totals.other   += sp.other;
+      cases.push({ num: it.num, title: it.title, client: it.client, date: it.date,
+                   produce: sp.produce, shoot: sp.shoot, edit: sp.edit, other: sp.other });
+    });
+    const grand = totals.produce + totals.shoot + totals.edit + totals.other;
+    return { totals, cases, grand };
+  }
+
   function renderSalesScreen() {
     const period       = document.getElementById('sales-period').value;
     const statusFilter = document.getElementById('sales-status-filter').value;
