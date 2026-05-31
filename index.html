@@ -848,7 +848,7 @@
   .ws-status.cm       { color: #e74c3c; border-color: #e74c3c; background: #fde8e8; }
 
   .ws-title {
-    font-size: 21px;
+    font-size: 25px;
     color: var(--text-dark);
     font-weight: bold;
     margin-top: 2px;
@@ -1898,7 +1898,7 @@
     .status-value   { font-size: clamp(14px, 1.3vw, 20px); }
     .status-label   { font-size: clamp(9px,  0.8vw, 13px); }
     .status-sub     { font-size: clamp(8px,  0.7vw, 12px); }
-    .ws-title       { font-size: clamp(12px, 1.0vw, 16px); }
+    .ws-title       { font-size: clamp(19px, 1.7vw, 24px); }
     .ws-meta-item   { font-size: clamp(9px,  0.75vw, 12px); }
     .ws-date-badge  { font-size: clamp(13px, 1.05vw, 18px); padding: 5px 11px; }
     .ws-crew        { font-size: clamp(9px, 0.72vw, 12px); }
@@ -13812,7 +13812,7 @@
           <div class="ws-status ${getWsStatusClass(data.orderType)}">${escapeHtml(data.orderType)}</div>
           ${data.type ? `<span class="ws-meta-item">📺 ${escapeHtml(data.type)}</span>` : ''}
         </div>
-        <div class="ws-num">${escapeHtml(num)}</div>
+        <div class="ws-num">受注No: ${escapeHtml(num)}</div>
         <div class="ws-title">${escapeHtml(data.title)}</div>
         <div class="ws-meta-row">${companyHtml}</div>
         <div class="ws-meta-row">${dateHtml}</div>
