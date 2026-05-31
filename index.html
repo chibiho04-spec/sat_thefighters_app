@@ -10452,6 +10452,62 @@
     el.style.transform = 'translateX(100%)';
   }
 
+  function renderDeptSalesScreen() {
+    const periodEl = document.getElementById('dept-period');
+    const period = periodEl ? periodEl.value : 'all';
+    const { totals, cases, grand } = _collectDeptBreakdown(period);
+    const fmt = n => '¥' + Math.round(Number(n) || 0).toLocaleString();
+    const DEPTS = [
+      { key: 'produce', label: 'プロデュース', color: '#8e44ad' },
+      { key: 'shoot',   label: '撮影',         color: '#2980b9' },
+      { key: 'edit',    label: '編集',         color: '#27ae60' },
+      { key: 'other',   label: '未分類',       color: '#95a5a6' }
+    ];
+    const base = grand || 1;
+    const pct = v => Math.max(0, (v / base) * 100);
+
+    // サマリー
+    const summary = document.getElementById('dept-summary');
+    summary.innerHTML = `
+      <div style="font-size:13px;color:#333;margin-bottom:6px;font-weight:bold;">売上合計 ${fmt(grand)}</div>
+      <div style="display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid #ddd;">
+        ${DEPTS.map(d => `<div title="${d.label}" style="width:${pct(totals[d.key]).toFixed(2)}%;background:${d.color};"></div>`).join('')}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;">
+        ${DEPTS.map(d => `
+          <div style="display:flex;align-items:center;gap:5px;font-size:12px;">
+            <span style="width:11px;height:11px;border-radius:2px;background:${d.color};display:inline-block;"></span>
+            <span style="color:#333;">${d.label}</span>
+            <b style="color:${d.color};">${fmt(totals[d.key])}</b>
+            <span style="color:#999;">(${pct(totals[d.key]).toFixed(1)}%)</span>
+          </div>`).join('')}
+      </div>`;
+
+    // 本体：部門ごとに貢献案件リスト
+    const body = document.getElementById('dept-body');
+    if (!cases.length) {
+      body.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">対象データがありません</div>';
+      return;
+    }
+    body.innerHTML = DEPTS.map(d => {
+      const rows = cases
+        .filter(c => (c[d.key] || 0) > 0)
+        .sort((a, b) => b[d.key] - a[d.key])
+        .map(c => `
+          <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:12px;">
+            <span style="color:#333;min-width:0;word-break:break-word;">${escapeHtml(c.title || '無題')} <span style="color:#aaa;font-size:10px;">${escapeHtml(c.num)}</span></span>
+            <b style="color:${d.color};white-space:nowrap;">${fmt(c[d.key])}</b>
+          </div>`).join('');
+      return `
+        <div style="margin-bottom:14px;border:1px solid #eee;border-radius:5px;overflow:hidden;">
+          <div style="background:${d.color};color:#fff;padding:6px 10px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between;">
+            <span>${d.label}</span><span>${fmt(totals[d.key])}</span>
+          </div>
+          ${rows || '<div style="padding:8px 10px;color:#bbb;font-size:11px;">該当案件なし</div>'}
+        </div>`;
+    }).join('');
+  }
+
   // 案件1件ぶんの売上情報を集計（明細行＋ステータス＋外注費）
   function _calcCaseSales(num, master) {
     const status = (typeof loadInvStatus === 'function') ? (loadInvStatus(num) || {}) : {};
