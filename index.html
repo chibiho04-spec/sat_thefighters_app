@@ -2639,7 +2639,7 @@
     .sales-row,
     .sales-row-head {
       display: grid;
-      grid-template-columns: 50px minmax(160px,2fr) 70px 110px 110px 100px;
+      grid-template-columns: minmax(160px,2fr) 70px 110px 110px 100px;
       gap: 6px;
       align-items: center;
       padding: 4px 10px;
@@ -2666,7 +2666,7 @@
     }
     .sales-row .row-top {
       display: grid;
-      grid-template-columns: 50px 1fr auto;
+      grid-template-columns: 1fr auto;
       gap: 8px;
       align-items: center;
       margin-bottom: 12px;
@@ -10747,11 +10747,11 @@
           return `
           <div class="sales-row" style="background:${confirmed?'#f0faf4':'white'};">
             <div class="row-top">
-              <div class="col-num" style="font-size:11px;color:#c0392b;font-weight:bold;word-break:break-all;">${escapeHtml(it.num)}</div>
               <div class="col-title"
                 style="color:#333;padding:8px 10px;border-radius:3px;background:#fbfbfb;border:1px solid #ececec;display:flex;align-items:center;gap:10px;">
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:15px;font-weight:bold;line-height:1.3;word-break:break-word;letter-spacing:0.5px;margin-bottom:3px;">📋 ${escapeHtml(it.title || '無題')}</div>
+                  <div style="font-size:11px;color:#c0392b;font-weight:bold;word-break:break-all;line-height:1.2;margin-bottom:2px;">受注No: ${escapeHtml(it.num)}</div>
+                  <div style="font-size:20px;font-weight:bold;line-height:1.25;word-break:break-word;letter-spacing:0.5px;margin-bottom:3px;">📋 ${escapeHtml(it.title || '無題')}</div>
                   <div style="font-size:12px;color:#888;line-height:1.3;word-break:break-word;">${escapeHtml(it.client)} ${it.date ? '／ '+escapeHtml(it.date) : ''}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
@@ -10806,8 +10806,7 @@
           <div style="background:white;border:2px solid #f4ccc8;border-top:none;border-radius:0 0 3px 3px;">
             <div class="sales-row-head" style="background:#f5e8e8;color:#641e16;font-size:11px;font-weight:bold;">
               <div class="row-top">
-                <div class="col-num">受注No</div>
-                <div class="col-title">件名／取引先</div>
+                <div class="col-title">受注No／件名／取引先</div>
                 <div class="col-status">状態</div>
               </div>
               <div class="row-bottom">
