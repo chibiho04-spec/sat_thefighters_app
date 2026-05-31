@@ -8422,6 +8422,8 @@
   }
 
   function openInv(num, action) {
+    // 前回のモーダルが残っていたら確実に閉じる
+    closeInvLineModal();
     _attachInvCompanyAc();
     const master = invData[num];
     if (!master) return;
@@ -9026,6 +9028,8 @@
   }
 
   function closeInv() {
+    // 明細モーダルが開いていたら必ず閉じる（次回開いた時に背景が残らないよう）
+    closeInvLineModal();
     const el = document.getElementById('inv-detail-screen');
     const wasOverSales = el.dataset.overSales === '1';
     const wasFromWS    = el.dataset.fromWS    === '1';
