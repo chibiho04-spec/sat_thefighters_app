@@ -1192,7 +1192,11 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 10px 12px;
     display: flex; align-items: flex-start; gap: 10px;
   }
-  .inv-card-body { flex: 1; min-width: 0; cursor: pointer; }
+  .inv-card-body {
+    flex: 1; min-width: 0; cursor: pointer;
+    background: none; border: none; padding: 0; text-align: left;
+    font-family: inherit; color: inherit; display: block;
+  }
   .inv-card-name {
     font-size: 13px; font-weight: bold; color: #222;
     word-break: break-word; line-height: 1.35; margin-bottom: 4px;
@@ -8547,18 +8551,17 @@
         : '<span class="inv-card-badge">課税</span>';
       const outBadge = l.outsource ? '<span class="inv-card-badge outsrc">外注</span>' : '';
       const codeBadge = l.code ? `<span class="inv-card-badge">${_esc(l.code)}</span>` : '';
-      const tapAttr = _invReadonly ? '' : `onclick="openInvLineModal(${i})"`;
       const delBtn  = _invReadonly ? '' :
         `<button type="button" class="inv-card-del" title="削除" onclick="delInvLineCard(${i})">🗑</button>`;
       return `
         <div class="inv-card">
-          <div class="inv-card-body" ${tapAttr}>
+          <button type="button" class="inv-card-body" onclick="openInvLineModal(${i})">
             <div class="inv-card-name${nameCls}">${nameTxt}</div>
             <div class="inv-card-sub">
               <span>¥${(l.price||0).toLocaleString()} × ${l.qty || 0}${_esc(l.unit||'')}</span>
               ${taxBadge}${outBadge}${codeBadge}
             </div>
-          </div>
+          </button>
           <div class="inv-card-right">
             <div class="inv-card-amount">¥${amt.toLocaleString()}</div>
             ${delBtn}
@@ -8590,13 +8593,18 @@
 
   // モーダルを開く（idx=null で新規追加、数値で既存行を編集）
   function openInvLineModal(idx) {
-    if (_invReadonly) return;
     const rows = _readInvLineRows();
     const isNew = (idx === null || idx === undefined);
+    // readonly時は新規追加不可
+    if (_invReadonly && isNew) return;
     const l = isNew ? { code:'', name:'', unit:'日', qty:1, price:0, taxable:true, outsource:false }
                     : (rows[idx] || {});
+    // フォームに値をセット
     document.getElementById('inv-modal-index').value = isNew ? '' : String(idx);
-    document.getElementById('inv-modal-title').textContent = isNew ? '通常行を追加' : '明細を編集';
+    document.getElementById('inv-modal-title').textContent = _invReadonly ? '明細を確認' : (isNew ? '通常行を追加' : '明細を編集');
+    const fields = ['inv-modal-name','inv-modal-qty','inv-modal-unit','inv-modal-price','inv-modal-tax','inv-modal-code'];
+    fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = _invReadonly; });
+    document.getElementById('inv-modal-outsource').disabled = _invReadonly;
     document.getElementById('inv-modal-name').value  = l.name || '';
     document.getElementById('inv-modal-qty').value   = (l.qty != null ? l.qty : 1);
     document.getElementById('inv-modal-unit').value  = l.unit || '日';
@@ -8604,7 +8612,14 @@
     document.getElementById('inv-modal-tax').value   = (l.taxable === false ? '0' : '1');
     document.getElementById('inv-modal-code').value  = l.code || '';
     document.getElementById('inv-modal-outsource').checked = !!l.outsource;
-    document.querySelector('#inv-line-modal .inv-modal-save').textContent = isNew ? 'この内容で追加' : '変更を保存';
+    // 保存ボタン：readonly時は非表示
+    const saveBtn = document.querySelector('#inv-line-modal .inv-modal-save');
+    if (saveBtn) {
+      saveBtn.style.display = _invReadonly ? 'none' : 'block';
+      saveBtn.textContent = isNew ? 'この内容で追加' : '変更を保存';
+    }
+    const footEl = document.querySelector('#inv-line-modal .inv-modal-foot');
+    if (footEl) footEl.style.paddingTop = _invReadonly ? '0' : '';
     _updateInvModalAmount();
     document.getElementById('inv-line-modal').classList.add('open');
   }
