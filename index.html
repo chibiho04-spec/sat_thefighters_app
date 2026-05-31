@@ -5621,6 +5621,20 @@
         <!-- JSで動的に更新 -->
       </div>
 
+      <!-- 同期の合言葉（全シート共通・コードには保存しない） -->
+      <div class="wsd-section-head" style="background:#7b241c;color:white;">🔑 同期の合言葉（パスワード）</div>
+      <div style="padding:12px 14px;">
+        <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:10px;">
+          部外者の読み書きを防ぐ<strong>合言葉</strong>です（全シート共通）。<br>
+          ※安全のため<strong>アプリ本体には保存されません</strong>。社内で配布された合言葉を入力してください（端末ごとに1回）。未設定でも今までどおり動きますが、サーバ側で合言葉チェックを有効にすると未入力の端末は同期できなくなります。
+        </div>
+        <input id="gas-token-input" type="text" class="wsd-input" placeholder="合言葉" autocomplete="off"
+          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
+        <button class="wsd-save-btn" style="width:100%;background:#7b241c;border-color:#4a1410;box-shadow:3px 3px 0 #4a1410;font-size:13px;padding:10px;"
+          onclick="saveGasToken()">🔑 合言葉を保存</button>
+        <div id="gas-token-status" style="margin-top:8px;font-size:12px;color:#666;min-height:14px;"></div>
+      </div>
+
       <!-- Google スプレッドシート同期 -->
       <div class="wsd-section-head" style="background:#0f9d58;color:white;">📊 案件マスタ同期（親シート）</div>
       <div style="padding:12px 14px;">
@@ -6505,6 +6519,30 @@
         if (!localStorage.getItem(k)) localStorage.setItem(k, v);
       });
     } catch(e) { console.warn('GAS URL default set failed', e); }
+  })();
+
+  // ===== GAS 合言葉（token）の自動付与 =====
+  // 公開サイトなのでコードに合言葉は埋めない。各端末が設定画面で1回入力し localStorage('gas_token') に保存する。
+  // script.google.com 宛の fetch だけ、URL クエリに token を自動付与する。
+  // （GAS は GET/POST どちらでも e.parameter.token を読めるので、body を触らずURLだけで全リクエストをカバーできる）
+  (function installGasFetchToken(){
+    if (window._gasFetchPatched) return;
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = function(input, init){
+      try {
+        if (typeof input === 'string'
+            && input.indexOf('https://script.google.com/') === 0
+            && input.indexOf('token=') < 0) {
+          const t = (localStorage.getItem('gas_token') || '').trim();
+          if (t) {
+            const sep = input.indexOf('?') >= 0 ? '&' : '?';
+            input = input + sep + 'token=' + encodeURIComponent(t);
+          }
+        }
+      } catch(e) { console.warn('gas token inject failed', e); }
+      return _origFetch(input, init);
+    };
+    window._gasFetchPatched = true;
   })();
 
   // 起動から少し遅延して自動バックアップチェック（画面描画後）
@@ -9139,6 +9177,14 @@
     if (drivingEl) drivingEl.value = localStorage.getItem('gas_url_driving') || '';
     const invoiceEl = document.getElementById('gas-url-invoice-input');
     if (invoiceEl) invoiceEl.value = localStorage.getItem('gas_url_invoice') || '';
+    const tokenEl = document.getElementById('gas-token-input');
+    if (tokenEl) tokenEl.value = localStorage.getItem('gas_token') || '';
+    const tokenStatusEl = document.getElementById('gas-token-status');
+    if (tokenStatusEl) {
+      const hasToken = !!(localStorage.getItem('gas_token') || '').trim();
+      tokenStatusEl.textContent = hasToken ? '✅ 合言葉は設定済みです' : '⚠️ 合言葉は未設定です';
+      tokenStatusEl.style.color = hasToken ? '#27ae60' : '#e67e22';
+    }
     setGasStatus('');
   }
   function closeSettings() {
@@ -9185,6 +9231,22 @@
     if (drivingUrl) fetchDrivingList(true);
     if (invoiceUrl) syncFromInvoiceSheet(true);
   }
+
+  // 合言葉（token）を保存。コードには埋めず、この端末の localStorage にだけ保存する。
+  function saveGasToken() {
+    const el = document.getElementById('gas-token-input');
+    const statusEl = document.getElementById('gas-token-status');
+    const set = (m, c) => { if (statusEl) { statusEl.textContent = m; statusEl.style.color = c || '#666'; } };
+    const token = ((el && el.value) || '').trim();
+    if (!token) {
+      localStorage.removeItem('gas_token');
+      set('⚠️ 合言葉を空にしました（未設定）', '#e67e22');
+      return;
+    }
+    localStorage.setItem('gas_token', token);
+    set('✅ 合言葉を保存しました（この端末のみ）', '#27ae60');
+  }
+  function getGasToken()      { return (localStorage.getItem('gas_token')       || '').trim(); }
 
   function getGasUrl()        { return (localStorage.getItem('gas_url')         || '').trim(); }
   function getChildGasUrl()   { return (localStorage.getItem('gas_url_child')   || '').trim(); }
