@@ -27,3 +27,47 @@ export function mergeRecordsLWW(localList, sheetList, keyField) {
   }
   return out;
 }
+
+export function stampNow(record) {
+  return Object.assign({}, record, { _updatedAt: new Date().toISOString() });
+}
+
+// JSONブロブ方式（invoice/staff/child）: データ列に丸ごと入れる
+export function jsonToRow(record, keyHeader, keyField) {
+  return {
+    [keyHeader]: String(record[keyField] || ''),
+    'データ': JSON.stringify(record),
+    '更新日時': record._updatedAt || new Date().toISOString(),
+    '削除フラグ': record._deleted ? '1' : ''
+  };
+}
+export function jsonFromRow(row, keyHeader) {
+  let rec = {};
+  try { rec = JSON.parse(row['データ'] || '{}'); } catch (e) { rec = {}; }
+  rec._updatedAt = String(row['更新日時'] || rec._updatedAt || '');
+  if (String(row['削除フラグ'] || '') === '1') rec['削除フラグ'] = '1';
+  return rec;
+}
+
+// 読める列方式（client/product/media/equip）: レコードのキーがそのままシート列
+const _INTERNAL = new Set(['_updatedAt', '_deleted']);
+export function plainToRow(record, keyField) {
+  const row = {};
+  for (const k of Object.keys(record)) {
+    if (_INTERNAL.has(k)) continue;
+    row[k] = record[k];
+  }
+  row['更新日時'] = record._updatedAt || new Date().toISOString();
+  row['削除フラグ'] = record._deleted ? '1' : '';
+  return row;
+}
+export function plainFromRow(row) {
+  const rec = {};
+  for (const k of Object.keys(row)) {
+    if (k === '更新日時' || k === '削除フラグ') continue;
+    rec[k] = row[k];
+  }
+  rec._updatedAt = String(row['更新日時'] || '');
+  if (String(row['削除フラグ'] || '') === '1') rec['削除フラグ'] = '1';
+  return rec;
+}

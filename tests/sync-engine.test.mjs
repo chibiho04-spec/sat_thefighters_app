@@ -50,3 +50,44 @@ test('mergeRecordsLWW: 古い削除はローカルの新しい編集を消さな
   assert.equal(out.length, 1);
   assert.equal(out[0].v, 'edited');
 });
+
+import { stampNow, jsonToRow, jsonFromRow, plainToRow, plainFromRow } from '../src/sync-engine.mjs';
+
+test('stampNow は _updatedAt をISOで付ける', () => {
+  const r = stampNow({ id: '1' });
+  assert.ok(/^\d{4}-\d{2}-\d{2}T.*Z$/.test(r._updatedAt));
+  assert.equal(r.id, '1');
+});
+
+test('jsonToRow/jsonFromRow は往復する', () => {
+  const rec = { id: 'shin', name: '城間', _updatedAt: '2026-06-01T10:00:00.000Z' };
+  const row = jsonToRow(rec, 'キー', 'id');
+  assert.equal(row['キー'], 'shin');
+  assert.equal(row['更新日時'], '2026-06-01T10:00:00.000Z');
+  assert.equal(row['削除フラグ'], '');
+  const back = jsonFromRow(row, 'キー');
+  assert.equal(back.name, '城間');
+  assert.equal(back._updatedAt, '2026-06-01T10:00:00.000Z');
+});
+
+test('jsonToRow は削除フラグを反映', () => {
+  const row = jsonToRow({ id: 'x', _deleted: true, _updatedAt: '2026-06-01T10:00:00.000Z' }, 'キー', 'id');
+  assert.equal(row['削除フラグ'], '1');
+});
+
+test('plainToRow は列passthrough＋共通3列付与', () => {
+  const rec = { '取引先コード': 'C001', '取引先名': 'A社', _updatedAt: '2026-06-01T10:00:00.000Z' };
+  const row = plainToRow(rec, '取引先コード');
+  assert.equal(row['取引先コード'], 'C001');
+  assert.equal(row['取引先名'], 'A社');
+  assert.equal(row['更新日時'], '2026-06-01T10:00:00.000Z');
+  assert.equal(row['削除フラグ'], '');
+  assert.ok(!('_updatedAt' in row)); // 内部フィールドはシートに出さない
+});
+
+test('plainFromRow は共通列を内部フィールドへ戻す', () => {
+  const row = { '取引先コード': 'C001', '取引先名': 'A社', '更新日時': '2026-06-01T10:00:00.000Z', '削除フラグ': '' };
+  const rec = plainFromRow(row);
+  assert.equal(rec['取引先名'], 'A社');
+  assert.equal(rec._updatedAt, '2026-06-01T10:00:00.000Z');
+});
