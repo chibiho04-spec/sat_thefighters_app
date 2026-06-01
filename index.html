@@ -11014,8 +11014,18 @@
     }
 
     // B. 明細なし：クルー欄の役割人数で按分
+    // ws_ストアが空でも案件レコード(getSavedProjects)のクルー名を拾う（同期後の端末対策）
     const saved = (typeof loadWS === 'function') ? (loadWS(item.num) || {}) : {};
-    const _has = k => (String(saved[k] || '').trim() ? 1 : 0);
+    let proj = {};
+    try {
+      const _list = (typeof getSavedProjects === 'function') ? getSavedProjects() : [];
+      proj = _list.find(p => p && p.num === item.num) || {};
+    } catch (e) { proj = {}; }
+    const _camel = {
+      crew_producer: 'crewProducer', crew_d: 'crewD', crew_pm1: 'crewPm1', crew_pm2: 'crewPm2',
+      crew_c: 'crewC', crew_a: 'crewA', crew_a2: 'crewA2', crew_sound: 'crewSound', crew_edit: 'crewEdit'
+    };
+    const _has = k => (String(saved[k] || proj[_camel[k]] || '').trim() ? 1 : 0);
     const cnt = {
       produce: _has('crew_producer') + _has('crew_d') + _has('crew_pm1') + _has('crew_pm2'),
       shoot:   _has('crew_c') + _has('crew_a') + _has('crew_a2') + _has('crew_sound'),
