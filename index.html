@@ -10023,25 +10023,25 @@
       keyField: '取引先コード', keyHeader: '取引先コード',
       loadLocal: () => _loadClientRows(), saveLocal: (list) => _saveClientRows(list),
       toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
-      redraw: () => {}
+      redraw: () => { try { _rerenderIfOpen('client-master-screen', renderClientMasterList); } catch (e) {} }
     },
     product: {
       keyField: '商品コード', keyHeader: '商品コード',
       loadLocal: () => _loadProductRows(), saveLocal: (list) => _saveProductRows(list),
       toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
-      redraw: () => {}
+      redraw: () => { try { _rerenderIfOpen('product-master-screen', renderProductMasterList); } catch (e) {} }
     },
     media: {
-      keyField: 'メディアID', keyHeader: 'メディアID',
+      keyField: 'ID', keyHeader: 'ID',
       loadLocal: () => _loadMediaRows(), saveLocal: (list) => _saveMediaRows(list),
       toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
-      redraw: () => {}
+      redraw: () => { try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
     },
     equip: {
       keyField: 'id', keyHeader: 'id',
       loadLocal: () => _loadEquipRows(), saveLocal: (list) => _saveEquipRows(list),
       toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
-      redraw: () => { try { renderEquipMaster(); } catch (e) {} }
+      redraw: () => { try { renderEquipMasterList(); } catch (e) {} }
     },
     order: {
       keyField: '受注No', keyHeader: '受注No',
@@ -10081,7 +10081,20 @@
     }
   }
 
-  let SYNC_ENABLED = ['staff', 'invoice']; // 配線済み kind だけを順次ここへ足す（Task5〜7）
+  // ---- client/product/media アダプタ（{at, rows:[...]} キャッシュ。rows のキーがシート列）----
+  function _cacheLoadRows(key) { try { return (JSON.parse(localStorage.getItem(key) || '{}').rows) || []; } catch (e) { return []; } }
+  function _cacheSaveRows(key, rows) { localStorage.setItem(key, JSON.stringify({ at: Date.now(), rows: rows })); }
+  function _loadClientRows()  { return _cacheLoadRows('client_master_cache'); }
+  function _saveClientRows(l) { _cacheSaveRows('client_master_cache', l); }
+  function _loadProductRows()  { return _cacheLoadRows('product_master_cache'); }
+  function _saveProductRows(l) { _cacheSaveRows('product_master_cache', l); }
+  function _loadMediaRows()  { return _cacheLoadRows('media_cache'); }
+  function _saveMediaRows(l) { _cacheSaveRows('media_cache', l); }
+  // ---- equip アダプタ（equip_master 配列。既存 load/saveEquipMaster を流用）----
+  function _loadEquipRows()  { try { return loadEquipMaster(); } catch (e) { return []; } }
+  function _saveEquipRows(l) { try { saveEquipMaster(l); } catch (e) {} }
+
+  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip']; // 配線済み kind だけを順次ここへ足す（Task5〜7）
   function _gasUrlOne() { return (localStorage.getItem('gas_url') || '').trim(); }
 
   async function pullKind(kind) {
@@ -10325,12 +10338,12 @@
 
   // 取引先を登録（送信＋ローカルキャッシュ反映）
   async function registerNewClient() {
-    const url = getClientGasUrl();
+    const url = _gasUrlOne();
     const status = document.getElementById('nc-status');
     const btn    = document.getElementById('nc-save-btn');
     if (!url) {
       status.style.color = '#c0392b';
-      status.textContent = '❌ 取引先URLが未設定です（データ管理画面で設定してください）';
+      status.textContent = '❌ 同期URLが未設定です（データ管理画面で設定してください）';
       return;
     }
     const name = document.getElementById('nc-name').value.trim();
@@ -10363,23 +10376,18 @@
     status.style.color = '#2980b9';
     status.textContent = '📤 スプレッドシートへ送信中...';
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [row] })
-      });
-      const data = await res.json();
+      const stamped = _stampNow(row);
+      const data = await pushKind('client', [stamped]);
       if (!data.ok) throw new Error(data.error || '不明なエラー');
 
       // ローカルキャッシュを更新（編集なら置き換え、新規なら追加）
       const cached = getCachedClients();
       if (_ncEditMode) {
         const idx = cached.findIndex(c => String(c['取引先コード']||'').trim() === _ncOriginalCode);
-        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], row);
-        else cached.push(row);
+        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], stamped);
+        else cached.push(stamped);
       } else {
-        cached.push(row);
+        cached.push(stamped);
       }
       localStorage.setItem('client_master_cache', JSON.stringify({ at: Date.now(), rows: cached }));
 
@@ -10562,12 +10570,12 @@
   }
 
   async function registerNewProduct() {
-    const url = getProductGasUrl();
+    const url = _gasUrlOne();
     const status = document.getElementById('np-product-status');
     const btn    = document.getElementById('np-product-save-btn');
     if (!url) {
       status.style.color = '#c0392b';
-      status.textContent = '❌ 商品URLが未設定です（データ管理画面で設定してください）';
+      status.textContent = '❌ 同期URLが未設定です（データ管理画面で設定してください）';
       return;
     }
     const name = document.getElementById('np-product-name').value.trim();
@@ -10591,21 +10599,16 @@
     status.style.color = '#2980b9';
     status.textContent = '📤 スプレッドシートへ送信中...';
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [row] })
-      });
-      const data = await res.json();
+      const stamped = _stampNow(row);
+      const data = await pushKind('product', [stamped]);
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       // ローカルキャッシュ反映
       const cached = getCachedProducts();
       if (_npProductEditMode) {
         const idx = cached.findIndex(c => String(c['商品コード']||'').trim() === _npProductOriginalCode);
-        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], row); else cached.push(row);
+        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], stamped); else cached.push(stamped);
       } else {
-        cached.push(row);
+        cached.push(stamped);
       }
       localStorage.setItem('product_master_cache', JSON.stringify({ at: Date.now(), rows: cached }));
       const verb = _npProductEditMode ? '更新' : '登録';
@@ -10765,10 +10768,10 @@
   }
 
   async function saveNewMedia() {
-    const url = getMediaGasUrl();
+    const url = _gasUrlOne();
     const status = document.getElementById('nm-status');
     const btn    = document.getElementById('nm-save-btn');
-    if (!url) { status.style.color = '#c0392b'; status.textContent = '❌ メディアURLが未設定です'; return; }
+    if (!url) { status.style.color = '#c0392b'; status.textContent = '❌ 同期URLが未設定です'; return; }
     const date = document.getElementById('nm-date').value.trim();
     if (!date) { status.style.color = '#c0392b'; status.textContent = '❌ 使用日は必須です'; return; }
     const targetId = _nmEditMode ? _nmEditOriginalId : _nextId(getCachedMedia(), 'M');
@@ -10787,15 +10790,15 @@
     btn.disabled = true; btn.textContent = '送信中...';
     status.style.color = '#2980b9'; status.textContent = '📤 送信中...';
     try {
-      const res = await fetch(url, { method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'upsert', rows:[row] }) });
-      const data = await res.json();
+      const stamped = _stampNow(row);
+      const data = await pushKind('media', [stamped]);
       if (!data.ok) throw new Error(data.error || '不明なエラー');
       // キャッシュ反映
       const cached = getCachedMedia();
       if (_nmEditMode) {
         const idx = cached.findIndex(c => String(c['ID']||'').trim() === _nmEditOriginalId);
-        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], row); else cached.push(row);
-      } else cached.push(row);
+        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], stamped); else cached.push(stamped);
+      } else cached.push(stamped);
       localStorage.setItem('media_cache', JSON.stringify({ at: Date.now(), rows: cached }));
       status.style.color = '#27ae60';
       status.textContent = `✅ ${row['ID']} を${_nmEditMode ? '更新' : '保存'}しました`;
@@ -12849,40 +12852,20 @@
   }
 
   async function fetchEquipMaster(showStatus) {
-    const url = (localStorage.getItem('gas_url_equip') || '').trim();
-    if (!url) { setEquipSyncStatus('⚠️ 機材マスタURLが未設定です（データ管理から設定してください）', '#c0392b'); return; }
+    if (!_gasUrlOne()) { setEquipSyncStatus('⚠️ 同期URLが未設定です（データ管理から設定してください）', '#c0392b'); return; }
     if (showStatus) setGasStatus('📥 機材マスタ取り込み中...', '#2980b9');
     setEquipSyncStatus('🔄 シートから取得中…', '#2980b9');
     try {
-      // スマホのブラウザが古い応答をキャッシュして更新が反映されない問題を防ぐため、
-      // 毎回ユニークな _ts を付けて cache:'no-store' で取得する
-      const sep = url.indexOf('?') >= 0 ? '&' : '?';
-      const res = await fetch(url + sep + '_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const sheetItems = normalizeEquipRows(data.rows || []);
-      // シートとローカルを id 単位で和集合マージ（重複はシート優先）。
-      // これで「他端末が追加した機材」も「自端末だけにある機材」も両方残る。
-      const localItems = loadEquipMaster();
-      const items = sheetItems.length ? _unionEquip(localItems, sheetItems, true) : localItems;
-      if (items.length) {
-        saveEquipMaster(items);
-        // 機材マスタ画面が開いていれば即時再描画
-        const scr = document.getElementById('equip-master-screen');
-        if (scr && scr.style.transform !== 'translateX(100%)') {
-          if (typeof renderEquipMasterList === 'function') renderEquipMasterList();
-        }
-        // ワークシート詳細の機材チェックリストも開いていれば再描画
-        const wsScr = document.getElementById('ws-detail-screen');
-        if (wsScr && wsScr.style.display !== 'none' && wsScr.style.transform !== 'translateX(100%)') {
-          const wsNum = document.getElementById('ws-detail-num') && document.getElementById('ws-detail-num').textContent;
-          if (wsNum && typeof renderEquipChecklist === 'function') renderEquipChecklist(wsNum, (loadWS(wsNum) || {}).equip || {});
-        }
-        setEquipSyncStatus(`✅ ${items.length}件を取得しました（${new Date().toLocaleTimeString('ja-JP')}・版${APP_BUILD}）`, '#1a7a40');
-      } else {
-        // 通信は成功したが0件＝シートが空、または列の中身が想定外
-        setEquipSyncStatus(`⚠️ 取得0件。シートに機材データが入っているか確認してください（版${APP_BUILD}）`, '#c0392b');
+      // 統合エンジンで取得（サーバ側LWWでマージ・削除フラグ反映。union/墓標は不要）
+      await pullKind('equip'); // 内部で equip_master を保存し renderEquipMasterList を再描画
+      const items = loadEquipMaster();
+      // ワークシート詳細の機材チェックリストも開いていれば再描画
+      const wsScr = document.getElementById('ws-detail-screen');
+      if (wsScr && wsScr.style.display !== 'none' && wsScr.style.transform !== 'translateX(100%)') {
+        const wsNum = document.getElementById('ws-detail-num') && document.getElementById('ws-detail-num').textContent;
+        if (wsNum && typeof renderEquipChecklist === 'function') renderEquipChecklist(wsNum, (loadWS(wsNum) || {}).equip || {});
       }
+      setEquipSyncStatus(`✅ ${items.length}件を取得しました（${new Date().toLocaleTimeString('ja-JP')}・版${APP_BUILD}）`, '#1a7a40');
       if (showStatus) setGasStatus(`✅ 機材マスタ ${items.length}件 取り込み完了`, '#27ae60');
     } catch(err) {
       console.warn('fetchEquipMaster failed', err);
@@ -12898,34 +12881,17 @@
   }
 
   async function sendEquipMasterToSheet(showStatus) {
-    const url = (localStorage.getItem('gas_url_equip') || '').trim();
-    if (!url) { if (showStatus) setGasStatus('機材マスタのURLが未設定です', '#c0392b'); return; }
+    if (!_gasUrlOne()) { if (showStatus) setGasStatus('同期URLが未設定です', '#c0392b'); return { ok: false }; }
     if (showStatus) setGasStatus('📤 機材マスタ送信中...', '#2980b9');
     try {
-      // 送信は「シート全体を置き換え」なので、古いリストのまま送ると他端末の追加を消してしまう。
-      // 送る直前にシートの現状を取得し、ローカルと和集合マージ（重複はローカル優先）してから送る。
-      const localItems = loadEquipMaster();
-      let items = localItems;
-      try {
-        const sheetItems = await _fetchEquipRows();
-        if (sheetItems) {
-          items = _unionEquip(localItems, sheetItems, false);
-          saveEquipMaster(items); // マージ結果をローカルにも反映（追加・削除を取り込む）
-        }
-      } catch (e) {
-        console.warn('equip merge before push failed (送信はローカルのみで継続)', e);
-      }
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'sync', items })
-      });
-      const data = await res.json();
+      // この端末で編集した機材（_updatedAt あり）だけ1件ずつupsert。サーバ側LWWで新しい方が勝つ。
+      // 全置換(action:'sync')・union・墓標は廃止（他端末の編集を消さないため）。
+      const edited = loadEquipMaster().filter(e => e && e._updatedAt);
+      const data = edited.length ? await pushKind('equip', edited) : { ok: true };
       if (!data.ok) throw new Error(data.error || '不明なエラー');
-      if (showStatus) setGasStatus(`✅ 機材マスタ ${data.count}件 送信完了`, '#27ae60');
+      if (showStatus) setGasStatus(`✅ 機材マスタ ${edited.length}件 送信完了`, '#27ae60');
       pendingClear('equip', null);
-      return { ok: true, count: data.count };
+      return { ok: true, count: edited.length };
     } catch(err) {
       console.warn('sendEquipMasterToSheet failed', err);
       if (showStatus) setGasStatus('❌ 機材マスタ送信失敗：' + err.message, '#c0392b');
@@ -12997,21 +12963,14 @@
 
   // 機材マスタを編集したらシートへ自動送信（連続編集をまとめるためデバウンス）
   // ※ saveEquipMaster には入れない（取り込み時の保存で送信ループになるため）
-  let _equipPushTimer = null;
-  function scheduleEquipPush() {
-    if (!(localStorage.getItem('gas_url_equip') || '').trim()) return; // URL未設定なら何もしない
-    if (_equipPushTimer) clearTimeout(_equipPushTimer);
-    _equipPushTimer = setTimeout(() => {
-      _equipPushTimer = null;
-      sendEquipMasterToSheet(false).catch(e => console.warn('equip auto-push', e));
-    }, 1200);
+  // 機材を1件編集したら、その1件だけをシートへ送る（サーバ側LWWで新しい方が勝つ。union/墓標は不要）
+  function scheduleEquipPush(item) {
+    if (!_gasUrlOne() || !item || !item.id) return; // URL未設定/対象なしなら何もしない
+    item._updatedAt = new Date().toISOString();
+    pushKind('equip', [item]).catch(e => { try { pendingAdd('equip', item.id); } catch (_) {} });
   }
-  // 画面を閉じる前など、保留中の送信を即実行する
-  function flushEquipPush() {
-    if (_equipPushTimer) { clearTimeout(_equipPushTimer); _equipPushTimer = null; }
-    if (!(localStorage.getItem('gas_url_equip') || '').trim()) return Promise.resolve();
-    return sendEquipMasterToSheet(false).catch(e => console.warn('equip flush', e));
-  }
+  // 個別pushは即時実行済みなので何もしない（呼び出し箇所の互換のため関数だけ残す）
+  function flushEquipPush() { return Promise.resolve(); }
 
   // 機材マスター画面を開く
   function openEquipMaster() {
@@ -13355,19 +13314,22 @@
     const price = parseInt(document.getElementById('em-new-price').value) || 0;
     if (!name) { alert('機材名を入力してください'); return; }
     const master = loadEquipMaster();
+    let _changed = null;
     if (_editingEquipId) {
       // 編集モード：既存項目を更新
       const item = master.find(e => e.id === _editingEquipId);
       if (item) {
         item.name = name; item.code = code; item.cat = cat;
         item.qty = qty;   item.price = price;
+        _changed = item;
       }
     } else {
       // 新規追加
-      master.push({ id: 'em' + Date.now(), cat, name, code, qty, price });
+      _changed = { id: 'em' + Date.now(), cat, name, code, qty, price };
+      master.push(_changed);
     }
     saveEquipMaster(master);
-    scheduleEquipPush();
+    if (_changed) scheduleEquipPush(_changed); // 変更した1件だけ送る
     cancelEditEquip(); // フォームをリセット
     renderEquipMasterList();
   }
@@ -13383,7 +13345,7 @@
     if (isNaN(p) || p < 0) { alert('正しい数値を入力してください'); return; }
     item.price = p;
     saveEquipMaster(master);
-    scheduleEquipPush();
+    scheduleEquipPush(item);
     renderEquipMasterList();
   }
 
@@ -13439,7 +13401,7 @@
       }
       item[field] = val;
       saveEquipMaster(master);
-      scheduleEquipPush();
+      scheduleEquipPush(item);
       renderEquipMasterList();
     };
     const cleanup = () => {
@@ -13459,10 +13421,13 @@
 
   // 機材削除
   function deleteEquipItem(id) {
-    addEquipDeleted(id); // 墓標に積む（マージで復活させない・他端末へ削除を伝える）
     const master = loadEquipMaster().filter(e => e.id !== id);
     saveEquipMaster(master);
-    scheduleEquipPush();
+    // 論理削除（削除フラグ=1）をシートへ伝える。サーバ側LWWで他端末からも消える。墓標は不要。
+    if (_gasUrlOne()) {
+      pushKind('equip', [{ id: id, _deleted: true, _updatedAt: new Date().toISOString() }])
+        .catch(e => { try { pendingAdd('equip', id); } catch (_) {} });
+    }
     renderEquipMasterList();
   }
 
