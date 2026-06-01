@@ -9645,6 +9645,95 @@
     document.getElementById('staff-edit-screen').style.transform = 'translateX(100%)';
     _editingStaffKey = null;
   }
+
+  // 詳細ステータス画面を開く（自分は編集ボタンあり・他人は閲覧のみ）
+  function openStaffDetail(key) {
+    const d = getStaffDetail(key);
+    if (!d) return;
+    window._sdEditKey = key;
+
+    const title = document.getElementById('sd-title');
+    if (title) title.textContent = d.fullName;
+
+    const editBtn = document.getElementById('sd-edit-btn');
+    if (editBtn) editBtn.style.display = d.isSelf ? 'block' : 'none';
+
+    const stars = '★'.repeat(d.stars) + '☆'.repeat(5 - d.stars);
+    const bar = (v) => {
+      const n = (typeof v === 'number') ? Math.max(0, Math.min(100, v)) : 0;
+      return `<div style="background:#1c1c2b;border-radius:4px;height:8px;overflow:hidden;margin-top:2px;">
+        <div style="background:linear-gradient(90deg,#9b59b6,#5b5bb0);height:100%;width:${n}%;"></div></div>`;
+    };
+
+    // 右カラム（ゲームステータス）
+    const lvText = (d.level !== null) ? ('Lv' + d.level) : 'Lv-';
+    const expRow = (d.exp !== null && d.expNext)
+      ? `<div style="margin-bottom:6px;font-size:11px;">EXP ${d.exp}/${d.expNext}
+           ${bar(Math.round((d.exp / d.expNext) * 100))}</div>` : '';
+    const statRow = (label, v) =>
+      `<div style="font-size:11px;margin:4px 0;">${label} ${(v !== null) ? v : '-'}${bar(v)}</div>`;
+
+    // 勤務データ（本人のみ）
+    const cases = getStaffCases(key);
+    const nowYm = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
+    const progress = cases.filter(c => String(c.date).slice(0, 7) === nowYm).length;
+    const workBlock = d.isSelf ? `
+      <div style="display:flex;gap:6px;margin:10px 12px 0;">
+        <div style="flex:1;background:#2c2c3e;border-radius:8px;padding:8px;color:#ddd;font-size:11px;text-align:center;">
+          月間勤務<br><b style="font-size:16px;color:#7fd6a0;">${(d.hours !== null) ? d.hours : '-'}h</b><br>
+          残業 ${(d.overtime !== null) ? d.overtime : '-'}h</div>
+        <div style="flex:1;background:#2c2c3e;border-radius:8px;padding:8px;color:#ddd;font-size:11px;text-align:center;">
+          進行中<br><b style="font-size:16px;color:#7fb0d6;">${progress}件</b></div>
+      </div>` : '';
+
+    // 担当案件リスト
+    const casesRows = cases.length
+      ? cases.map(c =>
+          `<div onclick="closeStaffDetail(); openWS('${_esc(c.num)}');"
+            style="padding:7px 4px;border-bottom:1px solid #ffffff14;cursor:pointer;color:#ddd;font-size:12px;">
+            ・${_esc(c.num)} ${_esc(c.title)}${c.date ? `<span style="color:#9b9bd6;"> (${_esc(c.date)})</span>` : ''}</div>`
+        ).join('')
+      : `<div style="color:#888;font-size:12px;padding:6px 4px;">担当案件はありません</div>`;
+
+    const body = document.getElementById('sd-body');
+    if (body) body.innerHTML = `
+      <div style="background:linear-gradient(160deg,#3a3a6e,#2c2c3e);padding:16px 14px;color:#fff;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="flex:0 0 auto;width:112px;text-align:center;">
+            <div style="width:88px;height:88px;margin:0 auto;background:#46467a;border-radius:14px;
+              display:flex;align-items:center;justify-content:center;image-rendering:pixelated;overflow:hidden;">${d.avatar || '👤'}</div>
+            <div style="font-size:15px;font-weight:bold;margin-top:6px;">${_esc(d.fullName)}</div>
+            ${d.english ? `<div style="font-size:9px;color:#cfcfe8;">${_esc(d.english)}</div>` : ''}
+            ${d.role ? `<div style="font-size:10px;color:#ffd86b;margin-top:2px;">${_esc(d.role)}</div>` : ''}
+            ${(d.joinDate || d.tenureYears !== null) ? `<div style="font-size:9px;color:#b8b8d8;margin-top:4px;border-top:1px solid #ffffff22;padding-top:4px;">
+              ${d.joinDate ? '入社 ' + _esc(d.joinDate) + '<br>' : ''}${d.tenureYears !== null ? '勤続 ' + d.tenureYears + '年' : ''}</div>` : ''}
+          </div>
+          <div style="flex:1;font-size:11px;color:#e7e7f5;padding-top:4px;">
+            <div style="margin-bottom:6px;"><b style="color:#c7c7ec;font-size:13px;">${lvText}</b>
+              <span style="color:#ffd86b;">${stars}</span></div>
+            ${expRow}
+            ${statRow('🦾 筋力', d.str)}
+            ${statRow('⚡ 素早さ', d.spd)}
+            ${statRow('🛡 粘り強さ', d.end)}
+          </div>
+        </div>
+      </div>
+      ${workBlock}
+      <div style="margin:10px 12px;background:#2c2c3e;border-radius:8px;padding:8px 10px;">
+        <b style="color:#9b9bd6;font-size:12px;">担当案件</b>
+        <div style="margin-top:4px;">${casesRows}</div>
+      </div>`;
+
+    const screen = document.getElementById('staff-detail-screen');
+    if (screen) screen.style.transform = 'translateX(0)';
+  }
+
+  function closeStaffDetail() {
+    const screen = document.getElementById('staff-detail-screen');
+    if (screen) screen.style.transform = 'translateX(100%)';
+    window._sdEditKey = null;
+  }
+
   function saveStaffEdit() {
     if (!_editingStaffKey) return;
     const list = loadStaffMaster();
