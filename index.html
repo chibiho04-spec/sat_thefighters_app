@@ -10050,13 +10050,13 @@
                                     { '更新日時': rec._updatedAt || new Date().toISOString(), '削除フラグ': rec._deleted ? '1' : '' }),
       fromRow: (row) => { const p = orderRowToProject(row); return { 受注No: String(row['受注No'] || ''), _project: p,
                                     _updatedAt: String(row['更新日時'] || ''), 削除フラグ: String(row['削除フラグ'] || '') }; },
-      redraw: () => { try { renderProjects(); } catch (e) {} }
+      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} }
     },
     child: {
       keyField: '受注No', keyHeader: '受注No',
       loadLocal: () => _loadChildRecords(), saveLocal: (list) => _saveChildRecords(list),
       toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
-      fromRow: (row) => _jsonFromRow(row),
+      fromRow: (row) => { const r = _jsonFromRow(row); r['受注No'] = String(row['受注No'] || r['受注No'] || ''); return r; },
       redraw: () => {}
     }
   };
@@ -10094,7 +10094,63 @@
   function _loadEquipRows()  { try { return loadEquipMaster(); } catch (e) { return []; } }
   function _saveEquipRows(l) { try { saveEquipMaster(l); } catch (e) {} }
 
-  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip']; // 配線済み kind だけを順次ここへ足す（Task5〜7）
+  // ---- order アダプタ（案件メタデータ＝projects_saved の各オブジェクト。_project に本体、受注No にキー）----
+  function _loadOrderRecords() {
+    const out = [];
+    for (const p of getSavedProjects()) {
+      const num = String((p && p.num) || ''); if (!num) continue;
+      out.push({ 受注No: num, _project: p, _updatedAt: String(p._updatedAt || '') });
+    }
+    return out;
+  }
+  function _saveOrderRecords(recList) {
+    const all = [];
+    for (const rec of recList) {
+      const num = String((rec && rec['受注No']) || ''); if (!num) continue;
+      const p = Object.assign({}, rec._project || {}, { num: num });
+      if (rec._updatedAt) p._updatedAt = rec._updatedAt;
+      all.push(p);
+      wsData[num] = p; // メモリ側にも反映
+    }
+    localStorage.setItem('projects_saved', JSON.stringify(all));
+  }
+  // ---- child アダプタ（ワークシート詳細 ws_${num} を JSON ブロブで丸ごと同期。受注No をキーに付与）----
+  function _loadChildRecords() {
+    const out = [];
+    Object.keys(localStorage).filter(k => k.indexOf('ws_') === 0).forEach(k => {
+      const num = k.slice(3); if (!num) return;
+      let rec; try { rec = JSON.parse(localStorage.getItem(k)); } catch (e) { return; }
+      if (!rec || typeof rec !== 'object') return;
+      rec['受注No'] = String(num);
+      out.push(rec);
+    });
+    return out;
+  }
+  function _saveChildRecords(recList) {
+    const keep = new Set();
+    for (const rec of recList) {
+      const num = String((rec && rec['受注No']) || ''); if (!num) continue;
+      keep.add(num);
+      const copy = Object.assign({}, rec); delete copy['受注No']; // 受注No はキー（行内には戻さない）
+      localStorage.setItem('ws_' + num, JSON.stringify(copy));
+    }
+    // 取り込みで削除フラグが勝った（merged に残らなかった）ws_ を除去
+    // ※ローカル専用の未送信案件は merged に残るので消えない（空取り込みでも安全）
+    Object.keys(localStorage).filter(k => k.indexOf('ws_') === 0).forEach(k => {
+      const num = k.slice(3); if (num && !keep.has(num)) localStorage.removeItem(k);
+    });
+  }
+  // 案件取り込み後の画面再構築：削除された案件のカードを消し、新規案件のカードを追加
+  function _reconcileOrderCards() {
+    const liveNums = new Set(getSavedProjects().map(p => String(p.num)));
+    Object.keys(wsData).forEach(num => {
+      if (!liveNums.has(String(num))) { delete wsData[num]; removeWSCard(num); }
+    });
+    try { restoreSavedProjects(); } catch (e) {}
+    try { refreshHomeView(true); } catch (e) {}
+  }
+
+  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip', 'order', 'child']; // 配線済み kind
   function _gasUrlOne() { return (localStorage.getItem('gas_url') || '').trim(); }
 
   async function pullKind(kind) {
@@ -13638,13 +13694,17 @@
       type: type||'未定', orderType: order||'未定', staff,
       crewC, crewA, crewA2, crewProducer, crewD, crewPm1, crewPm2, crewSound, crewEdit, memo,
       clientCode,
-      receivedAt: new Date().toISOString().slice(0,10) };
+      receivedAt: new Date().toISOString().slice(0,10),
+      _updatedAt: new Date().toISOString() };
     wsData[num] = newProject;
     saveProject(num, newProject);
     addWsCard(num, newProject);
 
-    // 受注ノート（Google Sheets）にも送信（URL未設定なら何もしない / fire-and-forget）
-    try { sendOrderToSheet(num, newProject); } catch(e) { console.warn(e); }
+    // 統合エンジンで親（案件）を送信（URL未設定なら何もしない / fire-and-forget）
+    if (_gasUrlOne()) {
+      pushKind('order', [{ '受注No': num, _project: newProject, _updatedAt: newProject._updatedAt }])
+        .catch(e => { try { pendingAdd('order', num); } catch(_){} });
+    }
 
     document.querySelector('.speech-bubble').innerHTML =
       `✅ ${num} を登録！<br>ワークシートに情報を入力してね！<span class="blink">█</span>`;
@@ -14305,17 +14365,20 @@
   }
 
   function deleteWS(num) {
-    const deleted = getDeletedWS();
-    deleted.push(num);
-    saveDeletedWS(deleted);
     localStorage.removeItem('ws_' + num);
     localStorage.setItem('projects_saved', JSON.stringify(getSavedProjects().filter(p => p.num !== num)));
     delete wsData[num];
     removeWSCard(num);
     closeWS();
     refreshHomeView(true);
-    // スプレッドシート側にも削除フラグを立てる（fire-and-forget）
-    sendDeleteToSheets(num);
+    // 論理削除：親（案件）と子（詳細）の両方に削除フラグを立てて送信（fire-and-forget）
+    if (_gasUrlOne()) {
+      const _now = new Date().toISOString();
+      pushKind('order', [{ '受注No': num, _project: {}, _updatedAt: _now, _deleted: true }])
+        .catch(e => { try { pendingAdd('order', num); } catch(_){} });
+      pushKind('child', [{ '受注No': num, _updatedAt: _now, _deleted: true }])
+        .catch(e => { try { pendingAdd('child', num); } catch(_){} });
+    }
     document.querySelector('.speech-bubble').innerHTML =
       `🗑 ${num} のワークシートを削除しました<br>一覧から外しておきました<span class="blink">█</span>`;
   }
@@ -14492,45 +14555,49 @@
     // 進捗を自動判定（日程ベース）
     data['_progress'] = calcWsProgress(num);
 
+    // 端末間 LWW 用の更新時刻を付与（親メタデータ＝projects_saved と 子＝ws_ の両方）
+    const _now = new Date().toISOString();
+    data._updatedAt = _now;
+    if (wsData[num2]) wsData[num2]._updatedAt = _now;
+    { // 親メタデータを projects_saved に永続化（編集を取り込みで失わないため）
+      const _all = getSavedProjects();
+      const _i = _all.findIndex(p => String(p.num) === String(num2));
+      const _entry = Object.assign({}, wsData[num2] || {}, { num: num2, _updatedAt: _now });
+      if (_i >= 0) _all[_i] = _entry; else _all.push(_entry);
+      localStorage.setItem('projects_saved', JSON.stringify(_all));
+    }
+
     localStorage.setItem('ws_' + num, JSON.stringify(data));
     updateWSDProgress(num, data);
     refreshHomeView(true);
 
-    // 親シート＋子シートに同時送信して両方の結果を表示
+    // 統合エンジンで親（案件）＋子（ワークシート詳細）を送信
     const btn = document.getElementById('wsd-save-btn');
-    btn.textContent = '✓ 保存しました！ 📤 同期中…';
-    btn.style.background = '#27ae60';
-
-    Promise.all([
-      sendOrderToSheet(num, wsData[num] || {}),
-      sendWorksheetToChild(num)
-    ]).then(([parentRes, childRes]) => {
-      const parentOK = parentRes && (parentRes.ok || parentRes.skipped);
-      const childOK  = childRes  && (childRes.ok  || childRes.skipped);
-
-      if (parentOK && childOK) {
-        const pR = (parentRes.result) || {};
-        const cR = (childRes.result)  || {};
-        const pUpd = (pR.inserted || 0) + (pR.updated || 0);
-        const cUpd = (cR.inserted || 0) + (cR.updated || 0);
-        if (parentRes.skipped && childRes.skipped) {
-          btn.textContent = '✓ 保存（URL未設定のためシート同期スキップ）';
+    if (!_gasUrlOne()) {
+      btn.textContent = '✓ 保存（URL未設定のためシート同期スキップ）';
+    } else {
+      btn.textContent = '✓ 保存しました！ 📤 同期中…';
+      btn.style.background = '#27ae60';
+      Promise.all([
+        pushKind('order', [{ '受注No': num, _project: wsData[num] || {}, _updatedAt: _now }])
+          .catch(e => { try { pendingAdd('order', num); } catch(_){} return { ok: false, error: e.message }; }),
+        pushKind('child', [Object.assign({}, data, { '受注No': num })])
+          .catch(e => { try { pendingAdd('child', num); } catch(_){} return { ok: false, error: e.message }; })
+      ]).then(([parentRes, childRes]) => {
+        const ok = parentRes && parentRes.ok && childRes && childRes.ok;
+        if (ok) {
+          btn.textContent = '✓ 同期OK';
         } else {
-          btn.textContent = `✓ 同期OK（親${pUpd > 0 ? '更新' : '0'}件 / 子${cUpd > 0 ? '更新' : '0'}件）`;
+          btn.style.background = '#e67e22';
+          btn.textContent = '⚠️ 一部同期失敗';
+          console.warn('sheet sync partial failure', { parentRes, childRes });
         }
-      } else {
-        btn.style.background = '#e67e22';
-        const parentErr = !parentOK ? `親シート失敗: ${parentRes?.error || 'エラー'}` : '';
-        const childErr  = !childOK  ? `子シート失敗: ${childRes?.error  || 'エラー'}` : '';
-        btn.textContent = `⚠️ 一部同期失敗`;
-        console.warn('sheet sync partial failure', { parentRes, childRes });
-        alert(`⚠️ シートへの送信に失敗した箇所があります\n\n${[parentErr, childErr].filter(Boolean).join('\n')}\n\n確認ポイント:\n・GASが「アクセス：全員」で再デプロイ済みか\n・URLが正しいか（データ管理画面）`);
-      }
-    }).catch(e => {
-      btn.style.background = '#c0392b';
-      btn.textContent = '⚠️ 同期エラー';
-      console.warn('sheet sync error', e);
-    });
+      }).catch(e => {
+        btn.style.background = '#c0392b';
+        btn.textContent = '⚠️ 同期エラー';
+        console.warn('sheet sync error', e);
+      });
+    }
 
     setTimeout(() => {
       btn.textContent = '💾 保存する（Sheets同期）';
