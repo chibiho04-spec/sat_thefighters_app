@@ -9073,7 +9073,7 @@
         localStorage.removeItem('inv_' + num);
       } catch(e) { console.warn('deleteInvDoc error', e); }
       // シートにも削除を伝える（他端末で復活しないように）。fire-and-forget。
-      try { if (typeof sendInvoiceDeleteToSheet === 'function') sendInvoiceDeleteToSheet(num); } catch(e) { console.warn(e); }
+      try { if (_gasUrlOne()) pushKind('invoice', [{'受注No': num, _deleted: true, _updatedAt: new Date().toISOString()}]).catch(e => console.warn('invoice delete push', e)); } catch(e) { console.warn(e); }
       closeInv();
     }, { okText: '🗑 削除する', okBg: '#c0392b', okBorder: '#7b241c' });
   }
@@ -9289,13 +9289,7 @@
   }
   function getGasToken()      { return (localStorage.getItem('gas_token')       || '').trim(); }
 
-  function getGasUrl()        { return (localStorage.getItem('gas_url')         || '').trim(); }
-  function getChildGasUrl()   { return (localStorage.getItem('gas_url_child')   || '').trim(); }
-  function getClientGasUrl()  { return (localStorage.getItem('gas_url_client')  || '').trim(); }
-  function getProductGasUrl() { return (localStorage.getItem('gas_url_product') || '').trim(); }
-  function getMediaGasUrl()   { return (localStorage.getItem('gas_url_media')   || '').trim(); }
   function getDrivingGasUrl() { return (localStorage.getItem('gas_url_driving') || '').trim(); }
-  function getInvoiceGasUrl() { return (localStorage.getItem('gas_url_invoice') || '').trim(); }
 
   // ===== 送信失敗の再送キュー（sync_pending）=====
   // ネット不調などで送信に失敗したら、その「種類＋番号」を sync_pending に積んでおき、
@@ -9530,311 +9524,26 @@
     setTimeout(closeStaffEdit, 600);
   }
 
-  // ----- スタッフのスプレッドシート同期 -----
-  function getStaffGasUrl() { return (localStorage.getItem('gas_url_staff') || '').trim(); }
-  let _staffPushTimers = {};
-  function scheduleStaffPush(key) {
-    if (!getStaffGasUrl() || !key) return;
-    if (_staffPushTimers[key]) clearTimeout(_staffPushTimers[key]);
-    _staffPushTimers[key] = setTimeout(() => {
-      delete _staffPushTimers[key];
-      sendStaffToSheet(key).catch(e => console.warn('staff auto-push', e));
-    }, 1000);
-  }
-  async function sendStaffToSheet(key) {
-    const url = getStaffGasUrl();
-    if (!url || !key) return { skipped: true };
-    const s = getStaffByKey(key);
-    if (!s) return { skipped: true };
-    const row = {
-      'キー': key,
-      'データ': JSON.stringify(s),
-      '更新日時': s._updatedAt || new Date().toISOString(),
-      '削除フラグ': ''
-    };
-    try {
-      const res = await fetch(url, {
-        method: 'POST', redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [row] })
-      });
-      const data = await res.json();
-      console.log('[スタッフ送信]', { key, response: data });
-      if (data && data.ok) pendingClear('staff', key); else pendingAdd('staff', key);
-      return data;
-    } catch (err) {
-      console.warn('sendStaffToSheet failed', err, key);
-      pendingAdd('staff', key);
-      return { ok: false, error: err.message };
-    }
-  }
-  // シートから取り込み（更新日時で後勝ち。未知キーは無視＝10名固定）
-  async function syncFromStaffSheet(showStatus) {
-    const url = getStaffGasUrl();
-    if (!url) return { pulled: 0 };
-    let pulled = 0;
-    try {
-      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const rows = data.rows || [];
-      const list = loadStaffMaster();
-      let changed = false;
-      rows.forEach(r => {
-        const key = String(r['キー'] || '').trim();
-        if (!key) return;
-        const idx = list.findIndex(s => s.key === key);
-        if (idx < 0) return;
-        let parsed; try { parsed = JSON.parse(r['データ'] || '{}'); } catch { return; }
-        const sheetUpd = String(r['更新日時'] || '');
-        const localUpd = String(list[idx]._updatedAt || '');
-        if (!localUpd || sheetUpd > localUpd) {
-          list[idx] = Object.assign({}, list[idx], parsed, { key });
-          changed = true; pulled++;
-        }
-      });
-      if (changed) { saveStaffMaster(list); applyStaffToCards(); }
-    } catch (e) {
-      console.warn('syncFromStaffSheet failed', e);
-      if (showStatus) throw e;
-    }
-    return { pulled };
-  }
-  // 「🔄 スタッフを同期」ボタン用：①先に取得（他端末の編集を取り込む）→ ②この端末で編集した人だけ送信
-  // ※ 未編集（_updatedAt なし＝初期値のまま）の人は送信しない。
-  //    送信すると「今の時刻」が付いてシートを無条件で上書きし、他端末の編集を消してしまうため。
-  async function manualSyncStaff() {
-    const el = document.getElementById('staff-sync-status');
-    const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
-    if (!getStaffGasUrl()) { set('⚠️ スタッフの同期URLが未設定です（設定画面で登録してください）', '#c0392b'); return; }
-    set('🔄 同期中…（取得＋送信）', '#2980b9');
-    try {
-      // ① まず取得（他端末の最新を取り込んでローカルを更新）
-      const pr = await syncFromStaffSheet(true);
-      // ② この端末で実際に編集した人（_updatedAt あり）だけ送信
-      const list = loadStaffMaster();
-      let pushed = 0;
-      for (const s of list) {
-        if (!s._updatedAt) continue; // 未編集の初期値は送らない＝他端末の編集を守る
-        const r = await sendStaffToSheet(s.key);
-        if (r && r.ok) pushed++;
-      }
-      set(`✅ 取得 ${pr.pulled || 0}件・送信 ${pushed}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
-    } catch (e) {
-      set('❌ 同期失敗：' + e.message, '#c0392b');
-    }
-  }
+  // ----- スタッフのスプレッドシート同期（新エンジン経由）-----
 
-  // ===== 請求書／見積書のスプレッドシート同期 =====
-  // 1案件1行。受注No をキーに、請求書データ全体を JSON 文字列で「データ」列に保存する。
-  // （列ごとに分けると見出しズレで壊れやすいので、まるごとJSONにする方式）
+  // ===== 請求書／見積書のスプレッドシート同期（新エンジン経由） =====
 
-  // 編集保存後にシートへ自動送信（連続保存をまとめるためデバウンス）
-  let _invoicePushTimers = {};
-  function scheduleInvoicePush(num) {
-    if (!getInvoiceGasUrl() || !num) return;
-    if (_invoicePushTimers[num]) clearTimeout(_invoicePushTimers[num]);
-    _invoicePushTimers[num] = setTimeout(() => {
-      delete _invoicePushTimers[num];
-      sendInvoiceToSheet(num).catch(e => console.warn('invoice auto-push', e));
-    }, 1000);
-  }
-
-  async function sendInvoiceToSheet(num) {
-    const url = getInvoiceGasUrl();
-    if (!url || !num) return { skipped: true };
-    const inv = loadInvStatus(num) || {};
-    const row = {
-      '受注No': num,
-      'データ': JSON.stringify(inv),
-      '更新日時': inv._updatedAt || new Date().toISOString(),
-      '削除フラグ': ''
-    };
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [row] })
-      });
-      const data = await res.json();
-      console.log('[請求書送信]', { num, response: data });
-      if (data && data.ok) pendingClear('invoice', num); else pendingAdd('invoice', num);
-      return data;
-    } catch (err) {
-      console.warn('sendInvoiceToSheet failed', err, num);
-      pendingAdd('invoice', num);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  // 請求書をシート上で「削除済み」にする（削除フラグ=1, 更新日時=今）
-  // 他端末は取り込み時にこのフラグを見て、ローカルの請求書を消す（削除の伝播）
-  async function sendInvoiceDeleteToSheet(num) {
-    const url = getInvoiceGasUrl();
-    if (!url || !num) return { skipped: true };
-    const row = {
-      '受注No': num,
-      'データ': '',
-      '更新日時': new Date().toISOString(),
-      '削除フラグ': '1'
-    };
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [row] })
-      });
-      const data = await res.json();
-      console.log('[請求書削除送信]', { num, response: data });
-      if (data && data.ok) pendingClear('invoiceDelete', num); else pendingAdd('invoiceDelete', num);
-      return data;
-    } catch (err) {
-      console.warn('sendInvoiceDeleteToSheet failed', err, num);
-      pendingAdd('invoiceDelete', num);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  // 「🔄 請求書を同期」ボタン用：双方向の突き合わせ（この端末の請求書を送信＋シートの最新を取得）
-  // 初回はこのボタンで、データを持っている端末がシートを作る（シードする）。
+  // 「🔄 請求書を同期」ボタン用：新エンジン経由でpull→push
   async function manualSyncInvoices() {
     const el = document.getElementById('inv-sync-status');
     const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
-    if (!getInvoiceGasUrl()) { set('⚠️ 請求書の同期URLが未設定です（設定画面で登録してください）', '#c0392b'); return; }
-    set('🔄 同期中…（送信＋取得）', '#2980b9');
+    if (!_gasUrlOne()) { set('⚠️ 同期URLが未設定です（データ管理から設定）', '#c0392b'); return; }
+    set('🔄 同期中…（取得＋送信）', '#2980b9');
     try {
-      const r = await reconcileInvoices();
-      set(`✅ 送信 ${r.pushed}件・取得 ${r.pulled}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
+      await pullKind('invoice');
+      const r = await pushKind('invoice');
+      set(`✅ 取得済み・送信 ${(r.added||0)+(r.updated||0)}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
     } catch (e) {
       set('❌ 同期失敗：' + e.message, '#c0392b');
     }
   }
 
   // 双方向の突き合わせ：更新日時を比べ、新しい方を採用する
-  async function reconcileInvoices() {
-    const url = getInvoiceGasUrl();
-    if (!url) return { pushed: 0, pulled: 0 };
-    // 1) シートの現状を取得
-    const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '不明なエラー');
-    const sheetRows = data.rows || [];
-    const sheetMap = {};
-    sheetRows.forEach(r => { const n = String(r['受注No'] || '').trim(); if (n) sheetMap[n] = r; });
-    let deleted = [];
-    try { deleted = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
-    // 2) ローカル → シート（シートに無い、またはローカルが新しいものを送る）
-    const localNums = Object.keys(localStorage).filter(k => k.indexOf('inv_') === 0).map(k => k.slice(4));
-    const toPush = [];
-    localNums.forEach(num => {
-      if (!num || deleted.indexOf(num) >= 0) return;
-      const local = loadInvStatus(num) || {};
-      if (!local._updatedAt) { local._updatedAt = new Date().toISOString(); saveInvStatus(num, local); }
-      const sheetRow = sheetMap[num];
-      const sheetUpd = sheetRow ? String(sheetRow['更新日時'] || '') : '';
-      if (!sheetRow || String(local._updatedAt) > sheetUpd) {
-        toPush.push({ '受注No': num, 'データ': JSON.stringify(local), '更新日時': local._updatedAt, '削除フラグ': '' });
-      }
-    });
-    let pushed = 0;
-    if (toPush.length) {
-      const pr = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'upsert', rows: toPush }) });
-      const pd = await pr.json();
-      if (!pd.ok) throw new Error(pd.error || '送信に失敗しました');
-      pushed = toPush.length;
-    }
-    // 3) シート → ローカル（ローカルに無い、またはシートが新しいものを取り込む）
-    let pulled = 0;
-    let removed = 0;
-    sheetRows.forEach(r => {
-      const num = String(r['受注No'] || '').trim();
-      if (!num) return;
-      const sheetUpd = String(r['更新日時'] || '');
-      // シート側で削除フラグが立っている請求書：ローカルにあって削除が新しければ消す（削除の伝播）
-      if (String(r['削除フラグ'] || '') === '1') {
-        const localDel = loadInvStatus(num) || {};
-        const localDelUpd = String(localDel._updatedAt || '');
-        if (localStorage.getItem('inv_' + num) && (!localDelUpd || sheetUpd > localDelUpd)) {
-          localStorage.removeItem('inv_' + num);
-          if (deleted.indexOf(num) < 0) deleted.push(num);
-          removed++;
-        }
-        return;
-      }
-      if (deleted.indexOf(num) >= 0) return;
-      let inv;
-      try { inv = JSON.parse(r['データ'] || '{}'); } catch { return; }
-      if (!inv || typeof inv !== 'object') return;
-      const sheetUpd2 = sheetUpd || String(inv._updatedAt || '');
-      const local = loadInvStatus(num) || {};
-      const localUpd = String(local._updatedAt || '');
-      if (!localUpd || sheetUpd2 > localUpd) { saveInvStatus(num, inv); pulled++; }
-    });
-    if (removed > 0) localStorage.setItem('deleted_inv', JSON.stringify([...new Set(deleted)]));
-    try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
-    try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
-    return { pushed, pulled };
-  }
-
-  // シートから全件取得 → 各 inv_${num} にマージ
-  //   ・削除済み（deleted_inv）は復活させない
-  //   ・更新日時を比べ、シート側が新しいときだけローカルを上書き（編集中の取りこぼし防止）
-  async function syncFromInvoiceSheet(showStatus) {
-    const url = getInvoiceGasUrl();
-    if (!url) { if (showStatus) setGasStatus('請求書URLが未設定です', '#c0392b'); return { fetched: 0 }; }
-    if (showStatus) setGasStatus('📥 請求書を取り込み中...', '#2980b9');
-    let deleted = [];
-    try { deleted = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
-    try {
-      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      let applied = 0;
-      let removed = 0;
-      (data.rows || []).forEach(row => {
-        const num = String(row['受注No'] || '').trim();
-        if (!num) return;
-        const sheetUpdated = String(row['更新日時'] || '');
-        // シート側で削除フラグが立っている請求書：ローカルにあって削除の方が新しければ消す（削除の伝播）
-        if (String(row['削除フラグ'] || '') === '1') {
-          const localDel = loadInvStatus(num) || {};
-          const localDelUpd = String(localDel._updatedAt || '');
-          if (localStorage.getItem('inv_' + num) && (!localDelUpd || sheetUpdated > localDelUpd)) {
-            localStorage.removeItem('inv_' + num);
-            if (deleted.indexOf(num) < 0) deleted.push(num);
-            removed++;
-          }
-          return;
-        }
-        if (deleted.indexOf(num) >= 0) return;       // ローカルで削除済みは復活させない
-        let inv;
-        try { inv = JSON.parse(row['データ'] || '{}'); } catch { return; }
-        if (!inv || typeof inv !== 'object') return;
-        const sheetUpdatedApply = sheetUpdated || String(inv._updatedAt || '');
-        const local = loadInvStatus(num) || {};
-        const localUpdated = String(local._updatedAt || '');
-        // ローカルが無い、またはシートの方が新しいときだけ反映
-        if (!localUpdated || sheetUpdatedApply > localUpdated) {
-          saveInvStatus(num, inv);
-          applied++;
-        }
-      });
-      // 削除を反映したら deleted_inv を保存（再取り込みでの復活も防ぐ）
-      if (removed > 0) localStorage.setItem('deleted_inv', JSON.stringify([...new Set(deleted)]));
-      if (showStatus) setGasStatus(`✅ 請求書 ${applied} 件を取り込み${removed ? `・${removed} 件を削除` : ''}`, '#27ae60');
-      // 請求書一覧が開いていれば再描画
-      try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
-      try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
-      return { fetched: applied };
-    } catch (err) {
-      console.warn('syncFromInvoiceSheet failed', err);
-      if (showStatus) setGasStatus('❌ 請求書取り込み失敗：' + err.message, '#c0392b');
-      return { fetched: 0, error: err.message };
-    }
-  }
-
   // 表示用：年の部分を取り除いて「M/d」「M/d〜M/d」形式に。
   // - 「2026/05/24」→「5/24」
   // - 「2026/05/20〜2026/05/22」→「5/20〜5/22」
@@ -10163,25 +9872,11 @@
   // ====== 取引先マスタ：取得・キャッシュ・オートコンプリート ======
   // 取引先マスタを取得し localStorage `client_master_cache` に保存
   async function fetchClientMaster(showStatus) {
-    const url = getClientGasUrl();
-    if (!url) { if (showStatus) setGasStatus('取引先URLが未設定です', '#c0392b'); return; }
+    if (!_gasUrlOne()) { if (showStatus) setGasStatus('同期URLが未設定です', '#c0392b'); return; }
+    if (showStatus) setGasStatus('📥 取引先を取り込み中...', '#2980b9');
     try {
-      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const rows = (data.rows || []).filter(r => {
-        const code = String(r['取引先コード'] || '').trim();
-        const name = String(r['取引先名']     || '').trim();
-        const deleted = String(r['削除フラグ'] || '') === '1';
-        return !deleted && (code || name);
-      });
-      // シートが空の場合は既存キャッシュを保持（誤上書き防止）
-      if (rows.length === 0 && getCachedClients().length > 0) {
-        if (showStatus) setGasStatus('⚠️ シートが空のため既存データを保持', '#e67e22');
-        return getCachedClients();
-      }
-      localStorage.setItem('client_master_cache', JSON.stringify({ at: Date.now(), rows }));
-      _rerenderIfOpen('client-master-screen', renderClientMasterList);
+      const r = await pullKind('client');
+      const rows = getCachedClients();
       if (showStatus) setGasStatus(`✅ 取引先 ${rows.length} 件を読み込み`, '#27ae60');
       return rows;
     } catch (err) {
@@ -10389,25 +10084,11 @@
 
   // ====== 商品マスタ：取得・キャッシュ・画面 ======
   async function fetchProductMaster(showStatus) {
-    const url = getProductGasUrl();
-    if (!url) { if (showStatus) setGasStatus('商品URLが未設定です', '#c0392b'); return; }
+    if (!_gasUrlOne()) { if (showStatus) setGasStatus('同期URLが未設定です', '#c0392b'); return; }
+    if (showStatus) setGasStatus('📥 商品を取り込み中...', '#2980b9');
     try {
-      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const rows = (data.rows || []).filter(r => {
-        const code = String(r['商品コード'] || '').trim();
-        const name = String(r['商品名']     || '').trim();
-        const deleted = String(r['削除フラグ'] || '') === '1';
-        return !deleted && (code || name);
-      });
-      // シートが空の場合は既存キャッシュを保持（誤上書き防止）
-      if (rows.length === 0 && getCachedProducts().length > 0) {
-        if (showStatus) setGasStatus('⚠️ シートが空のため既存データを保持', '#e67e22');
-        return getCachedProducts();
-      }
-      localStorage.setItem('product_master_cache', JSON.stringify({ at: Date.now(), rows }));
-      _rerenderIfOpen('product-master-screen', renderProductMasterList);
+      await pullKind('product');
+      const rows = getCachedProducts();
       if (showStatus) setGasStatus(`✅ 商品 ${rows.length} 件を読み込み`, '#27ae60');
       return rows;
     } catch (err) {
@@ -10637,8 +10318,18 @@
 
   // ===== メディア管理 =====
   async function fetchMediaList(showStatus) {
-    return _genericFetch(getMediaGasUrl(), 'media_cache', 'メディア', showStatus,
-      () => _rerenderIfOpen('media-list-screen', renderMediaList));
+    if (!_gasUrlOne()) { if (showStatus) setGasStatus('同期URLが未設定です', '#c0392b'); return []; }
+    if (showStatus) setGasStatus('📥 メディアを取り込み中...', '#2980b9');
+    try {
+      await pullKind('media');
+      const rows = getCachedMedia();
+      if (showStatus) setGasStatus('✅ メディア' + rows.length + ' 件を読み込み', '#27ae60');
+      return rows;
+    } catch (err) {
+      console.warn('fetchMediaList failed', err);
+      if (showStatus) setGasStatus('❌ メディア取得失敗：' + err.message, '#c0392b');
+      return [];
+    }
   }
   function getCachedMedia() { return _getCached('media_cache'); }
 
@@ -11938,339 +11629,6 @@
     input.addEventListener('blur', () => setTimeout(() => { dd.style.display = 'none'; }, 150));
   }
 
-  // ====== 子シート（ワークシート詳細）変換関数 ======
-  // ws_${num}（localStorage）→ 子シート1行 JSON
-  function worksheetToChildRow(num) {
-    const saved = loadWS(num) || {};
-    const proj  = wsData[num] || {};
-    // 機材選択（equip）→ 「コードx数量」のカンマ区切り文字列
-    const equipCodes = Object.entries(saved.equip || {})
-      .filter(([, v]) => v && v.checked)
-      .map(([code, v]) => v.qty && v.qty !== 1 ? `${code}x${v.qty}` : code)
-      .join(',');
-    return {
-      '受注No':           num,
-      '案件名（参照）':   proj.title || saved.edit_title || '',
-      '取引先（参照）':   proj.company || saved.edit_company || '',
-      '撮影日程（参照）': proj.date || saved['wsd-shootdate'] || '',
-      '記入日':           saved.record_date || saved.saved_at || '',
-      '記入者':           saved.creator || '',
-      'メディア使用記録': saved['wsd-media']     || '',
-      '数量':             saved['wsd-media-qty'] || '',
-      // rental_list を JSON 文字列として格納（受信側で検知して配列に戻す）
-      'レンタル機材':     JSON.stringify(saved.rental_list   || []),
-      'レンタル料金':     saved['wsd-rental-cost'] || '',
-      '私物機材':         saved['wsd-private']     || '',
-      // outsource_list を JSON 文字列として格納
-      '外注':             JSON.stringify(saved.outsource_list || []),
-      '外注費':           saved['wsd-outsource-cost'] || '',
-      '受注金額':         saved['wsd-order-amount'] || '',
-      '機材選択コード':   equipCodes,
-      '作業報告':         saved['wsd-report']    || '',
-      '報告事項':         saved['report_item']   || '',
-      '追加スタッフ':     saved.crew_extra       || ''
-    };
-  }
-
-  // 子シート1行 JSON → ws_${num} にマージ
-  function applyChildRowToWorksheet(row) {
-    const num = String(row['受注No'] || '').trim();
-    if (!num) return;
-    const saved = loadWS(num) || {};
-    const set = (key, val) => { if (val !== '' && val != null) saved[key] = val; };
-    set('record_date',   row['記入日']);
-    set('creator',       row['記入者']);
-    set('wsd-media',     row['メディア使用記録']);
-    set('wsd-media-qty', row['数量']);
-
-    // レンタル機材列：JSON配列 or 旧テキスト形式に対応
-    const rentalField = String(row['レンタル機材'] || '');
-    if (rentalField.startsWith('[')) {
-      try {
-        const list = JSON.parse(rentalField);
-        saved.rental_list = list;
-        saved['wsd-rental']      = list.map(r => r.name).filter(Boolean).join('、');
-        saved['wsd-rental-cost'] = list.reduce((s, r) => s + (Number(r.cost) || 0), 0);
-      } catch(e) { set('wsd-rental', rentalField); }
-    } else {
-      set('wsd-rental', rentalField);
-    }
-    // レンタル料金（合計数値）は列にある値で上書き（より正確な値を優先）
-    const rentalCost = row['レンタル料金'];
-    if (rentalCost !== '' && rentalCost != null) saved['wsd-rental-cost'] = rentalCost;
-
-    set('wsd-private',      row['私物機材']);
-    set('wsd-order-amount', row['受注金額']);
-
-    // 外注列：JSON配列 or 旧テキスト形式に対応
-    const outsourceField = String(row['外注'] || '');
-    if (outsourceField.startsWith('[')) {
-      try {
-        const list = JSON.parse(outsourceField);
-        saved.outsource_list = list;
-        saved['wsd-outsource']      = list.map(o => o.name).filter(Boolean).join('、');
-        saved['wsd-outsource-cost'] = list.reduce((s, o) => s + (Number(o.cost) || 0), 0);
-      } catch(e) { set('wsd-outsource', outsourceField); }
-    } else {
-      set('wsd-outsource', outsourceField);
-    }
-    const outsourceCost = row['外注費'];
-    if (outsourceCost !== '' && outsourceCost != null) saved['wsd-outsource-cost'] = outsourceCost;
-
-    set('wsd-report',   row['作業報告']);
-    set('report_item',  row['報告事項']);
-    set('crew_extra',   row['追加スタッフ']);
-
-    // 機材選択コード文字列 → equip マップに完全置換（マージではなく上書き）
-    const codes = String(row['機材選択コード'] || '').trim();
-    if (codes !== undefined) { // 列が存在する場合は必ず適用
-      // 既存の全アイテムをいったん「未選択」にリセット
-      const newEquip = {};
-      Object.keys(saved.equip || {}).forEach(k => {
-        newEquip[k] = { checked: false, qty: 1 };
-      });
-      // シートにあるコードを「選択済み」で上書き
-      if (codes) {
-        codes.split(',').forEach(s => {
-          const [c, q] = s.trim().split('x');
-          if (c) newEquip[c] = { checked: true, qty: parseInt(q || '1', 10) || 1 };
-        });
-      }
-      saved.equip = newEquip;
-    }
-    saved._child_synced_at = Date.now();
-    localStorage.setItem('ws_' + num, JSON.stringify(saved));
-  }
-
-  // 子シートに1件送信（ワークシート保存時に使用）
-  // 結果オブジェクトを返す。{ ok, result, error, skipped }
-  async function sendWorksheetToChild(num) {
-    const url = getChildGasUrl();
-    if (!url) return { skipped: true };
-    const row = worksheetToChildRow(num);
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [row] })
-      });
-      const data = await res.json();
-      console.log('[子シート送信]', { sent: row, response: data });
-      if (data && data.ok) pendingClear('child', num); else pendingAdd('child', num);
-      return data;
-    } catch (err) {
-      console.warn('sendWorksheetToChild failed', err, row);
-      pendingAdd('child', num);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  // 子シート全件取得 → 各 ws_${num} にマージ
-  // ※ 子シートは「詳細データの補完」専用。親シートが作成済みの案件にのみ適用し、
-  //   予約番号・削除済み・親に存在しない番号で新規ワークシートを勝手に作らない。
-  async function syncFromChildSheet() {
-    const url = getChildGasUrl();
-    if (!url) return { fetched: 0 };
-    try {
-      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      // ローカルに実在する案件番号セット（親シート取り込み済み＋静的カード）
-      const known = new Set();
-      getSavedProjects().forEach(p => { if (p && p.num) known.add(p.num); });
-      document.querySelectorAll('.ws-card[data-wsnum]').forEach(c => {
-        if (c.dataset.wsnum) known.add(c.dataset.wsnum);
-      });
-      let applied = 0;
-      (data.rows || []).forEach(row => {
-        const num = String(row['受注No'] || '').trim();
-        if (!num) return;
-        if (isDeletedWS(num)) return;     // 削除済みは復活させない
-        if (!known.has(num)) return;      // 親シートに無い番号は新規作成しない（無題案件防止）
-        applyChildRowToWorksheet(row);
-        applied++;
-      });
-      return { fetched: applied };
-    } catch (err) {
-      console.warn('syncFromChildSheet failed', err);
-      return { fetched: 0, error: err.message };
-    }
-  }
-
-  // 受注ノートから取り込み
-  //   ・受注日が空の行は予約番号扱いでスキップ
-  //   ・各案件に _sheetSyncedAt を記録し、過去に同期した案件がシートに無くなったら
-  //     ローカルからも削除する（ローカルのみで作成した案件は守る）
-  //   ・ws_${num} の対応フィールドもシート側で上書きして画面に確実に反映
-  async function syncFromSheet(showStatus) {
-    const url = getGasUrl();
-    if (!url) { if (showStatus) setGasStatus('先にURLを保存してください', '#c0392b'); return; }
-    if (showStatus) setGasStatus('📥 取り込み中...', '#2980b9');
-    try {
-      const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const rows = data.rows || [];
-      const syncTs = Date.now();
-      const liveNums = new Set();
-      let added = 0, updated = 0, removed = 0, skipped = 0;
-
-      rows.forEach(row => {
-        const num = String(row['受注No'] || '').trim();
-        if (!num) return;
-        if (String(row['削除フラグ'] || '') === '1') return;
-        // ローカルで削除済みの案件は再取り込みしない
-        if (isDeletedWS(num)) { skipped++; return; }
-        // 受注日が空 = 予約番号 → 取り込まない
-        if (!String(row['受注日'] || '').trim()) { skipped++; return; }
-
-        liveNums.add(num);
-        const proj = orderRowToProject(row);
-        const existed = !!wsData[num];
-        wsData[num] = Object.assign({}, wsData[num] || {}, proj, { _sheetSyncedAt: syncTs });
-
-        // ws_${num}（編集画面の保存値）にもシート側の値を上書きして、表示に反映する
-        try {
-          const saved = loadWS(num) || {};
-          if (proj.title)     saved.edit_title   = proj.title;
-          if (proj.company)   saved.edit_company = proj.company;
-          if (proj.type)      saved.edit_type    = proj.type;
-          if (proj.orderType) saved.edit_order   = proj.orderType;
-          if (proj.memo)      saved['wsd-memo']  = proj.memo;
-          if (proj.date)      saved['wsd-shootdate'] = proj.date;
-          localStorage.setItem('ws_' + num, JSON.stringify(saved));
-        } catch(e) { console.warn('ws_ override failed', e); }
-
-        // projects_saved
-        const all = getSavedProjects();
-        const idx = all.findIndex(p => p.num === num);
-        if (idx >= 0) { all[idx] = { num, ...wsData[num] }; updated++; }
-        else { all.push({ num, ...wsData[num] }); added++; }
-        localStorage.setItem('projects_saved', JSON.stringify(all));
-
-        if (!existed && typeof addWsCard === 'function') addWsCard(num, wsData[num]);
-      });
-
-      // シートで消えた案件をローカルからも削除（過去に同期したものだけ対象）
-      // ※ rows が空のときは GAS 側の不具合等の可能性があるので削除フェーズは行わない
-      if (rows.length > 0) {
-        const all = getSavedProjects();
-        const keep = all.filter(p => {
-          if (p._sheetSyncedAt && !liveNums.has(p.num)) {
-            delete wsData[p.num];
-            localStorage.removeItem('ws_' + p.num);
-            if (typeof removeWSCard === 'function') removeWSCard(p.num);
-            removed++;
-            return false;
-          }
-          return true;
-        });
-        if (removed > 0) localStorage.setItem('projects_saved', JSON.stringify(keep));
-      }
-
-      // 子シートも続けて取り込み（設定済みなら）
-      let childMsg = '';
-      if (getChildGasUrl()) {
-        const cr = await syncFromChildSheet();
-        if (cr.error) childMsg = ' / 子取り込み失敗：' + cr.error;
-        else          childMsg = ` / 子取り込み ${cr.fetched} 件`;
-      }
-
-      // 各マスタ・リストも一緒に取り込み（URL設定済みのもののみ）
-      if (localStorage.getItem('gas_url_equip'))   fetchEquipMaster(false).catch(e => console.warn('equip fetch', e));
-      if (localStorage.getItem('gas_url_client'))  fetchClientMaster(false).catch(e => console.warn('client fetch', e));
-      if (localStorage.getItem('gas_url_product')) fetchProductMaster(false).catch(e => console.warn('product fetch', e));
-      if (localStorage.getItem('gas_url_media'))   fetchMediaList(false).catch(e => console.warn('media fetch', e));
-      if (localStorage.getItem('gas_url_driving')) fetchDrivingList(false).catch(e => console.warn('driving fetch', e));
-
-      // 全画面を再描画（取り込み後に即時反映）
-      if (typeof refreshHomeView === 'function') refreshHomeView(true);
-      if (typeof renderWorksheetList === 'function') renderWorksheetList();
-      if (typeof renderSalesScreen === 'function') { try { renderSalesScreen(); } catch(e) {} }
-      // ワークシート詳細を開いたまま取り込んだ場合も、レンタル等を即反映
-      if (typeof _refreshOpenWsDetail === 'function') _refreshOpenWsDetail();
-
-      const skipMsg = skipped > 0 ? `（予約番号 ${skipped} 件はスキップ）` : '';
-      if (showStatus) setGasStatus(`✅ 取り込み：新規 ${added} / 更新 ${updated} / 削除 ${removed}${childMsg} ${skipMsg}`, '#27ae60');
-    } catch (err) {
-      console.warn('syncFromSheet failed', err);
-      if (showStatus) setGasStatus('❌ 取り込み失敗：' + err.message, '#c0392b');
-    }
-  }
-
-  // 1件だけ受注ノートに送信（保存時に呼び出し）
-  async function sendOrderToSheet(num, p) {
-    const url = getGasUrl();
-    if (!url) return { skipped: true };
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows: [projectToOrderRow(num, p)] })
-      });
-      const data = await res.json();
-      if (data && data.ok) pendingClear('order', num); else pendingAdd('order', num);
-      return data;
-    } catch (err) {
-      console.warn('sendOrderToSheet failed', err);
-      pendingAdd('order', num);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  // 全件まとめて親シート＆子シートに送信
-  async function syncToSheet(showStatus) {
-    const url = getGasUrl();
-    if (!url) { if (showStatus) setGasStatus('先に親URLを保存してください', '#c0392b'); return; }
-    if (showStatus) setGasStatus('📤 送信中...', '#f39c12');
-    try {
-      const all = getSavedProjects();
-      const rows = all.map(p => projectToOrderRow(p.num, p));
-      if (!rows.length) { if (showStatus) setGasStatus('送信する案件がありません', '#888'); return; }
-      // 親送信
-      const res = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'upsert', rows })
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      const r = data.result || {};
-
-      // 子送信（URL設定済みなら）
-      let childMsg = '';
-      const childUrl = getChildGasUrl();
-      if (childUrl) {
-        const childRows = all.map(p => worksheetToChildRow(p.num));
-        try {
-          const cres = await fetch(childUrl, {
-            method: 'POST',
-            redirect: 'follow',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({ action: 'upsert', rows: childRows })
-          });
-          const cdata = await cres.json();
-          if (cdata.ok) {
-            const cr = cdata.result || {};
-            childMsg = ` / 子：追加 ${cr.inserted||0} / 更新 ${cr.updated||0}`;
-          } else {
-            childMsg = ' / 子送信失敗：' + (cdata.error || '不明');
-          }
-        } catch(e) {
-          childMsg = ' / 子送信失敗：' + e.message;
-        }
-      }
-
-      if (showStatus) setGasStatus(`✅ 親：追加 ${r.inserted||0} / 更新 ${r.updated||0}${childMsg}`, '#27ae60');
-    } catch (err) {
-      console.warn('syncToSheet failed', err);
-      if (showStatus) setGasStatus('❌ 送信失敗：' + err.message, '#c0392b');
-    }
-  }
-
   // 最終バックアップ日時の表示を更新
   function updateLastBackupDisplay() {
     const el = document.getElementById('last-backup-display');
@@ -12403,18 +11761,16 @@
     showConfirm(
       '⚠️ すべてのデータをリセットしますか？\n\n保存した案件・ワークシート・請求データがすべて削除されます。\nプレビューと同じ初期状態に戻ります。',
       () => {
-        // localStorage の全アプリデータを削除（deleted_ws は保持：削除済み案件が復活しないよう）
-        const _keepDeletedWS = localStorage.getItem('deleted_ws');
+        // localStorage の全アプリデータを削除
         const keys = Object.keys(localStorage);
         keys.forEach(k => {
           if (k.startsWith('ws_') || k.startsWith('inv_') ||
-              k === 'projects_saved' || k === 'deleted_inv' ||
+              k === 'projects_saved' || k === 'deleted_ws' || k === 'deleted_inv' ||
               k === 'last_login_name' || k === 'last_login_time' ||
               k === 'equip_master') {
             localStorage.removeItem(k);
           }
         });
-        if (_keepDeletedWS) localStorage.setItem('deleted_ws', _keepDeletedWS);
         // ページをリロード
         location.reload();
       },
@@ -12891,51 +12247,6 @@
   }
 
   // ===== 機材マスタ：同時編集で消えないためのマージ ＆ 削除の墓標（tombstone）=====
-  // 機材は「シート全体を置き換え（action:'sync'）」で送るため、古いリストを持つ端末が
-  // 保存すると他端末の追加を消してしまう。これを防ぐため、送信前・取り込み時に id 単位で
-  // ユニオン（和集合）マージする。削除は墓標 equip_deleted に積み、マージ時に除外して伝播させる。
-  function getEquipDeleted() {
-    try { return JSON.parse(localStorage.getItem('equip_deleted') || '[]'); } catch { return []; }
-  }
-  function addEquipDeleted(id) {
-    if (!id) return;
-    const s = new Set(getEquipDeleted());
-    s.add(id);
-    localStorage.setItem('equip_deleted', JSON.stringify([...s]));
-  }
-
-  // id 単位の和集合。並び順は orderList を基準にし、orderList に無い otherList 専用 id は末尾へ。
-  // preferOther=true なら重複 id は otherList の値を採用（取り込み：シート優先）。
-  // preferOther=false なら orderList の値を採用（送信：ローカル優先）。墓標 id は常に除外。
-  function _unionEquip(orderList, otherList, preferOther) {
-    const tomb = new Set(getEquipDeleted());
-    const orderById = new Map(); (orderList || []).forEach(it => { if (it && it.id) orderById.set(it.id, it); });
-    const otherById = new Map(); (otherList || []).forEach(it => { if (it && it.id) otherById.set(it.id, it); });
-    const out = [];
-    const seen = new Set();
-    (orderList || []).forEach(it => {
-      if (!it || !it.id || tomb.has(it.id) || seen.has(it.id)) return;
-      const v = (preferOther && otherById.has(it.id)) ? otherById.get(it.id) : orderById.get(it.id);
-      out.push(v); seen.add(it.id);
-    });
-    (otherList || []).forEach(it => {
-      if (!it || !it.id || tomb.has(it.id) || seen.has(it.id)) return;
-      out.push(otherById.get(it.id)); seen.add(it.id);
-    });
-    return out;
-  }
-
-  // 機材シートの現在の中身を取得して正規化（失敗時は例外、URL未設定は null）
-  async function _fetchEquipRows() {
-    const url = (localStorage.getItem('gas_url_equip') || '').trim();
-    if (!url) return null;
-    const sep = url.indexOf('?') >= 0 ? '&' : '?';
-    const res = await fetch(url + sep + '_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '不明なエラー');
-    return normalizeEquipRows(data.rows || []);
-  }
-
   // 機材マスタを編集したらシートへ自動送信（連続編集をまとめるためデバウンス）
   // ※ saveEquipMaster には入れない（取り込み時の保存で送信ループになるため）
   // 機材を1件編集したら、その1件だけをシートへ送る（サーバ側LWWで新しい方が勝つ。union/墓標は不要）
@@ -14260,29 +13571,6 @@
   function deleteCurrentWS() { confirmDeleteWS(); }
 
   // 親・子シートに削除フラグを立てる
-  async function sendDeleteToSheets(num) {
-    const urls = [getGasUrl(), getChildGasUrl()].filter(Boolean);
-    if (!urls.length) return { skipped: true };
-    try {
-      const results = await Promise.all(urls.map(url =>
-        fetch(url, {
-          method: 'POST',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'delete', nums: [num] })
-        }).then(r => r.ok).catch(e => { console.warn('sendDeleteToSheets', url, e); return false; })
-      ));
-      const allOK = results.every(Boolean);
-      if (allOK) { pendingClear('wsDelete', num); return { ok: true }; }
-      pendingAdd('wsDelete', num);
-      return { ok: false };
-    } catch (e) {
-      console.warn('sendDeleteToSheets failed', e);
-      pendingAdd('wsDelete', num);
-      return { ok: false, error: e.message };
-    }
-  }
-
   function deleteWS(num) {
     localStorage.removeItem('ws_' + num);
     localStorage.setItem('projects_saved', JSON.stringify(getSavedProjects().filter(p => p.num !== num)));
