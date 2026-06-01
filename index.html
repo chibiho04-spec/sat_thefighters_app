@@ -9513,6 +9513,33 @@
     };
   }
 
+  // 詳細画面用：指定スタッフがクルーに入っている保存済み案件の一覧を返す。
+  // 返り値: [{ num, title, date }]（撮影日の新しい順）。本人判定は姓の部分一致。
+  function getStaffCases(key) {
+    const base = getStaffByKey(key) || {};
+    const surname = String(base.name || '').trim();
+    if (!surname) return [];
+    const projFields  = ['crewProducer','crewD','crewPm1','crewPm2','crewC','crewA','crewA2','crewSound','crewEdit'];
+    const savedFields = ['crew_producer','crew_d','crew_pm1','crew_pm2','crew_c','crew_a','crew_a2','crew_sound','crew_edit'];
+    const projects = (typeof getSavedProjects === 'function') ? getSavedProjects() : [];
+    const out = [];
+    projects.forEach(p => {
+      if (!p || !p.num) return;
+      const saved = (typeof loadWS === 'function') ? (loadWS(p.num) || {}) : {};
+      const inProj  = projFields.some(f  => String(p[f]     || '').includes(surname));
+      const inSaved = savedFields.some(f => String(saved[f] || '').includes(surname));
+      if (inProj || inSaved) {
+        out.push({
+          num: p.num,
+          title: p.title || saved['edit_title'] || '(無題)',
+          date:  p.date  || saved['wsd-shootdate'] || ''
+        });
+      }
+    });
+    out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    return out;
+  }
+
   // ローカルのスタッフ情報を「漢たち」タブのカードに反映（テキストのみ書き換え・アバターは触らない）
   function applyStaffToCards() {
     const cards = document.querySelectorAll('#tab-4 .staff-card');
