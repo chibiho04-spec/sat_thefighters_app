@@ -5727,61 +5727,12 @@
       <div class="wsd-section-head" style="background:#0f9d58;color:white;">📊 案件マスタ同期（親シート）</div>
       <div style="padding:12px 14px;">
         <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:10px;">
-          <strong>親シート</strong>（案件マスタ）と双方向同期。新規案件作成・基本情報・クルー情報。<br>
-          Apps Script で公開した <strong>親 Web App URL</strong> を貼り付けてください。
+          <strong>統合シート</strong>（案件・子・取引先・商品・メディア・機材・請求書・スタッフを1つにまとめたスプレッドシート）の<br>
+          Apps Script <strong>Web App URL</strong> を1つだけ貼り付けてください。これ1本で全データを双方向同期します。
         </div>
-        <input id="gas-url-input" type="text" class="wsd-input" placeholder="親 https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>子シート</strong>（ワークシート詳細）と双方向同期。記入日・機材・作業報告など。<br>
-          子シート用の <strong>Web App URL</strong> を貼り付けてください（任意・未設定ならスキップ）。
-        </div>
-        <input id="gas-url-child-input" type="text" class="wsd-input" placeholder="子 https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>取引先マスタ</strong>。新規案件作成の取引先入力でオートコンプリートに使われます。<br>
-          取引先マスタ用の <strong>Web App URL</strong> を貼り付けてください（任意）。
-        </div>
-        <input id="gas-url-client-input" type="text" class="wsd-input" placeholder="取引先 https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>商品マスタ</strong>。請求書／見積書の項目入力でオートコンプリートに使われます。<br>
-          商品マスタ用の <strong>Web App URL</strong> を貼り付けてください（任意）。
-        </div>
-        <input id="gas-url-product-input" type="text" class="wsd-input" placeholder="商品 https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>メディア管理</strong>。SD/CFexpress 等の使用記録。
-        </div>
-        <input id="gas-url-media-input" type="text" class="wsd-input" placeholder="メディア https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>運転記録表</strong>。車両の運転・給油記録。
-        </div>
-        <input id="gas-url-driving-input" type="text" class="wsd-input" placeholder="運転記録 https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>請求書／見積書</strong>。請求書の内容を全端末で同期します。<br>
-          請求書用の <strong>Web App URL</strong> を貼り付けてください（任意）。
-        </div>
-        <input id="gas-url-invoice-input" type="text" class="wsd-input" placeholder="請求書 https://script.google.com/macros/s/.../exec"
-          style="width:100%;font-size:12px;padding:8px;margin-bottom:8px;">
-
-        <div style="font-size:12px;color:#666;line-height:1.6;margin:10px 0 6px;">
-          <strong>スタッフ（漢たち）</strong>。スタッフ情報を全端末で同期します。<br>
-          スタッフ用の <strong>Web App URL</strong> を貼り付けてください（任意）。
-        </div>
-        <input id="gas-url-staff-input" type="text" class="wsd-input" placeholder="スタッフ https://script.google.com/macros/s/.../exec"
+        <input id="gas-url-input" type="text" class="wsd-input" placeholder="同期URL https://script.google.com/macros/s/.../exec"
           style="width:100%;font-size:12px;padding:8px;margin-bottom:6px;">
-        <button class="wsd-save-btn" style="width:100%;background:#6c3483;border-color:#4a235a;box-shadow:3px 3px 0 #4a235a;font-size:13px;padding:10px;margin-bottom:6px;"
-          onclick="manualSyncStaff()">🔄 スタッフを同期</button>
-        <div id="staff-sync-status" style="font-size:11px;color:#666;line-height:1.4;min-height:14px;margin-bottom:8px;"></div>
+        <div style="font-size:11px;color:#999;margin-bottom:8px;">※ 旧バージョンの個別URL欄（親/子/取引先/商品/…）は廃止しました。このURL1つにまとめてください。</div>
 
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#0f9d58;border-color:#0a6e3e;box-shadow:3px 3px 0 #0a6e3e;font-size:13px;padding:10px;"
@@ -5790,10 +5741,14 @@
             onclick="manualSyncAll()">🔄 全部同期（取り込み＋送信）</button>
         </div>
         <div id="sync-status-all" style="margin-top:8px;font-size:12px;color:#666;min-height:14px;"></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-          <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#f39c12;border-color:#b3730e;box-shadow:3px 3px 0 #b3730e;font-size:13px;padding:10px;"
-            onclick="syncToSheet(true)">📤 全件送信（移行用）</button>
+        <div style="font-size:11px;color:#999;margin:10px 0 6px;border-top:1px dashed #ccc;padding-top:10px;">
+          ▼ <strong>初回シード（移行用）</strong>：新しい統合シートにこの端末の全データを一度だけ流し込みます。
         </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button id="seed-all-btn" class="wsd-save-btn" style="flex:1;min-width:120px;background:#f39c12;border-color:#b3730e;box-shadow:3px 3px 0 #b3730e;font-size:13px;padding:10px;"
+            onclick="seedAllToSheet()">🚀 新シートへ全部送信（初回シード）</button>
+        </div>
+        <div id="seed-status" style="margin-top:8px;font-size:12px;color:#666;min-height:14px;"></div>
         <div id="gas-sync-status" style="margin-top:10px;font-size:12px;color:#666;min-height:14px;"></div>
       </div>
 
@@ -6597,25 +6552,15 @@
     }
   })();
 
-  // ===== GAS URL デフォルト設定 =====
-  // gas_url（親シート）は全員共通のため常に上書き。その他は未設定の端末のみ設定。
+  // ===== GAS URL デフォルト設定（統合シート版） =====
+  // 統合シートは新しい Apps Script URL を各端末が設定画面で1回入力し localStorage('gas_url') に保存する。
+  // 旧8個のハードコードURLは廃止（統合シートとは別物のため）。
+  // 運転記録表(driving)だけは従来どおり既定URLを保険として設定（未設定端末のみ）。
   (function setDefaultGasUrls() {
-    // チーム共通URL（全員に強制設定）
-    const teamUrls = {
-      gas_url:        'https://script.google.com/macros/s/AKfycbyQoVQWC3dI5K8rr-KL6v_bWGHWpLVR1-03_OlrEPEFm9XaAWmOWUhuZm4kjC_pmbVf/exec',
-      gas_url_child:  'https://script.google.com/macros/s/AKfycby0W4E-WPmxs6cNc97ao_59lA7LfD9Fv7xRdWjF1Q7eN4XfRT3APUg12fDTzjHOhKFm/exec',
-      gas_url_client: 'https://script.google.com/macros/s/AKfycbwbUD8-m-0ZQNUoMQb-ShRaLdjXMSRSb5K2upf9MOf-RDVJgHnGcUWQ5ssWNSM-Q_c6/exec',
-      gas_url_product:'https://script.google.com/macros/s/AKfycbw3u0KNFwPPcMW3-0VyC1ZxfiIPpjmUXP24VrK42cCJgGay4We60HZZcs2Dgh2GQoz4/exec',
-      gas_url_media:  'https://script.google.com/macros/s/AKfycbyfLmFtyEQ2p14MEFJPHM9k8bvtNO0B-FQYx55afVYh_kSgDpu1N2KYWbRj7sxMw1TH/exec',
-      gas_url_equip:  'https://script.google.com/macros/s/AKfycbz7dndFHQyMbBOxvt5nJGuWVoc_EUI2EjN-_fAP5gqzxiRAjbMOoUwNPWtEP5-jAhBy/exec',
-      gas_url_invoice:'https://script.google.com/macros/s/AKfycbwheRC7O-zf7UrI9zba3GPTGI2qti9vlqAkh5KlZsDO3sgkn4zMTUd-p7y-vW8s17fyzw/exec'
-    };
-    // その他（未設定の端末のみ設定）
     const optionals = {
       gas_url_driving: 'https://script.google.com/macros/s/AKfycbwJoOmPkOwf5rKPtKSseaXxEeTYjpX_k-SYuJk9orCY7YxMgIJu0_MHnOouBj7TjJCp/exec'
     };
     try {
-      Object.entries(teamUrls).forEach(([k, v]) => localStorage.setItem(k, v));
       Object.entries(optionals).forEach(([k, v]) => {
         if (!localStorage.getItem(k)) localStorage.setItem(k, v);
       });
@@ -9266,20 +9211,6 @@
     updateLastBackupDisplay();
     const urlEl = document.getElementById('gas-url-input');
     if (urlEl) urlEl.value = localStorage.getItem('gas_url') || '';
-    const childEl = document.getElementById('gas-url-child-input');
-    if (childEl) childEl.value = localStorage.getItem('gas_url_child') || '';
-    const clientEl = document.getElementById('gas-url-client-input');
-    if (clientEl) clientEl.value = localStorage.getItem('gas_url_client') || '';
-    const productEl = document.getElementById('gas-url-product-input');
-    if (productEl) productEl.value = localStorage.getItem('gas_url_product') || '';
-    const mediaEl = document.getElementById('gas-url-media-input');
-    if (mediaEl) mediaEl.value = localStorage.getItem('gas_url_media') || '';
-    const drivingEl = document.getElementById('gas-url-driving-input');
-    if (drivingEl) drivingEl.value = localStorage.getItem('gas_url_driving') || '';
-    const invoiceEl = document.getElementById('gas-url-invoice-input');
-    if (invoiceEl) invoiceEl.value = localStorage.getItem('gas_url_invoice') || '';
-    const staffEl = document.getElementById('gas-url-staff-input');
-    if (staffEl) staffEl.value = localStorage.getItem('gas_url_staff') || '';
     const tokenEl = document.getElementById('gas-token-input');
     if (tokenEl) tokenEl.value = localStorage.getItem('gas_token') || '';
     const tokenStatusEl = document.getElementById('gas-token-status');
@@ -9308,6 +9239,21 @@
     } catch (e) { set('❌ 同期失敗：' + e.message, '#c0392b'); }
   }
 
+  // 初回シード：この端末の全データを統合シートへ一括送信（移行用）
+  async function seedAllToSheet() {
+    const el = document.getElementById('seed-status');
+    const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
+    if (!_gasUrlOne()) { set('⚠️ 先に同期URLを設定してください', '#c0392b'); return; }
+    if (!confirm('この端末の全データを新シートへ送信します。よろしいですか？')) return;
+    set('🚀 送信中…', '#2980b9');
+    let total = 0;
+    for (const kind of SYNC_ENABLED) {
+      try { const r = await pushKind(kind); total += (r.added || 0) + (r.updated || 0); set('🚀 送信中… ' + kind, '#2980b9'); }
+      catch (e) { console.warn('seed', kind, e); }
+    }
+    set('✅ シード完了：' + total + '件送信', '#1a7a40');
+  }
+
   // ===== Google スプレッドシート（受注ノート）同期 =====
   function setGasStatus(msg, color) {
     const el = document.getElementById('gas-sync-status');
@@ -9317,41 +9263,14 @@
   }
 
   function saveGasUrl() {
-    const url        = (document.getElementById('gas-url-input').value         || '').trim();
-    const childUrl   = (document.getElementById('gas-url-child-input').value   || '').trim();
-    const clientUrl  = (document.getElementById('gas-url-client-input').value  || '').trim();
-    const productUrl = (document.getElementById('gas-url-product-input').value || '').trim();
-    const mediaUrl   = (document.getElementById('gas-url-media-input').value   || '').trim();
-    const drivingUrl = (document.getElementById('gas-url-driving-input').value || '').trim();
-    const invoiceUrl = (document.getElementById('gas-url-invoice-input').value || '').trim();
-    const staffEl    = document.getElementById('gas-url-staff-input');
-    const staffUrl   = (staffEl ? staffEl.value : '').trim();
+    const url = (document.getElementById('gas-url-input').value || '').trim();
     const urlRe = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/;
-    if (!url) { setGasStatus('親URLを入力してください', '#c0392b'); return; }
-    if (!urlRe.test(url))                       { setGasStatus('親URLの形式が正しくないようです', '#c0392b'); return; }
-    if (childUrl && !urlRe.test(childUrl))      { setGasStatus('子URLの形式が正しくないようです', '#c0392b'); return; }
-    if (clientUrl && !urlRe.test(clientUrl))    { setGasStatus('取引先URLの形式が正しくないようです', '#c0392b'); return; }
-    if (productUrl && !urlRe.test(productUrl))  { setGasStatus('商品URLの形式が正しくないようです', '#c0392b'); return; }
-    if (mediaUrl && !urlRe.test(mediaUrl))      { setGasStatus('メディアURLの形式が正しくないようです', '#c0392b'); return; }
-    if (drivingUrl && !urlRe.test(drivingUrl))  { setGasStatus('運転記録URLの形式が正しくないようです', '#c0392b'); return; }
-    if (invoiceUrl && !urlRe.test(invoiceUrl))  { setGasStatus('請求書URLの形式が正しくないようです', '#c0392b'); return; }
-    if (staffUrl && !urlRe.test(staffUrl))      { setGasStatus('スタッフURLの形式が正しくないようです', '#c0392b'); return; }
+    if (!url) { setGasStatus('同期URLを入力してください', '#c0392b'); return; }
+    if (!urlRe.test(url)) { setGasStatus('URLの形式が正しくないようです', '#c0392b'); return; }
     localStorage.setItem('gas_url', url);
-    if (childUrl)   localStorage.setItem('gas_url_child', childUrl);     else localStorage.removeItem('gas_url_child');
-    if (clientUrl)  localStorage.setItem('gas_url_client', clientUrl);   else localStorage.removeItem('gas_url_client');
-    if (productUrl) localStorage.setItem('gas_url_product', productUrl); else localStorage.removeItem('gas_url_product');
-    if (mediaUrl)   localStorage.setItem('gas_url_media', mediaUrl);     else localStorage.removeItem('gas_url_media');
-    if (drivingUrl) localStorage.setItem('gas_url_driving', drivingUrl); else localStorage.removeItem('gas_url_driving');
-    if (invoiceUrl) localStorage.setItem('gas_url_invoice', invoiceUrl); else localStorage.removeItem('gas_url_invoice');
-    if (staffUrl)   localStorage.setItem('gas_url_staff', staffUrl);     else localStorage.removeItem('gas_url_staff');
-    const set = [url?'親':'', childUrl?'子':'', clientUrl?'取引先':'', productUrl?'商品':'', mediaUrl?'メディア':'', drivingUrl?'運転':'', invoiceUrl?'請求書':'', staffUrl?'スタッフ':''].filter(Boolean).join('・');
-    setGasStatus('✅ ' + set + ' URL を保存しました', '#27ae60');
-    if (clientUrl)  fetchClientMaster(true);
-    if (productUrl) fetchProductMaster(true);
-    if (mediaUrl)   fetchMediaList(true);
-    if (drivingUrl) fetchDrivingList(true);
-    if (invoiceUrl) syncFromInvoiceSheet(true);
-    if (staffUrl)   syncFromStaffSheet(true).catch(e => console.warn('staff sync', e));
+    setGasStatus('✅ 同期URLを保存しました。「🔄 全部同期」で取り込めます', '#27ae60');
+    // 保存直後に1回まとめて取り込み
+    if (typeof manualSyncAll === 'function') manualSyncAll();
   }
 
   // 合言葉（token）を保存。コードには埋めず、この端末の localStorage にだけ保存する。
