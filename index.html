@@ -9676,20 +9676,26 @@
     }
     return { pulled };
   }
-  // 「🔄 スタッフを同期」ボタン用：全員送信（シード）＋取得
+  // 「🔄 スタッフを同期」ボタン用：①先に取得（他端末の編集を取り込む）→ ②この端末で編集した人だけ送信
+  // ※ 未編集（_updatedAt なし＝初期値のまま）の人は送信しない。
+  //    送信すると「今の時刻」が付いてシートを無条件で上書きし、他端末の編集を消してしまうため。
   async function manualSyncStaff() {
     const el = document.getElementById('staff-sync-status');
     const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
     if (!getStaffGasUrl()) { set('⚠️ スタッフの同期URLが未設定です（設定画面で登録してください）', '#c0392b'); return; }
-    set('🔄 同期中…（送信＋取得）', '#2980b9');
+    set('🔄 同期中…（取得＋送信）', '#2980b9');
     try {
+      // ① まず取得（他端末の最新を取り込んでローカルを更新）
+      const pr = await syncFromStaffSheet(true);
+      // ② この端末で実際に編集した人（_updatedAt あり）だけ送信
+      const list = loadStaffMaster();
       let pushed = 0;
-      for (const k of STAFF_KEYS) {
-        const r = await sendStaffToSheet(k);
+      for (const s of list) {
+        if (!s._updatedAt) continue; // 未編集の初期値は送らない＝他端末の編集を守る
+        const r = await sendStaffToSheet(s.key);
         if (r && r.ok) pushed++;
       }
-      const pr = await syncFromStaffSheet(true);
-      set(`✅ 送信 ${pushed}件・取得 ${pr.pulled || 0}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
+      set(`✅ 取得 ${pr.pulled || 0}件・送信 ${pushed}件（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
     } catch (e) {
       set('❌ 同期失敗：' + e.message, '#c0392b');
     }
