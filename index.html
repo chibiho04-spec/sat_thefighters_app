@@ -11025,7 +11025,12 @@
       crew_producer: 'crewProducer', crew_d: 'crewD', crew_pm1: 'crewPm1', crew_pm2: 'crewPm2',
       crew_c: 'crewC', crew_a: 'crewA', crew_a2: 'crewA2', crew_sound: 'crewSound', crew_edit: 'crewEdit'
     };
-    const _has = k => (String(saved[k] || proj[_camel[k]] || '').trim() ? 1 : 0);
+    // 「その他（自由記入）」で入れた社外スタッフ（CREW_NAMESに無い名前）は売上按分から除外する。
+    // 社内スタッフ（プルダウン選択＝CREW_NAMESに載っている名前）だけをカウントする。
+    const _has = k => {
+      const name = String(saved[k] || proj[_camel[k]] || '').trim();
+      return (name && CREW_NAMES.includes(name)) ? 1 : 0;
+    };
     const cnt = {
       produce: _has('crew_producer') + _has('crew_d') + _has('crew_pm1') + _has('crew_pm2'),
       shoot:   _has('crew_c') + _has('crew_a') + _has('crew_a2') + _has('crew_sound'),
