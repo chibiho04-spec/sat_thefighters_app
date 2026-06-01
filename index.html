@@ -5045,6 +5045,11 @@
           </div>
         </div>
         <div>
+          <div class="wsd-crew-label">入社年月日</div>
+          <input id="se-joindate" class="wsd-input" type="date" oninput="updateStaffTenure()" style="width:100%;">
+          <div id="se-tenure" style="font-size:12px;color:#6c3483;font-weight:bold;margin-top:4px;min-height:16px;"></div>
+        </div>
+        <div>
           <div class="wsd-crew-label">役職</div>
           <select id="se-position" class="wsd-select">
             <option>会長</option>
@@ -5053,15 +5058,6 @@
             <option>社員</option>
           </select>
         </div>
-        <div>
-          <div class="wsd-crew-label">入社年月日</div>
-          <input id="se-joindate" class="wsd-input" type="date" oninput="updateStaffTenure()" style="width:100%;">
-          <div id="se-tenure" style="font-size:12px;color:#6c3483;font-weight:bold;margin-top:4px;min-height:16px;"></div>
-        </div>
-      </div>
-
-      <div class="wsd-section-head" style="background:#6c3483;color:white;">詳細</div>
-      <div class="wsd-field-group" style="display:flex;flex-direction:column;gap:8px;">
         <div>
           <div class="wsd-crew-label">🎬 役割</div>
           <input id="se-role" class="wsd-input" type="text" placeholder="例: カメラマン / ディレクター">
