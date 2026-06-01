@@ -7329,6 +7329,8 @@
     document.getElementById('user-stat-spd-bar').style.width = staff.spd + '%';
     document.getElementById('user-stat-end-bar').style.width = staff.end + '%';
     document.getElementById('user-stat-skills').innerHTML = (staff.skills || []).map(s => `・${s}`).join('<br>');
+    card.style.cursor = 'pointer';
+    card.onclick = () => openStaffDetail(loginName);
     card.style.display = 'flex';
   }
 
@@ -9601,7 +9603,7 @@
       // ひとこと行は廃止
       if (noteDiv) noteDiv.style.display = 'none';
       card.style.cursor = 'pointer';
-      card.onclick = () => openStaffEdit(s.key);
+      card.onclick = () => openStaffDetail(s.key);
     });
     // カードの並び順：社長→会長→役員→社員。同じ役職内は勤続年数が長い順。
     // アバターは各カードに固定なので、DOMノード自体を並べ替える（card[i] は list[i] の人）。
