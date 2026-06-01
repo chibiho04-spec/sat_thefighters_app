@@ -5077,6 +5077,10 @@
           <div class="wsd-crew-label">💬 ひとこと</div>
           <input id="se-note" class="wsd-input" type="text" placeholder="例: チーフカメラマン。現場リーダー。">
         </div>
+        <div>
+          <div class="wsd-crew-label">💪 スキル（特技・カンマ区切り）</div>
+          <input id="se-skills" class="wsd-input" type="text" placeholder="例: 📷 速写, 🎬 演出">
+        </div>
       </div>
 
       <div style="padding:14px 12px 20px;border-top:2px solid #d4c8b0;margin-top:10px;background:rgba(255,255,255,0.5);">
@@ -9463,16 +9467,16 @@
   // STAFF_KEYS は上部（ログイン処理）で既に定義済み。同じ順序を使う。
   const STAFF_STATUS_COLOR = { '稼働中':'#27ae60', '撮影中':'#e67e22', '待機中':'#2980b9', '休暇中':'#95a5a6' };
   const _defaultStaffMaster = [
-    { key:'kawasaki', name:'川崎', reading:'かわさき', status:'稼働中', roles:['P','D'], role:'カメラマン / ディレクター', specialty:'TV番組・CM', jobs:8, years:15, stars:5, note:'チーフカメラマン。現場リーダー。' },
-    { key:'uehara',   name:'上原', reading:'うえはら', status:'待機中', roles:['C'],     role:'カメラマン', specialty:'PV・イベント', jobs:5, years:10, stars:3, note:'広角・動画演出が得意。' },
-    { key:'hiraoka',  name:'平岡', reading:'ひらおか', status:'撮影中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・WEB', jobs:6, years:5, stars:1, note:'機材管理担当。' },
-    { key:'kawano',   name:'川野', reading:'かわの',   status:'稼働中', roles:['PM'],    role:'プロデューサー / PM', specialty:'大型イベント・CM', jobs:10, years:12, stars:4, note:'スケジュール・予算管理。' },
-    { key:'shin',     name:'城間', reading:'しろま',   status:'待機中', roles:['C','CA'],role:'カメラマン', specialty:'CM・PV', jobs:4, years:8, stars:2, note:'照明プランニングも対応可。' },
-    { key:'arasaki',  name:'新崎', reading:'あらさき', status:'待機中', roles:['S'],     role:'音声・サウンドエンジニア', specialty:'TV・イベント', jobs:5, years:9, stars:3, note:'収録・MA対応。' },
-    { key:'hazama',   name:'玻座間', reading:'はざま', status:'休暇中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・WEB', jobs:0, years:3, stars:1, note:'6/1〜復帰予定。' },
-    { key:'morita',   name:'森田', reading:'もりた',   status:'稼働中', roles:['E'],     role:'映像編集・カラコレ', specialty:'CM・PV・WEB', jobs:7, years:11, stars:3, note:'DaVinci Resolve / Premiere対応。' },
-    { key:'kamiji',   name:'上地', reading:'うえち',   status:'待機中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・イベント', jobs:3, years:2, stars:0, note:'フットワーク軽い。' },
-    { key:'matsuda',  name:'松田', reading:'まつだ',   status:'稼働中', roles:['D'],     role:'ディレクター', specialty:'TV番組・ドキュメント', jobs:9, years:13, stars:4, note:'構成・演出・取材が得意。' }
+    { key:'kawasaki', name:'川崎', reading:'かわさき', status:'稼働中', roles:['P','D'], role:'カメラマン / ディレクター', specialty:'TV番組・CM', jobs:8, years:15, stars:5, note:'チーフカメラマン。現場リーダー。', skills:['📷 速写','🎬 演出','🌅 マジックアワー'] },
+    { key:'uehara',   name:'上原', reading:'うえはら', status:'待機中', roles:['C'],     role:'カメラマン', specialty:'PV・イベント', jobs:5, years:10, stars:3, note:'広角・動画演出が得意。', skills:['📷 広角','🎥 動画演出'] },
+    { key:'hiraoka',  name:'平岡', reading:'ひらおか', status:'撮影中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・WEB', jobs:6, years:5, stars:1, note:'機材管理担当。', skills:['🧰 機材管理','🏃 段取り'] },
+    { key:'kawano',   name:'川野', reading:'かわの',   status:'稼働中', roles:['PM'],    role:'プロデューサー / PM', specialty:'大型イベント・CM', jobs:10, years:12, stars:4, note:'スケジュール・予算管理。', skills:['📊 予算管理','📅 進行管理'] },
+    { key:'shin',     name:'城間', reading:'しろま',   status:'待機中', roles:['C','CA'],role:'カメラマン', specialty:'CM・PV', jobs:4, years:8, stars:2, note:'照明プランニングも対応可。', skills:['💡 照明','📷 速写'] },
+    { key:'arasaki',  name:'新崎', reading:'あらさき', status:'待機中', roles:['S'],     role:'音声・サウンドエンジニア', specialty:'TV・イベント', jobs:5, years:9, stars:3, note:'収録・MA対応。', skills:['🎙 収録','🎚 MA'] },
+    { key:'hazama',   name:'玻座間', reading:'はざま', status:'休暇中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・WEB', jobs:0, years:3, stars:1, note:'6/1〜復帰予定。', skills:['📷 サポート'] },
+    { key:'morita',   name:'森田', reading:'もりた',   status:'稼働中', roles:['E'],     role:'映像編集・カラコレ', specialty:'CM・PV・WEB', jobs:7, years:11, stars:3, note:'DaVinci Resolve / Premiere対応。', skills:['✂️ 編集','🎨 カラコレ'] },
+    { key:'kamiji',   name:'上地', reading:'うえち',   status:'待機中', roles:['CA'],    role:'カメラアシスタント', specialty:'TV・イベント', jobs:3, years:2, stars:0, note:'フットワーク軽い。', skills:['🏃 フットワーク'] },
+    { key:'matsuda',  name:'松田', reading:'まつだ',   status:'稼働中', roles:['D'],     role:'ディレクター', specialty:'TV番組・ドキュメント', jobs:9, years:13, stars:4, note:'構成・演出・取材が得意。', skills:['📝 構成','🎤 取材'] }
   ];
   function loadStaffMaster() {
     try {
@@ -9516,7 +9520,10 @@
       }
       if (infoDiv) {
         const stars = '⭐'.repeat(Math.max(0, Math.min(5, Number(s.stars) || 0)));
-        infoDiv.innerHTML = `🎬 ${_esc(s.role)}<br>🏆 専門: ${_esc(s.specialty)}<br>📅 当月稼働: ${Number(s.jobs) || 0}件　⏱ 経験: ${Number(s.years) || 0}年　${stars}`;
+        const skillTags = (s.skills || []).filter(Boolean).map(sk =>
+          `<span style="display:inline-block;background:#f0e6f5;color:#6c3483;border:1px solid #d7bde2;font-size:10px;padding:1px 6px;border-radius:8px;margin:2px 3px 0 0;">${_esc(sk)}</span>`).join('');
+        infoDiv.innerHTML = `🎬 ${_esc(s.role)}<br>🏆 専門: ${_esc(s.specialty)}<br>📅 当月稼働: ${Number(s.jobs) || 0}件　⏱ 経験: ${Number(s.years) || 0}年　${stars}`
+          + (skillTags ? `<div style="margin-top:4px;">💪 ${skillTags}</div>` : '');
       }
       if (noteDiv) noteDiv.textContent = s.note || '';
       card.style.cursor = 'pointer';
@@ -9542,6 +9549,7 @@
     set('se-years', Number(s.years) || 0);
     set('se-stars', Number(s.stars) || 0);
     set('se-note', s.note || '');
+    set('se-skills', (s.skills || []).join(', '));
     const ss = document.getElementById('se-save-status'); if (ss) ss.textContent = '';
     document.getElementById('staff-edit-screen').style.transform = 'translateX(0)';
   }
@@ -9556,6 +9564,7 @@
     if (idx < 0) return;
     const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
     const roles = String(val('se-roles') || '').split(',').map(r => r.trim()).filter(Boolean);
+    const skills = String(val('se-skills') || '').split(',').map(r => r.trim()).filter(Boolean);
     const upd = {
       name: String(val('se-name') || '').trim(),
       reading: String(val('se-reading') || '').trim(),
@@ -9567,6 +9576,7 @@
       years: Math.max(0, Number(val('se-years')) || 0),
       stars: Math.max(0, Math.min(5, Number(val('se-stars')) || 0)),
       note: String(val('se-note') || '').trim(),
+      skills: skills,
       _updatedAt: new Date().toISOString()
     };
     list[idx] = Object.assign({}, list[idx], upd);
