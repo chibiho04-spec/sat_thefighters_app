@@ -8469,8 +8469,11 @@
     status.savedAt  = new Date().toLocaleString('ja-JP');
     status._updatedAt = new Date().toISOString(); // 端末間同期の新旧判定用
     saveInvStatus(num, status);
-    // 請求書をシートへ自動送信（URL設定済みなら）
-    if (typeof scheduleInvoicePush === 'function') scheduleInvoicePush(num);
+    // 請求書をシートへ自動送信（URL設定済みなら）— 旧 scheduleInvoicePush は廃止。新エンジンで該当1件だけ送る。
+    if (_gasUrlOne()) {
+      const _rec = Object.assign({ '受注No': num }, status);
+      pushKind('invoice', [_rec]).catch(e => { try { pendingAdd('invoice', num); } catch (_) {} });
+    }
 
     // 売上表が開いていれば即時再描画
     if (typeof renderSalesScreen === 'function') {
@@ -9601,8 +9604,10 @@
     applyStaffToCards();
     const key = _editingStaffKey;
     const ss = document.getElementById('se-save-status');
-    if (ss) ss.textContent = getStaffGasUrl() ? '✅ 保存しました（全社へ送信中）' : '✅ 保存しました（この端末のみ）';
-    scheduleStaffPush(key);
+    if (ss) ss.textContent = _gasUrlOne() ? '✅ 保存しました（全社へ送信中）' : '✅ 保存しました（この端末のみ）';
+    // 旧 scheduleStaffPush は廃止。新エンジンで該当1件だけ送る。
+    const _row = loadStaffMaster().find(s => s.key === key);
+    if (_row && _gasUrlOne()) { pushKind('staff', [_row]).catch(e => { try { pendingAdd('staff', key); } catch (_) {} }); }
     setTimeout(closeStaffEdit, 600);
   }
 
@@ -10003,8 +10008,8 @@
       loadLocal: () => _loadAllInvoices(),
       saveLocal: (list) => _saveAllInvoices(list),
       toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
-      fromRow: (row) => _jsonFromRow(row),
-      redraw: () => { try { renderInvoiceList(); } catch (e) {} }
+      fromRow: (row) => { const r = _jsonFromRow(row); r['受注No'] = String(row['受注No'] || r['受注No'] || ''); return r; },
+      redraw: () => { try { renderInvCards(); } catch (e) {} try { renderSalesScreen(); } catch (e) {} }
     },
     staff: {
       keyField: 'key', keyHeader: 'キー',
@@ -10056,7 +10061,27 @@
     }
   };
 
-  let SYNC_ENABLED = []; // 配線済み kind だけを順次ここへ足す（Task5〜7）
+  // ---- invoice アダプタ（一覧キーは持たず inv_${num} を localStorage 走査で全件取得/保存）----
+  function _loadAllInvoices() {
+    const out = [];
+    Object.keys(localStorage).filter(k => k.indexOf('inv_') === 0).forEach(k => {
+      const num = k.slice(4); if (!num) return;
+      let rec; try { rec = JSON.parse(localStorage.getItem(k)); } catch (e) { return; }
+      if (!rec || typeof rec !== 'object') return;
+      rec['受注No'] = String(num);
+      out.push(rec);
+    });
+    return out;
+  }
+  function _saveAllInvoices(recList) {
+    for (const rec of recList) {
+      const num = String((rec && rec['受注No']) || ''); if (!num) continue;
+      const copy = Object.assign({}, rec); delete copy['受注No']; // 受注No はキー（行内には戻さない）
+      localStorage.setItem('inv_' + num, JSON.stringify(copy));
+    }
+  }
+
+  let SYNC_ENABLED = ['staff', 'invoice']; // 配線済み kind だけを順次ここへ足す（Task5〜7）
   function _gasUrlOne() { return (localStorage.getItem('gas_url') || '').trim(); }
 
   async function pullKind(kind) {
