@@ -50,10 +50,56 @@ function _sheetFor(cfg) {
 function _headers(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String); }
 function _colIndex(headers, name) { return headers.indexOf(name); } // 0始まり、無ければ-1
 
+// "141:00" / "13:30" のような時:分表記を「時間（小数なし・四捨五入）」へ。
+// 数値だけ来た場合（=日数換算等）はそのまま四捨五入する。
+function _hmsToHours(v) {
+  var s = String(v == null ? '' : v).replace(/^\s+|\s+$/g, '');
+  if (!s) return null;
+  var m = s.match(/^(\d+):(\d+)/);
+  if (m) return Math.round(parseInt(m[1], 10) + parseInt(m[2], 10) / 60);
+  var n = parseFloat(s.replace(/,/g, ''));
+  return isNaN(n) ? null : Math.round(n);
+}
+
+// 作業日報スプレッドシート（別ファイル）を ID で開き、ラベルの真下のセルから
+// 月間勤務時間・月間普通残業時間を読む。表示値(getDisplayValues)で取得する。
+function _readWorklog(sid) {
+  var ss;
+  try { ss = SpreadsheetApp.openById(sid); }
+  catch (err) { return { ok: false, error: 'open失敗: ' + String(err) }; }
+  var sheets = ss.getSheets();
+  var workRaw = null, overRaw = null;
+  for (var s = 0; s < sheets.length; s++) {
+    var disp;
+    try { disp = sheets[s].getDataRange().getDisplayValues(); } catch (e2) { continue; }
+    for (var r = 0; r < disp.length; r++) {
+      for (var c = 0; c < disp[r].length; c++) {
+        var label = String(disp[r][c] || '').replace(/\s/g, '');
+        if (!label) continue;
+        if (workRaw === null && label.indexOf('月間勤務時間') >= 0 && (r + 1) < disp.length) workRaw = disp[r + 1][c];
+        if (overRaw === null && label.indexOf('月間普通残業時間') >= 0 && (r + 1) < disp.length) overRaw = disp[r + 1][c];
+      }
+    }
+    if (workRaw !== null && overRaw !== null) break;
+  }
+  return {
+    ok: true,
+    workRaw: workRaw, overtimeRaw: overRaw,
+    workHours: _hmsToHours(workRaw),
+    overtimeHours: _hmsToHours(overRaw)
+  };
+}
+
 function doGet(e) {
   if (!_authOK(e)) return _json({ ok: false, error: 'unauthorized' });
   try {
     var action = (e.parameter.action || 'list');
+    // 作業日報スプレッドシート（別ファイル）から月間勤務時間・残業時間を読む
+    if (action === 'worklog') {
+      var sid = e.parameter.sheetId ? String(e.parameter.sheetId) : '';
+      if (!sid) return _json({ ok: false, error: 'sheetId required' });
+      return _json(_readWorklog(sid));
+    }
     if (action !== 'list') return _json({ ok: false, error: 'unknown action: ' + action });
     var cfg = _kindCfg(e.parameter.kind);
     if (!cfg) return _json({ ok: false, error: 'unknown kind: ' + e.parameter.kind });

@@ -6613,6 +6613,9 @@
       if (typeof applyStaffToCards === 'function') applyStaffToCards();
       if (_gasUrlOne()) {
         for (const k of SYNC_ENABLED) { pullKind(k).catch(e => console.warn('boot pull', k, e)); }
+        // 作業日報から月間勤務時間・残業時間を取り込む（ログイン中ユーザーのみ）
+        const _ln = localStorage.getItem('last_login_name');
+        if (_ln && typeof fetchWorklog === 'function') fetchWorklog(_ln).catch(e => console.warn('boot worklog', e));
       }
       // 運転記録表は統合同期の対象外（従来どおり別URLで運用）
       if (localStorage.getItem('gas_url_driving')) {
@@ -7230,9 +7233,51 @@
     }
   };
 
+  // ===== 作業日報スプレッドシートから月間勤務時間・残業時間を取り込む =====
+  // ログインユーザー → 作業日報スプレッドシートID（公開リポジトリに載るが、IDは秘密情報ではない）
+  const WORKLOG_SHEETS = {
+    shin: '1aN6XxObGlWshQxrJVPvOAxrf_r0mGdX-jy-4Cr2yPlA' // 作業日報_城間 心_2026
+  };
+
+  // 直近に取り込んだ勤務時間（localStorageキャッシュ）をカード用データへ反映する。
+  function _applyCachedWorklog(loginName) {
+    const staff = USER_STAFF[loginName];
+    if (!staff) return;
+    try {
+      const c = JSON.parse(localStorage.getItem('worklog_' + loginName) || 'null');
+      if (c) {
+        if (typeof c.hours === 'number') staff.hours = c.hours;
+        if (typeof c.overtime === 'number') staff.overtime = c.overtime;
+      }
+    } catch (e) { /* キャッシュ無し */ }
+  }
+
+  // 作業日報スプレッドシートから最新値を取得し、カードへ反映＋キャッシュ保存する。
+  async function fetchWorklog(loginName) {
+    const staff = USER_STAFF[loginName];
+    const sid = WORKLOG_SHEETS[loginName];
+    const url = (typeof _gasUrlOne === 'function') ? _gasUrlOne() : '';
+    if (!staff || !sid || !url) return;
+    try {
+      const res = await fetch(
+        url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=worklog&sheetId=' + encodeURIComponent(sid) + '&_ts=' + Date.now(),
+        { method: 'GET', redirect: 'follow', cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'worklog失敗');
+      if (typeof data.workHours === 'number') staff.hours = data.workHours;
+      if (typeof data.overtimeHours === 'number') staff.overtime = data.overtimeHours;
+      try {
+        localStorage.setItem('worklog_' + loginName, JSON.stringify({ hours: staff.hours, overtime: staff.overtime, _ts: Date.now() }));
+      } catch (e) { /* 保存失敗は無視 */ }
+      // 表示中のユーザーなら即カードを更新
+      if (localStorage.getItem('last_login_name') === loginName) renderUserStaffCard(loginName);
+    } catch (e) { console.warn('worklog fetch', e); }
+  }
+
   function renderUserStaffCard(loginName) {
     const card = document.getElementById('user-staff-card');
     if (!card) return;
+    _applyCachedWorklog(loginName); // 取り込み済みの勤務時間があれば反映
     const staff = USER_STAFF[loginName];
     if (!staff) {
       card.style.display = 'none';
@@ -7280,6 +7325,8 @@
       if (bubble) bubble.innerHTML =
         `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
       try { renderUserStaffCard(name); } catch(e) { console.warn(e); }
+      // ログイン後、作業日報から最新の勤務時間を取り込む
+      try { if (typeof fetchWorklog === 'function') fetchWorklog(name).catch(e => console.warn('login worklog', e)); } catch(e) { console.warn(e); }
     }, 500);
   }
 
