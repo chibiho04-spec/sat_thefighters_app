@@ -9480,6 +9480,39 @@
   function saveStaffMaster(list) { localStorage.setItem('staff_master', JSON.stringify(list)); }
   function getStaffByKey(key) { return loadStaffMaster().find(s => s.key === key); }
 
+  // 詳細画面用：1人分の表示データを集約して返す（基本＋ゲーム＋本人フラグ）
+  // 見つからない項目は安全な既定値（'-' など）にして描画が落ちないようにする。
+  function getStaffDetail(key) {
+    const base = getStaffByKey(key) || {};
+    const idx  = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(key) : -1;
+    const fighter = (idx >= 0 && typeof SUMO_FIGHTERS !== 'undefined') ? (SUMO_FIGHTERS[idx] || {}) : {};
+    const us = (typeof USER_STAFF !== 'undefined') ? (USER_STAFF[key] || null) : null;
+    const isSelf = (localStorage.getItem('last_login_name') === key);
+    const avatar = (fighter.palette && typeof makePixelChar === 'function')
+      ? makePixelChar(fighter.palette) : '';
+    const tenureYears = (typeof _staffTenureYears === 'function') ? _staffTenureYears(base.joinDate) : null;
+    return {
+      key: key,
+      fullName: [base.name, base.firstName].filter(Boolean).join(' ') || (fighter.name || key),
+      english: base.english || '',
+      role: base.role || '',
+      position: base.position || '',
+      joinDate: base.joinDate || '',
+      tenureYears: tenureYears,
+      stars: Math.max(0, Math.min(5, Number(base.stars) || 0)),
+      avatar: avatar,
+      level: (typeof fighter.level === 'number') ? fighter.level : null,
+      str: (typeof fighter.str === 'number') ? fighter.str : null,
+      spd: (typeof fighter.spd === 'number') ? fighter.spd : null,
+      end: (typeof fighter.end === 'number') ? fighter.end : null,
+      exp: (us && typeof us.exp === 'number') ? us.exp : null,
+      expNext: (us && typeof us.expNext === 'number') ? us.expNext : null,
+      hours: (us && typeof us.hours === 'number') ? us.hours : null,
+      overtime: (us && typeof us.overtime === 'number') ? us.overtime : null,
+      isSelf: isSelf
+    };
+  }
+
   // ローカルのスタッフ情報を「漢たち」タブのカードに反映（テキストのみ書き換え・アバターは触らない）
   function applyStaffToCards() {
     const cards = document.querySelectorAll('#tab-4 .staff-card');
