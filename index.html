@@ -10985,16 +10985,44 @@
     return 'other';
   }
 
+  // 1案件のクルー欄から部門別の社内スタッフ人数を数える { produce, shoot, edit }
+  // ws_ストアが空でも案件レコード(getSavedProjects)のクルー名を拾う（同期後の端末対策）
+  // 「その他（自由記入）」で入れた社外スタッフ（CREW_NAMESに無い名前）は除外する。
+  function _crewDeptCount(item) {
+    const saved = (typeof loadWS === 'function') ? (loadWS(item.num) || {}) : {};
+    let proj = {};
+    try {
+      const _list = (typeof getSavedProjects === 'function') ? getSavedProjects() : [];
+      proj = _list.find(p => p && p.num === item.num) || {};
+    } catch (e) { proj = {}; }
+    const _camel = {
+      crew_producer: 'crewProducer', crew_d: 'crewD', crew_pm1: 'crewPm1', crew_pm2: 'crewPm2',
+      crew_c: 'crewC', crew_a: 'crewA', crew_a2: 'crewA2', crew_sound: 'crewSound', crew_edit: 'crewEdit'
+    };
+    const _has = k => {
+      const name = String(saved[k] || proj[_camel[k]] || '').trim();
+      return (name && CREW_NAMES.includes(name)) ? 1 : 0;
+    };
+    return {
+      produce: _has('crew_producer') + _has('crew_d') + _has('crew_pm1') + _has('crew_pm2'),
+      shoot:   _has('crew_c') + _has('crew_a') + _has('crew_a2') + _has('crew_sound'),
+      edit:    _has('crew_edit')
+    };
+  }
+
   // 1案件の売上(netInhouse)を3部門+未分類へ振り分ける（合計はnetInhouseに一致）
   // item は _collectSalesItems() の1要素（num, netInhouse, date 等を持つ）
+  // 方針：請求書の明細を主に判定し、判定できなかった分（未分類）だけクルー欄で救済する。
   function _caseDeptSplit(item) {
     const net = Number(item.netInhouse) || 0;
     const res = { produce: 0, shoot: 0, edit: 0, other: 0 };
     const status = (typeof loadInvStatus === 'function') ? (loadInvStatus(item.num) || {}) : {};
     const lines = (status.lines && status.lines.length) ? status.lines : null;
+    const crew = _crewDeptCount(item);
+    const crewTotal = crew.produce + crew.shoot + crew.edit;
 
     if (lines) {
-      // A. 明細あり：非外注行を部門別グロスに集計 → net を比率按分
+      // A. 明細あり：非外注行を部門別グロスに集計
       const gross = { produce: 0, shoot: 0, edit: 0, other: 0 };
       let totalGross = 0;
       lines.forEach(l => {
@@ -11004,6 +11032,13 @@
         gross[_classifyLineDept(l.name)] += amt;
         totalGross += amt;
       });
+      // 未分類グロスは、クルーが入っていればクルー比率で各部門へ振り直す（案1：請求書を主・クルーを補助）
+      if (gross.other > 0 && crewTotal > 0) {
+        gross.produce += gross.other * (crew.produce / crewTotal);
+        gross.shoot   += gross.other * (crew.shoot   / crewTotal);
+        gross.edit    += gross.other * (crew.edit    / crewTotal);
+        gross.other = 0;
+      }
       if (totalGross > 0) {
         ['produce', 'shoot', 'edit', 'other'].forEach(d => {
           res[d] = net * (gross[d] / totalGross);
@@ -11015,33 +11050,10 @@
     }
 
     // B. 明細なし：クルー欄の役割人数で按分
-    // ws_ストアが空でも案件レコード(getSavedProjects)のクルー名を拾う（同期後の端末対策）
-    const saved = (typeof loadWS === 'function') ? (loadWS(item.num) || {}) : {};
-    let proj = {};
-    try {
-      const _list = (typeof getSavedProjects === 'function') ? getSavedProjects() : [];
-      proj = _list.find(p => p && p.num === item.num) || {};
-    } catch (e) { proj = {}; }
-    const _camel = {
-      crew_producer: 'crewProducer', crew_d: 'crewD', crew_pm1: 'crewPm1', crew_pm2: 'crewPm2',
-      crew_c: 'crewC', crew_a: 'crewA', crew_a2: 'crewA2', crew_sound: 'crewSound', crew_edit: 'crewEdit'
-    };
-    // 「その他（自由記入）」で入れた社外スタッフ（CREW_NAMESに無い名前）は売上按分から除外する。
-    // 社内スタッフ（プルダウン選択＝CREW_NAMESに載っている名前）だけをカウントする。
-    const _has = k => {
-      const name = String(saved[k] || proj[_camel[k]] || '').trim();
-      return (name && CREW_NAMES.includes(name)) ? 1 : 0;
-    };
-    const cnt = {
-      produce: _has('crew_producer') + _has('crew_d') + _has('crew_pm1') + _has('crew_pm2'),
-      shoot:   _has('crew_c') + _has('crew_a') + _has('crew_a2') + _has('crew_sound'),
-      edit:    _has('crew_edit')
-    };
-    const totalCnt = cnt.produce + cnt.shoot + cnt.edit;
-    if (totalCnt > 0) {
-      res.produce = net * (cnt.produce / totalCnt);
-      res.shoot   = net * (cnt.shoot   / totalCnt);
-      res.edit    = net * (cnt.edit    / totalCnt);
+    if (crewTotal > 0) {
+      res.produce = net * (crew.produce / crewTotal);
+      res.shoot   = net * (crew.shoot   / crewTotal);
+      res.edit    = net * (crew.edit    / crewTotal);
       return res;
     }
     res.other = net; // クルー未入力は未分類へ
