@@ -73,8 +73,15 @@ function doGet(e) {
 }
 
 // 送信（POST {action:'upsert', rows:[...]}）：キー一致行を更新、無ければ追加
+// ★ LockService で1件ずつ順番に処理する（同時実行による重複行を防ぐ）
 function doPost(e) {
   if (!_syncAuthOK(e)) return _syncDeny();
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000); // 最大30秒、他の処理が終わるのを待つ
+  } catch (lockErr) {
+    return _json({ ok: false, error: 'busy' }); // アプリ側は失敗→再送キューに積む
+  }
   try {
     var body = JSON.parse(e.postData.contents || '{}');
     var action = body.action || 'upsert';
@@ -84,13 +91,17 @@ function doPost(e) {
     _ensureHeaders(sh);
     var rows = body.rows || [];
 
+    // 既存キー→行番号（重複キーがあれば最初の行を採用し、残りは掃除対象）
     var last = sh.getLastRow();
     var keyToRow = {};
+    var dupRows = [];
     if (last >= 2) {
       var keys = sh.getRange(2, 1, last - 1, 1).getValues();
       for (var i = 0; i < keys.length; i++) {
         var k = String(keys[i][0] || '').trim();
-        if (k) keyToRow[k] = i + 2; // シート上の行番号
+        if (!k) continue;
+        if (keyToRow[k]) dupRows.push(i + 2); // すでに見たキー＝重複行
+        else keyToRow[k] = i + 2;
       }
     }
 
@@ -109,8 +120,40 @@ function doPost(e) {
       }
     });
 
-    return _json({ ok: true, updated: updated, added: added });
+    // 重複行を下から削除（行番号がずれないよう降順）
+    dupRows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+
+    return _json({ ok: true, updated: updated, added: added, removedDup: dupRows.length });
   } catch (err) {
     return _json({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
   }
+}
+
+// 手動で重複キーを掃除する（エディタから1回だけ実行してもOK）
+// 同じキーが複数あったら、更新日時が新しい1行だけ残して他を削除。
+function cleanupDuplicates() {
+  var sh = _sheet();
+  var last = sh.getLastRow();
+  if (last < 2) return;
+  var values = sh.getRange(2, 1, last - 1, HEADERS.length).getValues();
+  var best = {};   // key -> {row, upd}
+  var deleteRows = [];
+  for (var i = 0; i < values.length; i++) {
+    var rowNum = i + 2;
+    var key = String(values[i][0] || '').trim();
+    if (!key) { deleteRows.push(rowNum); continue; }
+    var upd = String(values[i][2] || '');
+    if (!best[key]) {
+      best[key] = { row: rowNum, upd: upd };
+    } else if (upd > best[key].upd) {
+      deleteRows.push(best[key].row); // 古い方を消す
+      best[key] = { row: rowNum, upd: upd };
+    } else {
+      deleteRows.push(rowNum);        // こちらが古い
+    }
+  }
+  deleteRows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+  Logger.log('削除した重複/空行: ' + deleteRows.length);
 }
