@@ -117,7 +117,7 @@ test('mergeRecordsLWW: 古い削除はローカルの新しい編集を消さな
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd "<repoルート>" && node --test tests/`
+Run: `cd "<repoルート>" && node --test tests/*.test.mjs`
 Expected: FAIL（`Cannot find module '../src/sync-engine.mjs'`）
 
 - [ ] **Step 3: Write minimal implementation**
@@ -157,7 +157,7 @@ export function mergeRecordsLWW(localList, sheetList, keyField) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd "<repoルート>" && node --test tests/`
+Run: `cd "<repoルート>" && node --test tests/*.test.mjs`
 Expected: PASS（7 tests）
 
 - [ ] **Step 5: Commit**
@@ -232,7 +232,7 @@ test('plainFromRow は共通列を内部フィールドへ戻す', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd "<repoルート>" && node --test tests/`
+Run: `cd "<repoルート>" && node --test tests/*.test.mjs`
 Expected: FAIL（`stampNow is not exported` / undefined）
 
 - [ ] **Step 3: Write minimal implementation**
@@ -286,7 +286,7 @@ export function plainFromRow(row) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd "<repoルート>" && node --test tests/`
+Run: `cd "<repoルート>" && node --test tests/*.test.mjs`
 Expected: PASS（全12 tests）
 
 - [ ] **Step 5: Commit**
@@ -1172,7 +1172,7 @@ EOF
 - [ ] **Step 1: 構文チェック＋ユニットテスト**
 
 ```bash
-cd "<repoルート>" && node --test tests/ && echo "---" && \
+cd "<repoルート>" && node --test tests/*.test.mjs && echo "---" && \
 node -e 'const fs=require("fs");const h=fs.readFileSync("index.html","utf8");const re=/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;let m,o="";while((m=re.exec(h))){o+=m[1]+"\n;\n";}fs.writeFileSync("/tmp/_check.js",o);' && node --check /tmp/_check.js && echo "✅ 構文OK"
 ```
 Expected: 全テストPASS＋`✅ 構文OK`。
