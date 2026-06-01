@@ -2978,6 +2978,15 @@
     transition: border-color 0.15s;
   }
   .wsd-input:focus { border-color: #8e44ad; background: white; }
+  /* iOS Safari の日付入力（入社年月日）が枠からはみ出すのを防ぐ */
+  #se-joindate {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
   .wsd-select {
     width: 100%;
     font-family: 'DotGothic16', monospace;
