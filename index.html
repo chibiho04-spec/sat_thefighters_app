@@ -5786,10 +5786,13 @@
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#0f9d58;border-color:#0a6e3e;box-shadow:3px 3px 0 #0a6e3e;font-size:13px;padding:10px;"
             onclick="saveGasUrl()">💾 URLを保存</button>
-          <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#2980b9;border-color:#1a5c8a;box-shadow:3px 3px 0 #1a5c8a;font-size:13px;padding:10px;"
-            onclick="syncFromSheet(true)">📥 取り込み</button>
+          <button class="wsd-save-btn" style="flex:2;min-width:160px;background:#2980b9;border-color:#1a5c8a;box-shadow:3px 3px 0 #1a5c8a;font-size:13px;padding:10px;"
+            onclick="manualSyncAll()">🔄 全部同期（取り込み＋送信）</button>
+        </div>
+        <div id="sync-status-all" style="margin-top:8px;font-size:12px;color:#666;min-height:14px;"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
           <button class="wsd-save-btn" style="flex:1;min-width:120px;background:#f39c12;border-color:#b3730e;box-shadow:3px 3px 0 #b3730e;font-size:13px;padding:10px;"
-            onclick="syncToSheet(true)">📤 全件送信</button>
+            onclick="syncToSheet(true)">📤 全件送信（移行用）</button>
         </div>
         <div id="gas-sync-status" style="margin-top:10px;font-size:12px;color:#666;min-height:14px;"></div>
       </div>
@@ -6646,34 +6649,17 @@
   // 起動から少し遅延して自動バックアップチェック（画面描画後）
   setTimeout(() => { try { checkAutoBackup(); } catch(e) { console.warn(e); } }, 2000);
 
-  // 起動時に受注ノートから取り込み（URL設定済みの場合のみ）
+  // 起動時に統合シートから全 kind を取り込み（gas_url 設定済みの場合のみ）
   setTimeout(() => {
     try {
-      if (localStorage.getItem('gas_url')) {
-        syncFromSheet(false);
-      }
-      if (localStorage.getItem('gas_url_client')) {
-        fetchClientMaster(false);
-      }
-      if (localStorage.getItem('gas_url_product')) {
-        fetchProductMaster(false);
-      }
-      if (localStorage.getItem('gas_url_media')) {
-        fetchMediaList(false);
-      }
-      if (localStorage.getItem('gas_url_equip')) {
-        fetchEquipMaster(false);
-      }
-      if (localStorage.getItem('gas_url_driving')) {
-        fetchDrivingList(false);
-      }
-      if (localStorage.getItem('gas_url_invoice')) {
-        syncFromInvoiceSheet(false);
-      }
-      // スタッフ：まずローカルの内容をカードへ反映 → URL設定済みならシートからも取り込み
+      // スタッフ：まずローカルの内容をカードへ反映（取り込み前でも見えるように）
       if (typeof applyStaffToCards === 'function') applyStaffToCards();
-      if (localStorage.getItem('gas_url_staff')) {
-        syncFromStaffSheet(false).catch(e => console.warn('staff fetch', e));
+      if (_gasUrlOne()) {
+        for (const k of SYNC_ENABLED) { pullKind(k).catch(e => console.warn('boot pull', k, e)); }
+      }
+      // 運転記録表は統合同期の対象外（従来どおり別URLで運用）
+      if (localStorage.getItem('gas_url_driving')) {
+        try { fetchDrivingList(false); } catch(e) { console.warn('driving fetch', e); }
       }
     } catch(e) { console.warn('startup sync failed', e); }
   }, 1500);
@@ -9309,6 +9295,19 @@
     document.getElementById('settings-screen').style.transform = 'translateX(100%)';
   }
 
+  // 統合同期：全 kind をまとめて取り込み＋送信（1ボタン）
+  async function manualSyncAll() {
+    const el = document.getElementById('sync-status-all');
+    const set = (m, c) => { if (el) { el.textContent = m; el.style.color = c || '#666'; } };
+    if (!_gasUrlOne()) { set('⚠️ 同期URLが未設定です（上のURL欄で登録）', '#c0392b'); return; }
+    set('🔄 全部同期中…', '#2980b9');
+    try {
+      const r = await syncAll();
+      if (r && r.ok) set(`✅ 取得${r.pulled}・送信${r.pushed}（${new Date().toLocaleTimeString('ja-JP')}）`, '#1a7a40');
+      else set('⚠️ 同期できませんでした（URL未設定）', '#e67e22');
+    } catch (e) { set('❌ 同期失敗：' + e.message, '#c0392b'); }
+  }
+
   // ===== Google スプレッドシート（受注ノート）同期 =====
   function setGasStatus(msg, color) {
     const el = document.getElementById('gas-sync-status');
@@ -9416,18 +9415,19 @@
     try {
       for (const item of list) {
         try {
+          const cfg = SYNC_KINDS[item.kind];
+          if (!cfg) { pendingClear(item.kind, item.num); ok++; continue; } // 旧種別（invoiceDelete/wsDelete等）は破棄
+          const key = String(item.num || '');
+          // ローカルから最新版を作り直して送る（古い内容で上書きしない）
+          const rec = cfg.loadLocal().find(r => String((r && r[cfg.keyField]) || '') === key);
           let res;
-          switch (item.kind) {
-            case 'order':         res = await sendOrderToSheet(item.num, (getSavedProjects().find(p => p.num === item.num)) || wsData[item.num] || {}); break;
-            case 'child':         res = await sendWorksheetToChild(item.num); break;
-            case 'invoice':       res = await sendInvoiceToSheet(item.num); break;
-            case 'invoiceDelete': res = await sendInvoiceDeleteToSheet(item.num); break;
-            case 'wsDelete':      res = await sendDeleteToSheets(item.num); res = res || { ok: true }; break;
-            case 'equip':         res = await sendEquipMasterToSheet(false); res = res || { ok: true }; break;
-            case 'staff':         res = await sendStaffToSheet(item.num); break;
-            default:              res = { ok: true }; // 不明な種類は捨てる
+          if (rec) {
+            res = await pushKind(item.kind, [rec]);
+          } else {
+            // ローカルに無い＝削除済み。論理削除（削除フラグ）を再送する
+            res = await pushKind(item.kind, [{ [cfg.keyField]: key, _deleted: true, _updatedAt: new Date().toISOString() }]);
           }
-          if (res && (res.ok || res.skipped)) { pendingClear(item.kind, item.num); ok++; }
+          if (res && res.ok) { pendingClear(item.kind, item.num); ok++; }
           else { fail++; }
         } catch (e) { console.warn('retrySyncPending item failed', item, e); fail++; }
       }
