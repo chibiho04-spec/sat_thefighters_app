@@ -846,6 +846,8 @@
   .ws-status.staff    { color: #2980b9; border-color: #2980b9; background: #e8f4fc; }
   .ws-status.edit     { color: #27ae60; border-color: #27ae60; background: #e8f8ee; }
   .ws-status.cm       { color: #e74c3c; border-color: #e74c3c; background: #fde8e8; }
+  .ws-status.produce  { color: #8e44ad; border-color: #8e44ad; background: #f3e8fb; }
+  .ws-status.plan     { color: #16a085; border-color: #16a085; background: #e8f8f4; }
 
   .ws-title {
     font-size: 25px;
@@ -5902,8 +5904,9 @@
             <button class="np-select-btn" onclick="selectNp('order','撮影')">撮影</button>
             <button class="np-select-btn" onclick="selectNp('order','編集')">編集</button>
             <button class="np-select-btn" onclick="selectNp('order','撮影・編集')">撮影・編集</button>
+            <button class="np-select-btn" onclick="selectNp('order','プロデュース')">プロデュース</button>
+            <button class="np-select-btn" onclick="selectNp('order','企画・演出')">企画・演出</button>
             <button class="np-select-btn" onclick="selectNp('order','スタッフ派遣')">スタッフ派遣</button>
-            <button class="np-select-btn" onclick="selectNp('order','CM撮影')">CM撮影</button>
           </div>
           <input id="np-order" class="wsd-input" style="margin-top:6px;" type="text" placeholder="または直接入力...">
         </div>
@@ -6213,7 +6216,7 @@
             <select id="wsd-edit-order" class="wsd-select" style="width:100%;margin-top:3px;">
               <option value="">選択...</option>
               <option>撮影</option><option>編集</option><option>撮影・編集</option>
-              <option>スタッフ派遣</option><option>CM撮影</option>
+              <option>プロデュース</option><option>企画・演出</option><option>スタッフ派遣</option>
             </select>
           </div>
         </div>
@@ -13908,6 +13911,8 @@
       '編集': 'edit',
       'スタッフ派遣': 'staff',
       '撮影・編集': 'edit',
+      'プロデュース': 'produce',
+      '企画・演出': 'plan',
     }[orderType] || 'shooting';
   }
 
