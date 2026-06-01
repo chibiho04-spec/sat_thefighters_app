@@ -5084,6 +5084,29 @@
     </div>
   </div><!-- /staff-edit-screen -->
 
+  <!-- ========== キャラクター詳細ステータス画面（スライドイン） ========== -->
+  <div id="staff-detail-screen" style="
+    position:absolute; inset:0; z-index:177;
+    background:var(--panel-bg);
+    transform:translateX(100%);
+    transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
+    display:flex; flex-direction:column; overflow:hidden;">
+
+    <div style="display:flex;align-items:center;gap:10px;background:#3a3a6e;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #2c2c4a;">
+      <button class="wsd-back" onclick="closeStaffDetail()">◀ 戻る</button>
+      <div class="wsd-header-info" style="flex:1;">
+        <div class="wsd-header-num" style="color:#c7c7ec;">ステータス</div>
+        <div class="wsd-header-title" id="sd-title">キャラクター詳細</div>
+      </div>
+      <button id="sd-edit-btn" onclick="closeStaffDetail(); if(window._sdEditKey) openStaffEdit(window._sdEditKey);"
+        style="display:none;background:#5b5bb0;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">✏️ 編集</button>
+    </div>
+
+    <div class="wsd-scroll" id="sd-body">
+      <!-- 描画は openStaffDetail() が流し込む -->
+    </div>
+  </div><!-- /staff-detail-screen -->
+
   <!-- ========== 取引先マスタ画面（スライドイン） ========== -->
   <div id="client-master-screen" style="
     position:absolute; inset:0; z-index:170;
