@@ -9953,6 +9953,149 @@
     return s;
   }
 
+  // ===== 統合同期エンジン（src/sync-engine.mjs と同一実装をインライン化） =====
+  function _pickNewer(a, b) {
+    const ua = String((a && a._updatedAt) || ''); const ub = String((b && b._updatedAt) || '');
+    return ub > ua ? b : a;
+  }
+  function _mergeRecordsLWW(localList, sheetList, keyField) {
+    const byKey = new Map();
+    for (const r of localList) { const k = String((r && r[keyField]) || '').trim(); if (k) byKey.set(k, r); }
+    for (const s of sheetList) {
+      const k = String((s && s[keyField]) || '').trim(); if (!k) continue;
+      const cur = byKey.get(k); byKey.set(k, cur ? _pickNewer(cur, s) : s);
+    }
+    const out = [];
+    for (const r of byKey.values()) { if (String((r && r['削除フラグ']) || '') === '1') continue; out.push(r); }
+    return out;
+  }
+  function _stampNow(record) { return Object.assign({}, record, { _updatedAt: new Date().toISOString() }); }
+  function _jsonToRow(record, keyHeader, keyField) {
+    return { [keyHeader]: String(record[keyField] || ''), 'データ': JSON.stringify(record),
+      '更新日時': record._updatedAt || new Date().toISOString(), '削除フラグ': record._deleted ? '1' : '' };
+  }
+  function _jsonFromRow(row) {
+    let rec = {}; try { rec = JSON.parse(row['データ'] || '{}'); } catch (e) { rec = {}; }
+    rec._updatedAt = String(row['更新日時'] || rec._updatedAt || '');
+    if (String(row['削除フラグ'] || '') === '1') rec['削除フラグ'] = '1';
+    return rec;
+  }
+  const _INTERNAL_FIELDS = new Set(['_updatedAt', '_deleted']);
+  function _plainToRow(record) {
+    const row = {};
+    for (const k of Object.keys(record)) { if (_INTERNAL_FIELDS.has(k)) continue; row[k] = record[k]; }
+    row['更新日時'] = record._updatedAt || new Date().toISOString();
+    row['削除フラグ'] = record._deleted ? '1' : '';
+    return row;
+  }
+  function _plainFromRow(row) {
+    const rec = {};
+    for (const k of Object.keys(row)) { if (k === '更新日時' || k === '削除フラグ') continue; rec[k] = row[k]; }
+    rec._updatedAt = String(row['更新日時'] || '');
+    if (String(row['削除フラグ'] || '') === '1') rec['削除フラグ'] = '1';
+    return rec;
+  }
+
+  // kind ごとの設定。loadLocal=全レコード取得 / saveLocal=書き戻し / keyField=キー / toRow/fromRow=行変換
+  const SYNC_KINDS = {
+    invoice: {
+      keyField: '受注No', keyHeader: '受注No',
+      loadLocal: () => _loadAllInvoices(),
+      saveLocal: (list) => _saveAllInvoices(list),
+      toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
+      fromRow: (row) => _jsonFromRow(row),
+      redraw: () => { try { renderInvoiceList(); } catch (e) {} }
+    },
+    staff: {
+      keyField: 'key', keyHeader: 'キー',
+      loadLocal: () => loadStaffMaster(),
+      saveLocal: (list) => saveStaffMaster(list),
+      toRow: (rec) => _jsonToRow(rec, 'キー', 'key'),
+      fromRow: (row) => { const r = _jsonFromRow(row); r.key = String(row['キー'] || r.key || ''); return r; },
+      redraw: () => { try { applyStaffToCards(loadStaffMaster()); } catch (e) {} }
+    },
+    client: {
+      keyField: '取引先コード', keyHeader: '取引先コード',
+      loadLocal: () => _loadClientRows(), saveLocal: (list) => _saveClientRows(list),
+      toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
+      redraw: () => {}
+    },
+    product: {
+      keyField: '商品コード', keyHeader: '商品コード',
+      loadLocal: () => _loadProductRows(), saveLocal: (list) => _saveProductRows(list),
+      toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
+      redraw: () => {}
+    },
+    media: {
+      keyField: 'メディアID', keyHeader: 'メディアID',
+      loadLocal: () => _loadMediaRows(), saveLocal: (list) => _saveMediaRows(list),
+      toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
+      redraw: () => {}
+    },
+    equip: {
+      keyField: 'id', keyHeader: 'id',
+      loadLocal: () => _loadEquipRows(), saveLocal: (list) => _saveEquipRows(list),
+      toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
+      redraw: () => { try { renderEquipMaster(); } catch (e) {} }
+    },
+    order: {
+      keyField: '受注No', keyHeader: '受注No',
+      loadLocal: () => _loadOrderRecords(), saveLocal: (list) => _saveOrderRecords(list),
+      toRow: (rec) => Object.assign(projectToOrderRow(rec.受注No, rec._project),
+                                    { '更新日時': rec._updatedAt || new Date().toISOString(), '削除フラグ': rec._deleted ? '1' : '' }),
+      fromRow: (row) => { const p = orderRowToProject(row); return { 受注No: String(row['受注No'] || ''), _project: p,
+                                    _updatedAt: String(row['更新日時'] || ''), 削除フラグ: String(row['削除フラグ'] || '') }; },
+      redraw: () => { try { renderProjects(); } catch (e) {} }
+    },
+    child: {
+      keyField: '受注No', keyHeader: '受注No',
+      loadLocal: () => _loadChildRecords(), saveLocal: (list) => _saveChildRecords(list),
+      toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
+      fromRow: (row) => _jsonFromRow(row),
+      redraw: () => {}
+    }
+  };
+
+  let SYNC_ENABLED = []; // 配線済み kind だけを順次ここへ足す（Task5〜7）
+  function _gasUrlOne() { return (localStorage.getItem('gas_url') || '').trim(); }
+
+  async function pullKind(kind) {
+    const cfg = SYNC_KINDS[kind]; const url = _gasUrlOne();
+    if (!cfg || !url) return { pulled: 0 };
+    const res = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=list&kind=' + kind + '&_ts=' + Date.now(),
+      { method: 'GET', redirect: 'follow', cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'list失敗');
+    const sheetRecs = (data.rows || []).map(cfg.fromRow);
+    const merged = _mergeRecordsLWW(cfg.loadLocal(), sheetRecs, cfg.keyField);
+    cfg.saveLocal(merged);
+    cfg.redraw();
+    return { pulled: sheetRecs.length };
+  }
+
+  async function pushKind(kind, records) {
+    const cfg = SYNC_KINDS[kind]; const url = _gasUrlOne();
+    if (!cfg || !url) return { ok: false };
+    const list = records || cfg.loadLocal();
+    const rows = list.map(cfg.toRow);
+    if (!rows.length) return { ok: true, added: 0 };
+    const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'upsert', kind: kind, rows: rows }) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'upsert失敗');
+    return data;
+  }
+
+  async function syncAll() {
+    const url = _gasUrlOne();
+    if (!url) return { ok: false, reason: 'no-url' };
+    let pulled = 0, pushed = 0;
+    for (const kind of SYNC_ENABLED) { try { const r = await pullKind(kind); pulled += (r.pulled || 0); } catch (e) { console.warn('pull', kind, e); } }
+    for (const kind of SYNC_ENABLED) { try { const r = await pushKind(kind); pushed += (r.updated || 0) + (r.added || 0); } catch (e) { console.warn('push', kind, e); } }
+    return { ok: true, pulled, pushed };
+  }
+  window._syncDebug = { pullKind, pushKind, syncAll, SYNC_KINDS };
+
   // アプリの案件データ（wsData[num]）→ 親シート「案件マスタ」1行ぶんの JSON へ変換
   // ※新親シート（Sat案件マスタ_2026）のヘッダー名にキーを合わせる
   function projectToOrderRow(num, p) {
