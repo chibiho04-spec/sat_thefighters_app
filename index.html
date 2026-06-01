@@ -7258,9 +7258,13 @@
     const sid = WORKLOG_SHEETS[loginName];
     const url = (typeof _gasUrlOne === 'function') ? _gasUrlOne() : '';
     if (!staff || !sid || !url) return;
+    // 今月のタブ名（例: 2026_06）。作業日報は月ごとにタブが分かれているため当月を指定する。
+    const _now = new Date();
+    const _ym = _now.getFullYear() + '_' + String(_now.getMonth() + 1).padStart(2, '0');
     try {
       const res = await fetch(
-        url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=worklog&sheetId=' + encodeURIComponent(sid) + '&_ts=' + Date.now(),
+        url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=worklog&sheetId=' + encodeURIComponent(sid)
+          + '&month=' + encodeURIComponent(_ym) + '&_ts=' + Date.now(),
         { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'worklog失敗');

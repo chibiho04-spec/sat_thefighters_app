@@ -61,32 +61,49 @@ function _hmsToHours(v) {
   return isNaN(n) ? null : Math.round(n);
 }
 
-// 作業日報スプレッドシート（別ファイル）を ID で開き、ラベルの真下のセルから
-// 月間勤務時間・月間普通残業時間を読む。表示値(getDisplayValues)で取得する。
-function _readWorklog(sid) {
+// 1タブ分の表示値から「月間勤務時間」「月間普通残業時間」のラベル直下セルを探す。
+function _scanSheetForWork(sh) {
+  var disp;
+  try { disp = sh.getDataRange().getDisplayValues(); } catch (e) { return { work: null, over: null }; }
+  var work = null, over = null;
+  for (var r = 0; r < disp.length; r++) {
+    for (var c = 0; c < disp[r].length; c++) {
+      var label = String(disp[r][c] || '').replace(/\s/g, '');
+      if (!label) continue;
+      if (work === null && label.indexOf('月間勤務時間') >= 0 && (r + 1) < disp.length) work = disp[r + 1][c];
+      if (over === null && label.indexOf('月間普通残業時間') >= 0 && (r + 1) < disp.length) over = disp[r + 1][c];
+    }
+  }
+  return { work: work, over: over };
+}
+
+// 作業日報スプレッドシート（別ファイル）を ID で開き、月間勤務時間・残業時間を読む。
+// month（例: '2026_06'）が指定されればそのタブを優先。なければ全タブを走査する。
+function _readWorklog(sid, month) {
   var ss;
   try { ss = SpreadsheetApp.openById(sid); }
   catch (err) { return { ok: false, error: 'open失敗: ' + String(err) }; }
-  var sheets = ss.getSheets();
-  var workRaw = null, overRaw = null;
-  for (var s = 0; s < sheets.length; s++) {
-    var disp;
-    try { disp = sheets[s].getDataRange().getDisplayValues(); } catch (e2) { continue; }
-    for (var r = 0; r < disp.length; r++) {
-      for (var c = 0; c < disp[r].length; c++) {
-        var label = String(disp[r][c] || '').replace(/\s/g, '');
-        if (!label) continue;
-        if (workRaw === null && label.indexOf('月間勤務時間') >= 0 && (r + 1) < disp.length) workRaw = disp[r + 1][c];
-        if (overRaw === null && label.indexOf('月間普通残業時間') >= 0 && (r + 1) < disp.length) overRaw = disp[r + 1][c];
-      }
+  var found = { work: null, over: null };
+  var usedSheet = '';
+  // 1) 指定された月のタブ（例: 2026_06）を優先して読む
+  if (month) {
+    var target = ss.getSheetByName(month);
+    if (target) { found = _scanSheetForWork(target); usedSheet = month; }
+  }
+  // 2) 月タブが無い/値が取れなかった場合は全タブを走査（先に見つかった方）
+  if (found.work === null && found.over === null) {
+    var sheets = ss.getSheets();
+    for (var s = 0; s < sheets.length; s++) {
+      var r = _scanSheetForWork(sheets[s]);
+      if (r.work !== null || r.over !== null) { found = r; usedSheet = sheets[s].getName(); break; }
     }
-    if (workRaw !== null && overRaw !== null) break;
   }
   return {
     ok: true,
-    workRaw: workRaw, overtimeRaw: overRaw,
-    workHours: _hmsToHours(workRaw),
-    overtimeHours: _hmsToHours(overRaw)
+    sheet: usedSheet,
+    workRaw: found.work, overtimeRaw: found.over,
+    workHours: _hmsToHours(found.work),
+    overtimeHours: _hmsToHours(found.over)
   };
 }
 
@@ -98,7 +115,8 @@ function doGet(e) {
     if (action === 'worklog') {
       var sid = e.parameter.sheetId ? String(e.parameter.sheetId) : '';
       if (!sid) return _json({ ok: false, error: 'sheetId required' });
-      return _json(_readWorklog(sid));
+      var month = e.parameter.month ? String(e.parameter.month) : '';
+      return _json(_readWorklog(sid, month));
     }
     if (action !== 'list') return _json({ ok: false, error: 'unknown action: ' + action });
     var cfg = _kindCfg(e.parameter.kind);
