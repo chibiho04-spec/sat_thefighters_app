@@ -10976,11 +10976,12 @@
     if (/プロデュース/.test(s)) return 'produce';
     if (/企画・演出|監督/.test(s)) return 'produce';
     if (/プロダクションマネージャー/.test(s)) return 'produce';
-    if (/カメラマン/.test(s)) return 'shoot';
+    if (/カメラマン|カメラ/.test(s)) return 'shoot';
     if (/撮影助手/.test(s)) return 'shoot';
-    if (/音声/.test(s)) return 'shoot';
+    if (/音声|録音/.test(s)) return 'shoot';
     if (/撮影機材/.test(s)) return 'shoot';
     if (/編集/.test(s)) return 'edit';
+    if (/撮影/.test(s)) return 'shoot'; // 「撮影費」など汎用の撮影系明細名
     return 'other';
   }
 
