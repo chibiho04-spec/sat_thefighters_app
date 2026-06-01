@@ -5051,6 +5051,11 @@
             <option>社員</option>
           </select>
         </div>
+        <div>
+          <div class="wsd-crew-label">入社年月日</div>
+          <input id="se-joindate" class="wsd-input" type="date" oninput="updateStaffTenure()" style="width:100%;">
+          <div id="se-tenure" style="font-size:12px;color:#6c3483;font-weight:bold;margin-top:4px;min-height:16px;"></div>
+        </div>
       </div>
 
       <div class="wsd-section-head" style="background:#6c3483;color:white;">詳細</div>
@@ -5058,18 +5063,6 @@
         <div>
           <div class="wsd-crew-label">🎬 役割</div>
           <input id="se-role" class="wsd-input" type="text" placeholder="例: カメラマン / ディレクター">
-        </div>
-        <div>
-          <div class="wsd-crew-label">🏆 専門</div>
-          <input id="se-specialty" class="wsd-input" type="text" placeholder="例: TV番組・CM">
-        </div>
-        <div>
-          <div class="wsd-crew-label">⭐ 星（0〜5）</div>
-          <input id="se-stars" class="wsd-input" type="number" min="0" max="5" value="0" style="width:100%;">
-        </div>
-        <div>
-          <div class="wsd-crew-label">💪 スキル（特技・カンマ区切り）</div>
-          <input id="se-skills" class="wsd-input" type="text" placeholder="例: 📷 速写, 🎬 演出">
         </div>
       </div>
 
@@ -9457,17 +9450,42 @@
   // STAFF_KEYS は上部（ログイン処理）で既に定義済み。同じ順序を使う。
   const STAFF_POSITION_COLOR = { '会長':'#8e44ad', '社長':'#c0392b', '役員':'#2980b9', '社員':'#27ae60' };
   const STAFF_POSITIONS = ['会長','社長','役員','社員'];
+  // 入社年月日から「満勤続年数」を返す（不正・未設定は null）
+  function _staffTenureYears(joinDate) {
+    if (!joinDate) return null;
+    const d = new Date(joinDate);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    let y = now.getFullYear() - d.getFullYear();
+    const md = now.getMonth() - d.getMonth();
+    if (md < 0 || (md === 0 && now.getDate() < d.getDate())) y--;
+    return y < 0 ? null : y;
+  }
+  // 「◯年目（勤続◯年）」の表示文字列を返す
+  function staffTenureText(joinDate) {
+    const y = _staffTenureYears(joinDate);
+    if (y === null) return '';
+    return `${y + 1}年目（勤続${y}年）`;
+  }
+  // 編集フォームの入社日入力に応じて勤続表示を更新
+  function updateStaffTenure() {
+    const el = document.getElementById('se-joindate');
+    const out = document.getElementById('se-tenure');
+    if (!out) return;
+    const t = el ? staffTenureText(el.value) : '';
+    out.textContent = t ? '▶ 今日で ' + t : '';
+  }
   const _defaultStaffMaster = [
-    { key:'kawasaki', name:'川崎', firstName:'哲也', english:'Tetsuya Kawasaki', reading:'かわさき', position:'社長', role:'カメラマン / ディレクター', specialty:'TV番組・CM', stars:5, skills:['📷 速写','🎬 演出','🌅 マジックアワー'] },
-    { key:'uehara',   name:'上原', firstName:'健二', english:'Kenji Uehara',     reading:'うえはら', position:'社員', role:'カメラマン', specialty:'PV・イベント', stars:3, skills:['📷 広角','🎥 動画演出'] },
-    { key:'hiraoka',  name:'平岡', firstName:'誠',   english:'Makoto Hiraoka',   reading:'ひらおか', position:'社員', role:'カメラアシスタント', specialty:'TV・WEB', stars:1, skills:['🧰 機材管理','🏃 段取り'] },
-    { key:'kawano',   name:'川野', firstName:'大輔', english:'Daisuke Kawano',   reading:'かわの',   position:'役員', role:'プロデューサー / PM', specialty:'大型イベント・CM', stars:4, skills:['📊 予算管理','📅 進行管理'] },
-    { key:'shin',     name:'城間', firstName:'心',   english:'Shin Shiroma',     reading:'しろま',   position:'社員', role:'カメラマン', specialty:'CM・PV', stars:2, skills:['💡 照明','📷 速写'] },
-    { key:'arasaki',  name:'新崎', firstName:'博',   english:'Hiroshi Arasaki',  reading:'あらさき', position:'社員', role:'音声・サウンドエンジニア', specialty:'TV・イベント', stars:3, skills:['🎙 収録','🎚 MA'] },
-    { key:'hazama',   name:'玻座間', firstName:'光', english:'Hikaru Hazama',    reading:'はざま',   position:'社員', role:'カメラアシスタント', specialty:'TV・WEB', stars:1, skills:['📷 サポート'] },
-    { key:'morita',   name:'森田', firstName:'直人', english:'Naoto Morita',     reading:'もりた',   position:'社員', role:'映像編集・カラコレ', specialty:'CM・PV・WEB', stars:3, skills:['✂️ 編集','🎨 カラコレ'] },
-    { key:'kamiji',   name:'上地', firstName:'剛',   english:'Tsuyoshi Uechi',   reading:'うえち',   position:'社員', role:'カメラアシスタント', specialty:'TV・イベント', stars:0, skills:['🏃 フットワーク'] },
-    { key:'matsuda',  name:'松田', firstName:'義明', english:'Yoshiaki Matsuda', reading:'まつだ',   position:'役員', role:'ディレクター', specialty:'TV番組・ドキュメント', stars:4, skills:['📝 構成','🎤 取材'] }
+    { key:'kawasaki', name:'川崎', firstName:'哲也', english:'Tetsuya Kawasaki', reading:'かわさき', position:'社長', joinDate:'2011-04-01', role:'カメラマン / ディレクター', stars:5 },
+    { key:'uehara',   name:'上原', firstName:'健二', english:'Kenji Uehara',     reading:'うえはら', position:'社員', joinDate:'2016-04-01', role:'カメラマン', stars:3 },
+    { key:'hiraoka',  name:'平岡', firstName:'誠',   english:'Makoto Hiraoka',   reading:'ひらおか', position:'社員', joinDate:'2021-04-01', role:'カメラアシスタント', stars:1 },
+    { key:'kawano',   name:'川野', firstName:'大輔', english:'Daisuke Kawano',   reading:'かわの',   position:'役員', joinDate:'2014-04-01', role:'プロデューサー / PM', stars:4 },
+    { key:'shin',     name:'城間', firstName:'心',   english:'Shin Shiroma',     reading:'しろま',   position:'社員', joinDate:'2018-04-01', role:'カメラマン', stars:2 },
+    { key:'arasaki',  name:'新崎', firstName:'博',   english:'Hiroshi Arasaki',  reading:'あらさき', position:'社員', joinDate:'2017-04-01', role:'音声・サウンドエンジニア', stars:3 },
+    { key:'hazama',   name:'玻座間', firstName:'光', english:'Hikaru Hazama',    reading:'はざま',   position:'社員', joinDate:'2023-04-01', role:'カメラアシスタント', stars:1 },
+    { key:'morita',   name:'森田', firstName:'直人', english:'Naoto Morita',     reading:'もりた',   position:'社員', joinDate:'2015-04-01', role:'映像編集・カラコレ', stars:3 },
+    { key:'kamiji',   name:'上地', firstName:'剛',   english:'Tsuyoshi Uechi',   reading:'うえち',   position:'社員', joinDate:'2024-04-01', role:'カメラアシスタント', stars:0 },
+    { key:'matsuda',  name:'松田', firstName:'義明', english:'Yoshiaki Matsuda', reading:'まつだ',   position:'役員', joinDate:'2013-04-01', role:'ディレクター', stars:4 }
   ];
   function loadStaffMaster() {
     try {
@@ -9513,10 +9531,8 @@
       if (rolesDiv) rolesDiv.style.display = 'none';
       if (infoDiv) {
         const stars = '⭐'.repeat(Math.max(0, Math.min(5, Number(s.stars) || 0)));
-        const skillTags = (s.skills || []).filter(Boolean).map(sk =>
-          `<span style="display:inline-block;background:#f0e6f5;color:#6c3483;border:1px solid #d7bde2;font-size:10px;padding:1px 6px;border-radius:8px;margin:2px 3px 0 0;">${_esc(sk)}</span>`).join('');
-        infoDiv.innerHTML = `🎬 役割: ${_esc(s.role)}<br>🏆 専門: ${_esc(s.specialty)}<br>${stars}`
-          + (skillTags ? `<div style="margin-top:4px;">💪 ${skillTags}</div>` : '');
+        const tenure = staffTenureText(s.joinDate);
+        infoDiv.innerHTML = `🎬 役割: ${_esc(s.role)}<br>📅 入社 ${_esc(s.joinDate || '未設定')}${tenure ? '　' + tenure : ''}<br>${stars}`;
       }
       // ひとこと行は廃止
       if (noteDiv) noteDiv.style.display = 'none';
@@ -9538,10 +9554,9 @@
     set('se-english', s.english || '');
     set('se-reading', s.reading || '');
     set('se-position', s.position || '社員');
+    set('se-joindate', s.joinDate || '');
     set('se-role', s.role || '');
-    set('se-specialty', s.specialty || '');
-    set('se-stars', Number(s.stars) || 0);
-    set('se-skills', (s.skills || []).join(', '));
+    if (typeof updateStaffTenure === 'function') updateStaffTenure();
     const ss = document.getElementById('se-save-status'); if (ss) ss.textContent = '';
     document.getElementById('staff-edit-screen').style.transform = 'translateX(0)';
   }
@@ -9555,17 +9570,15 @@
     const idx = list.findIndex(s => s.key === _editingStaffKey);
     if (idx < 0) return;
     const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-    const skills = String(val('se-skills') || '').split(',').map(r => r.trim()).filter(Boolean);
+    // 星は編集不可（数の考え方は後日実装）。既存値は Object.assign で維持。
     const upd = {
       name: String(val('se-name') || '').trim(),
       firstName: String(val('se-firstname') || '').trim(),
       english: String(val('se-english') || '').trim(),
       reading: String(val('se-reading') || '').trim(),
       position: val('se-position') || '社員',
+      joinDate: String(val('se-joindate') || '').trim(),
       role: String(val('se-role') || '').trim(),
-      specialty: String(val('se-specialty') || '').trim(),
-      stars: Math.max(0, Math.min(5, Number(val('se-stars')) || 0)),
-      skills: skills,
       _updatedAt: new Date().toISOString()
     };
     list[idx] = Object.assign({}, list[idx], upd);
