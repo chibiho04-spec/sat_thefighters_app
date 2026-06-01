@@ -29,6 +29,15 @@ function _json(obj) {
 }
 function _kindCfg(kind) { return KINDS[kind] || null; }
 
+// 更新日時を「実際の時刻(ms)」へ。ISO形式も旧 Date.toString 形式も解釈する。
+// 末尾の "(日本標準時)" 等の括弧注記は除去（パーサ差対策）。
+function _toMs(v) {
+  var s = String(v == null ? '' : v).replace(/\s*\([^)]*\)\s*$/, '').replace(/^\s+|\s+$/g, '');
+  if (!s) return -1;
+  var t = Date.parse(s);
+  return isNaN(t) ? -1 : t;
+}
+
 function _sheetFor(cfg) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(cfg.tab);
@@ -102,7 +111,7 @@ function doPost(e) {
       var line = headers.map(function (h) { return (row[h] !== undefined && row[h] !== null) ? row[h] : ''; });
       var incomingUpd = String(row['更新日時'] || '');
       if (keyToRow[key]) {
-        if (updCol >= 0 && incomingUpd <= keyToRow[key].upd) { skipped++; return; } // 古い/同値は無視（LWW）
+        if (updCol >= 0 && _toMs(incomingUpd) <= _toMs(keyToRow[key].upd)) { skipped++; return; } // 古い/同値は無視（LWW・時刻で比較）
         sh.getRange(keyToRow[key].rowNum, 1, 1, headers.length).setValues([line]);
         keyToRow[key].upd = incomingUpd;
         updated++;

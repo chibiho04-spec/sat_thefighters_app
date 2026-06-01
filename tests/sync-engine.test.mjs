@@ -51,6 +51,22 @@ test('mergeRecordsLWW: 古い削除はローカルの新しい編集を消さな
   assert.equal(out[0].v, 'edited');
 });
 
+// --- 日時の形式が混在しても「実際の時刻」で新旧判定する（旧データは Date.toString 形式） ---
+test('pickNewer: 旧形式(toString)より新しいISOが勝つ（文字列比較では負ける罠）', () => {
+  const legacy = { _updatedAt: 'Sun May 31 2026 15:43:23 GMT+0900 (日本標準時)', src: 'legacy' };
+  const fresh  = { _updatedAt: '2026-06-01T05:00:00.000Z', src: 'fresh' }; // 実時刻は legacy より後
+  // 文字列比較だと "2026..." < "Sun..." で legacy が勝ってしまうが、時刻比較なら fresh が勝つ
+  assert.equal(pickNewer(legacy, fresh).src, 'fresh');
+  assert.equal(pickNewer(fresh, legacy).src, 'fresh');
+});
+
+test('mergeRecordsLWW: 旧形式の行を新しいISO削除フラグで消せる（削除が効く）', () => {
+  const local = [{ id: '1', v: 'x', _updatedAt: 'Sun May 31 2026 15:43:23 GMT+0900 (日本標準時)' }];
+  const sheet = [{ id: '1', 削除フラグ: '1', _updatedAt: '2026-06-01T05:00:00.000Z' }];
+  const out = mergeRecordsLWW(local, sheet, 'id');
+  assert.equal(out.length, 0);
+});
+
 import { stampNow, jsonToRow, jsonFromRow, plainToRow, plainFromRow } from '../src/sync-engine.mjs';
 
 test('stampNow は _updatedAt をISOで付ける', () => {

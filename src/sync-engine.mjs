@@ -1,8 +1,16 @@
 // 純粋ロジック。index.html のインライン <script> にも同じ本体をコピーして使う。
+// 更新日時を「実際の時刻(ms)」へ変換する。ISO形式も旧 Date.toString 形式も解釈できる。
+// 末尾の "(日本標準時)" のような括弧注記は環境によって解釈が割れるため除去する。
+export function toMillis(v) {
+  const s = String(v || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (!s) return -Infinity;
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? -Infinity : t;
+}
 export function pickNewer(a, b) {
-  const ua = String((a && a._updatedAt) || '');
-  const ub = String((b && b._updatedAt) || '');
-  return ub > ua ? b : a; // 同値はローカル(a)優先
+  const ta = toMillis(a && a._updatedAt);
+  const tb = toMillis(b && b._updatedAt);
+  return tb > ta ? b : a; // 同時刻はローカル(a)優先
 }
 
 // localList/sheetList は { [keyField]:..., _updatedAt, 削除フラグ? } の配列。
