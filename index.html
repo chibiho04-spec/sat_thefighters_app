@@ -9539,6 +9539,23 @@
       card.style.cursor = 'pointer';
       card.onclick = () => openStaffEdit(s.key);
     });
+    // カードの並び順：社長→会長→役員→社員。同じ役職内は勤続年数が長い順。
+    // アバターは各カードに固定なので、DOMノード自体を並べ替える（card[i] は list[i] の人）。
+    const POS_RANK = { '社長':0, '会長':1, '役員':2, '社員':3 };
+    const container = cards.length ? cards[0].parentNode : null;
+    if (container) {
+      const order = list.map((s, i) => ({ card: cards[i], s }))
+        .filter(o => o.card)
+        .sort((a, b) => {
+          const ra = (POS_RANK[a.s.position] !== undefined) ? POS_RANK[a.s.position] : 99;
+          const rb = (POS_RANK[b.s.position] !== undefined) ? POS_RANK[b.s.position] : 99;
+          if (ra !== rb) return ra - rb;
+          const ta = _staffTenureYears(a.s.joinDate); const va = (ta === null) ? -1 : ta;
+          const tb = _staffTenureYears(b.s.joinDate); const vb = (tb === null) ? -1 : tb;
+          return vb - va; // 勤続が長い順
+        });
+      order.forEach(o => container.appendChild(o.card)); // appendChild で末尾へ移動＝並べ替え
+    }
   }
 
   // 編集フォームの開閉・保存
