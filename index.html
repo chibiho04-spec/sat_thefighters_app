@@ -3970,9 +3970,9 @@
             <span style="flex:1;"><span style="font-size:1.2em;">見</span>積書<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">作成済の見積書一覧</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
-          <button onclick="openNewDelivery()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#16a085 0%,#117a65 100%);border:3px solid #0b5345;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #0b5345;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #0b5345;letter-spacing:2px;">
-            <span style="font-size:32px;line-height:1;">📋</span>
-            <span style="flex:1;"><span style="font-size:1.2em;">納</span>品書<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">準備中</div></span>
+          <button onclick="openDocList('delivery')" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#2980b9 0%,#2471a3 100%);border:3px solid #1a5c8a;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #1a5c8a;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #1a5c8a;letter-spacing:2px;">
+            <span style="font-size:32px;line-height:1;">📦</span>
+            <span style="flex:1;"><span style="font-size:1.2em;">納</span>品書<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">作成済の納品書一覧</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
         </div>
@@ -10586,10 +10586,7 @@
       status.textContent = '❌ 登録失敗: ' + err.message;
     }
   }
-  // 納品書（未実装プレースホルダ）
-  function openNewDelivery() {
-    alert('📋 納品書\n\n機能は準備中です。\nこれから実装していきます。');
-  }
+
 
   // ===== メディア管理 / 運転記録表：共通ヘルパー =====
   async function _genericFetch(url, cacheKey, statusMsgPrefix, showStatus, rerender) {
