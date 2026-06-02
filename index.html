@@ -12206,10 +12206,15 @@
 
   // ===== Excel書式に準拠した請求書・見積書HTML生成 =====
   function buildDocHTML(type) {
-    const isInvoice  = type === 'invoice';
-    const docTitle   = isInvoice ? '御　請　求　書' : '御　見　積　書';
-    const dateLabel  = isInvoice ? '御請求日' : '御見積日';
-    const amtLabel   = isInvoice ? '御請求金額' : '御見積金額';
+    const _T = {
+      invoice:  { title: '御　請　求　書', date: '御請求日', amt: '御請求金額' },
+      estimate: { title: '御　見　積　書', date: '御見積日', amt: '御見積金額' },
+      delivery: { title: '御　納　品　書', date: '納品日',   amt: '御納品金額' },
+    };
+    const _L = _T[type] || _T.invoice;
+    const docTitle   = _L.title;
+    const dateLabel  = _L.date;
+    const amtLabel   = _L.amt;
 
     const num      = document.getElementById('inv-detail-num').textContent;
     const client   = document.getElementById('inv-screen-client').textContent;
