@@ -9717,7 +9717,10 @@
             <div style="display:flex;align-items:center;gap:12px;">
               <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#eee;">${d.avatar || '👤'}</div>
               <div style="flex:1;min-width:0;">
-                <div style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</span>
+                  <span style="color:#f1c40f;font-size:18px;letter-spacing:1px;line-height:1;">${stars}</span>
+                </div>
                 <div style="font-size:11px;color:#aaa;">${_esc(d.reading || '')}${d.english ? ` ・ ${_esc(d.english)}` : ''}</div>
               </div>
             </div>
@@ -9729,11 +9732,7 @@
           </div>
 
           <div style="${cardStyle}flex:1 1 320px;margin-bottom:0;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-              <span style="font-size:13px;font-weight:bold;color:#6c3483;">⚔️ ステータス</span>
-              <span style="font-size:15px;font-weight:bold;color:#333;">${lvText}</span>
-              <span style="color:#f1c40f;font-size:22px;letter-spacing:2px;line-height:1;">${stars}</span>
-            </div>
+            <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:8px;">⚔️ ステータス　<span style="color:#333;">${lvText}</span></div>
             ${expRow}
             ${statRow('🦾 筋力', d.str)}
             ${statRow('⚡ 素早さ', d.spd)}
