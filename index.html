@@ -4744,6 +4744,7 @@
           style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.3);padding:4px 8px;border-radius:3px;cursor:pointer;">納品書</button>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="inv-add-line-btn" style="background:rgba(41,128,185,0.85);" onclick="createDeliveryFromCurrent()" title="今の内容をコピーして納品書を作成">📦 納品書化</button>
         <button class="inv-add-line-btn" style="background:rgba(255,255,255,0.22);" onclick="openPrintPreview(_docMode || 'invoice')">🔍 プレビュー</button>
       </div>
     </div>
@@ -8461,6 +8462,82 @@
     setupClientAutocomplete(document.getElementById('inv-screen-company'), {
       onSelect: _applyInvClient
     });
+  }
+
+  // 現在開いている請求書/見積書の内容をコピーして、新しい納品書(DLV-)を作成する
+  function createDeliveryFromCurrent() {
+    // 明細行を現在の編集画面から収集（saveInvDoc と同じ方式）
+    const tbody = document.getElementById('inv-lines-body');
+    const lines = [];
+    if (tbody) {
+      tbody.querySelectorAll('.inv-line-row').forEach(tr => {
+        const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
+        const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
+        const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
+        const priceEl = tr.querySelector('.inv-line-price');
+        const priceTextEl = tr.querySelector('.inv-td-price span');
+        const codeEl  = tr.querySelector('.inv-td-code');
+        const taxEl   = tr.querySelector('.inv-line-tax');
+        const outsourceEl = tr.querySelector('.inv-line-outsource');
+        const name  = (nameEl?.value  || nameEl?.textContent  || '').trim();
+        const unit  = (unitEl?.value  || unitEl?.textContent  || '').trim();
+        const qty   = Number((qtyEl?.value || qtyEl?.textContent || '').replace(/[^\d.]/g, '')) || 0;
+        const rawPrice = (priceEl?.value || (priceTextEl?.textContent || '').replace(/[¥,]/g, ''));
+        const price = Number(rawPrice) || 0;
+        const code  = (codeEl?.textContent || '').trim();
+        const taxable = taxEl ? (taxEl.value === '1') : true;
+        const outsource = outsourceEl ? !!outsourceEl.checked : false;
+        if (!name && !price) return;
+        lines.push({ code, name, qty, unit, price, taxable, outsource });
+      });
+    }
+
+    // 新しい納品書番号を採番
+    const newNum = generateNewInvNum('delivery');
+    const today  = new Date().toLocaleDateString('ja-JP',
+      {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
+
+    // 現在の宛先・件名・作業日・担当者をコピーして新レコードを作る
+    const status = {
+      lines:    lines,
+      title:    document.getElementById('inv-screen-title').value || '',
+      invDate:  today,  // 納品日は今日を初期値
+      workDate: document.getElementById('inv-screen-workdate').value || '',
+      company:  (document.getElementById('inv-screen-company')?.value || '').trim(),
+      contact:  (document.getElementById('inv-screen-contact')?.value || '').trim(),
+      staff:    (document.getElementById('inv-screen-staff')?.value   || '').trim(),
+      zip:      (document.getElementById('inv-screen-zip')?.textContent  || '').trim(),
+      addr:     (document.getElementById('inv-screen-addr')?.textContent || '').trim(),
+      docMode:  'delivery',
+      savedAt:  new Date().toLocaleString('ja-JP'),
+      _updatedAt: new Date().toISOString(),
+    };
+    saveInvStatus(newNum, status);
+
+    // シートへ自動送信（URL設定済みなら）— 納品書も invoice kind に乗る
+    if (typeof _gasUrlOne === 'function' && _gasUrlOne()) {
+      const _rec = Object.assign({ '受注No': newNum }, status);
+      pushKind('invoice', [_rec]).catch(e => { try { pendingAdd('invoice', newNum); } catch (_) {} });
+    }
+
+    // 納品書モードで編集画面を開く（番号・宛先・明細をセット）
+    document.getElementById('inv-screen-num').textContent  = newNum;
+    document.getElementById('inv-detail-num').textContent  = newNum;
+    _setInvClientFields(status.company, status.contact);
+    document.getElementById('inv-screen-zip').textContent  = status.zip;
+    document.getElementById('inv-screen-addr').textContent = status.addr;
+    document.getElementById('inv-screen-title').value      = status.title;
+    document.getElementById('inv-screen-workdate').value   = status.workDate;
+    document.getElementById('inv-screen-staff').value      = status.staff;
+    document.getElementById('inv-screen-invdate').value    = status.invDate;
+    // 明細が空でも1行は表示する
+    renderInvLines([], lines.length ? lines : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
+    calcInvTotal();
+    setDocMode('delivery');
+    document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
+    if (typeof syncCancelBtn === 'function') syncCancelBtn(false);
+
+    alert('📦 納品書「' + newNum + '」を作成しました。\n内容をコピーしました。必要なら編集して保存してください。');
   }
 
   function saveInvDoc() {
