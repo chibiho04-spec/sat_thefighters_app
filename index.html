@@ -9661,7 +9661,7 @@
     const editBtn = document.getElementById('sd-edit-btn');
     if (editBtn) editBtn.style.display = d.isSelf ? 'block' : 'none';
 
-    const stars = (d.stars > 0) ? '⭐'.repeat(d.stars) : '－';
+    const stars = '★'.repeat(d.stars) + '☆'.repeat(5 - d.stars);
     const posColor = STAFF_POSITION_COLOR[d.position] || '#2980b9';
     const bar = (v) => {
       const n = (typeof v === 'number') ? Math.max(0, Math.min(100, v)) : 0;
@@ -9717,10 +9717,7 @@
             <div style="display:flex;align-items:center;gap:12px;">
               <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#eee;">${d.avatar || '👤'}</div>
               <div style="flex:1;min-width:0;">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <span style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</span>
-                  <span style="color:#f1c40f;font-size:14px;">${stars}</span>
-                </div>
+                <div style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</div>
                 <div style="font-size:11px;color:#aaa;">${_esc(d.reading || '')}${d.english ? ` ・ ${_esc(d.english)}` : ''}</div>
               </div>
             </div>
@@ -9737,6 +9734,7 @@
             ${statRow('🦾 筋力', d.str)}
             ${statRow('⚡ 素早さ', d.spd)}
             ${statRow('🛡 粘り強さ', d.end)}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0e8cc;text-align:center;color:#f1c40f;font-size:18px;letter-spacing:3px;">${stars}</div>
           </div>
         </div>
 
