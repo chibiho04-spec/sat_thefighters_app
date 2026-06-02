@@ -8254,6 +8254,13 @@
   //   ・連番はローカルの inv_ キーの最大値+1。さらに同じセッション中で
   //     保存前に連続採番した分は sessionStorage で覚えて重複を防ぐ。
   //   （案件由来の T26xxx/Z26xxx とは番号体系で区別できる）
+  // 編集画面を開くときの action 値を docMode（'invoice'/'estimate'/'delivery'）へ正規化
+  function _actionToMode(action) {
+    if (action === 'estimate') return 'estimate';
+    if (action === 'delivery') return 'delivery';
+    return 'invoice'; // 'create' / 'pdf' / その他はすべて請求書扱い
+  }
+
   function generateNewInvNum(mode) {
     const prefix = (mode === 'estimate') ? 'EST-'
                  : (mode === 'delivery') ? 'DLV-'
@@ -8284,7 +8291,7 @@
     const today = new Date().toLocaleDateString('ja-JP',
       {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
     // 自動採番（'新規' という固定文字列ではなく実番号を入れて保存可能にする）
-    const newNum = generateNewInvNum(action === 'estimate' ? 'estimate' : 'invoice');
+    const newNum = generateNewInvNum(_actionToMode(action));
     document.getElementById('inv-screen-num').textContent     = newNum;
     _setInvClientFields('', '');
     document.getElementById('inv-screen-zip').textContent     = '';
@@ -8297,7 +8304,7 @@
     renderInvLines([], [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
     calcInvTotal();
     // 見積書・請求書 どちらも編集画面で開く（編集可能）
-    setDocMode(action === 'estimate' ? 'estimate' : 'invoice');
+    setDocMode(_actionToMode(action));
     document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
     syncCancelBtn(false);
   }
@@ -8603,8 +8610,8 @@
       return;
     }
 
-    // 見積書／請求書 どちらも編集画面を開く（編集可能）
-    setDocMode(action === 'estimate' ? 'estimate' : 'invoice');
+    // 見積書／請求書／納品書 いずれも編集画面を開く（編集可能）
+    setDocMode(_actionToMode(action));
     document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
     syncCancelBtn(isBilled);
   }
@@ -10967,7 +10974,10 @@
   function createNewDoc() {
     // 一覧画面を閉じてから新規ブランク編集画面を開く
     closeDocList();
-    setTimeout(() => _openBlankInvScreen(_docListMode === 'estimate' ? 'estimate' : 'create'), 200);
+    setTimeout(() => _openBlankInvScreen(
+      _docListMode === 'estimate' ? 'estimate'
+      : _docListMode === 'delivery' ? 'delivery'
+      : 'create'), 200);
   }
 
   // 一覧の対象データ：保存済み案件 + invData の demo データを統合
@@ -11776,7 +11786,9 @@
 
   // 一覧からクリックされた時、その案件で見積書/請求書の編集画面を開く
   function openDocFromList(num) {
-    const action = _docListMode === 'estimate' ? 'estimate' : 'create';
+    const action = _docListMode === 'estimate' ? 'estimate'
+                 : _docListMode === 'delivery' ? 'delivery'
+                 : 'create';
     closeDocList();
     setTimeout(() => {
       if (typeof invData === 'object' && invData && invData[num]) {
@@ -13371,7 +13383,7 @@
     if (hasSavedDoc) {
       renderInvLines([], savedStatus.lines, false);
       calcInvTotal();
-      setDocMode(savedStatus.docMode || (action === 'estimate' ? 'estimate' : 'invoice'));
+      setDocMode(savedStatus.docMode || _actionToMode(action));
       document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
       syncCancelBtn(!!savedStatus.billed);
       return;
@@ -13470,8 +13482,8 @@
     renderInvLines([], lines, false);
     calcInvTotal();
 
-    // 見積書・請求書 どちらも編集画面で開く（編集可能）
-    setDocMode(action === 'estimate' ? 'estimate' : 'invoice');
+    // 見積書・請求書・納品書 いずれも編集画面で開く（編集可能）
+    setDocMode(_actionToMode(action));
     document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
     syncCancelBtn(false);
   }
