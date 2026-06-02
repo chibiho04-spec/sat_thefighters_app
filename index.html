@@ -9717,14 +9717,16 @@
             <div style="display:flex;align-items:center;gap:12px;">
               <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#eee;">${d.avatar || '👤'}</div>
               <div style="flex:1;min-width:0;">
-                <div style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</span>
+                  <span style="color:#f1c40f;font-size:14px;">${stars}</span>
+                </div>
                 <div style="font-size:11px;color:#aaa;">${_esc(d.reading || '')}${d.english ? ` ・ ${_esc(d.english)}` : ''}</div>
               </div>
             </div>
             <div style="font-size:12px;color:#555;line-height:1.9;margin-top:8px;border-top:1px solid #f0e8cc;padding-top:8px;">
               ${d.role ? `🎬 役割: ${_esc(d.role)}<br>` : ''}
-              ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}<br>` : ''}
-              <span style="color:#f1c40f;font-size:14px;">${stars}</span>
+              ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}` : ''}
               ${workInfo}
             </div>
           </div>
