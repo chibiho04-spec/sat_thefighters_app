@@ -11150,6 +11150,9 @@
         if (status.paid)        badge = '<span style="background:#27ae60;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">入金済</span>';
         else if (status.billed) badge = '<span style="background:#f39c12;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">発行済</span>';
         else                    badge = '<span style="background:#bdc3c7;color:#555;font-size:10px;padding:2px 7px;border-radius:8px;">未作成</span>';
+      } else if (_docListMode === 'delivery') {
+        // 納品書は請求のような状態（入金/発行）を持たないためステータスバッジなし
+        badge = '';
       } else {
         if (status.estimated)   badge = '<span style="background:#e67e22;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">発行済</span>';
         else                    badge = '<span style="background:#bdc3c7;color:#555;font-size:10px;padding:2px 7px;border-radius:8px;">未作成</span>';
