@@ -9729,12 +9729,15 @@
           </div>
 
           <div style="${cardStyle}flex:1 1 320px;margin-bottom:0;">
-            <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:8px;">⚔️ ステータス　<span style="color:#333;">${lvText}</span></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:bold;color:#6c3483;">⚔️ ステータス</span>
+              <span style="font-size:15px;font-weight:bold;color:#333;">${lvText}</span>
+              <span style="color:#f1c40f;font-size:22px;letter-spacing:2px;line-height:1;">${stars}</span>
+            </div>
             ${expRow}
             ${statRow('🦾 筋力', d.str)}
             ${statRow('⚡ 素早さ', d.spd)}
             ${statRow('🛡 粘り強さ', d.end)}
-            <div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0e8cc;text-align:center;color:#f1c40f;font-size:18px;letter-spacing:3px;">${stars}</div>
           </div>
         </div>
 
