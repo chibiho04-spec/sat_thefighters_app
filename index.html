@@ -9681,14 +9681,10 @@
     const cases = getStaffCases(key);
     const nowYm = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
     const progress = cases.filter(c => String(c.date).slice(0, 7) === nowYm).length;
-    const statCard = (label, val, color) =>
-      `<div style="flex:1;background:white;border:2px solid #e8d5a0;border-radius:3px;box-shadow:2px 2px 0 #e8d5a0;padding:8px;text-align:center;font-size:11px;color:#666;">
-        ${label}<br><b style="font-size:18px;color:${color};">${val}</b></div>`;
-    const workBlock = d.isSelf ? `
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        ${statCard('月間勤務', ((d.hours !== null) ? d.hours : '-') + 'h<br><span style="font-size:10px;font-weight:normal;color:#999;">残業 ' + ((d.overtime !== null) ? d.overtime : '-') + 'h</span>', '#27ae60')}
-        ${statCard('進行中', progress + '件', '#2980b9')}
-      </div>` : '';
+    // 基本情報ボックスに統合する勤務データ（本人のみ）
+    const workInfo = d.isSelf ? `
+      ⏱ 月間勤務 <b style="color:#27ae60;">${(d.hours !== null) ? d.hours : '-'}h</b>（残業 ${(d.overtime !== null) ? d.overtime : '-'}h）<br>
+      📂 進行中 <b style="color:#2980b9;">${progress}件</b><br>` : '';
 
     // 担当案件リスト
     const casesRows = cases.length
@@ -9718,6 +9714,7 @@
             <div style="font-size:12px;color:#555;line-height:1.9;margin-top:8px;border-top:1px solid #f0e8cc;padding-top:8px;">
               ${d.role ? `🎬 役割: ${_esc(d.role)}<br>` : ''}
               ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}<br>` : ''}
+              ${workInfo}
               <span style="color:#f1c40f;font-size:14px;">${stars}</span>
             </div>
           </div>
@@ -9730,8 +9727,6 @@
             ${statRow('🛡 粘り強さ', d.end)}
           </div>
         </div>
-
-        ${workBlock}
 
         <div style="${cardStyle}margin-bottom:0;">
           <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:4px;">📋 担当案件</div>
