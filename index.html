@@ -8551,22 +8551,30 @@
   // 編集中のドキュメントモード（'invoice' / 'estimate'）
   let _docMode = 'invoice';
 
+  // モード別ラベルテーブル（invoice / estimate / delivery）
+  const DOC_LABELS = {
+    invoice:  { header: '📄 御請求書', title: '御　請　求　書', date: '御請求日', total: '御請求金額（税込）' },
+    estimate: { header: '🧮 御見積書', title: '御　見　積　書', date: '御見積日', total: '御見積金額（税込）' },
+    delivery: { header: '📦 御納品書', title: '御　納　品　書', date: '納品日',   total: '御納品金額（税込）' },
+  };
+
   // 編集画面のラベルをモードに合わせて切り替え
   function setDocMode(mode) {
-    _docMode = (mode === 'estimate') ? 'estimate' : 'invoice';
-    const isEstimate = _docMode === 'estimate';
+    // 未知の値は請求書にフォールバック（既存の二択フォールバック方針を踏襲）
+    _docMode = DOC_LABELS[mode] ? mode : 'invoice';
+    const L = DOC_LABELS[_docMode];
     // ヘッダー
     const hdrTitle = document.getElementById('invd-header-title');
-    if (hdrTitle) hdrTitle.textContent = isEstimate ? '🧮 御見積書' : '📄 御請求書';
+    if (hdrTitle) hdrTitle.textContent = L.header;
     // 用紙タイトル
     const docTitle = document.getElementById('invd-title-row');
-    if (docTitle) docTitle.textContent = isEstimate ? '御　見　積　書' : '御　請　求　書';
+    if (docTitle) docTitle.textContent = L.title;
     // 日付ラベル
     const dateLbl = document.getElementById('invd-date-label');
-    if (dateLbl) dateLbl.textContent = isEstimate ? '御見積日' : '御請求日';
+    if (dateLbl) dateLbl.textContent = L.date;
     // 金額バナー
     const totalLbl = document.getElementById('invd-total-label');
-    if (totalLbl) totalLbl.textContent = isEstimate ? '御見積金額（税込）' : '御請求金額（税込）';
+    if (totalLbl) totalLbl.textContent = L.total;
     // モードトグルの見た目
     document.querySelectorAll('.invd-mode-btn').forEach(b => {
       const selected = b.dataset.mode === _docMode;
