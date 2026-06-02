@@ -5016,7 +5016,7 @@
 
   <!-- ========== スタッフ編集画面（スライドイン） ========== -->
   <div id="staff-edit-screen" style="
-    position:absolute; inset:0; z-index:176;
+    position:absolute; inset:0; z-index:178;
     background:var(--panel-bg);
     transform:translateX(100%);
     transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
@@ -5101,7 +5101,7 @@
         <div class="wsd-header-num" style="color:#b89a3e;">ステータス</div>
         <div class="wsd-header-title" id="sd-title" style="color:#333;">キャラクター詳細</div>
       </div>
-      <button id="sd-edit-btn" onclick="var k=window._sdEditKey; closeStaffDetail(); if(k) openStaffEdit(k);"
+      <button id="sd-edit-btn" onclick="if(window._sdEditKey) openStaffEdit(window._sdEditKey);"
         style="display:none;background:#27ae60;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">✏️ 編集</button>
     </div>
 
@@ -9647,6 +9647,11 @@
   function closeStaffEdit() {
     document.getElementById('staff-edit-screen').style.transform = 'translateX(100%)';
     _editingStaffKey = null;
+    // 詳細画面の上に重ねて開いていた場合は、最新内容で詳細を再描画して土台を更新
+    const detail = document.getElementById('staff-detail-screen');
+    if (detail && detail.style.transform === 'translateX(0)' && window._sdEditKey) {
+      openStaffDetail(window._sdEditKey);
+    }
   }
 
   // 詳細ステータス画面を開く（自分は編集ボタンあり・他人は閲覧のみ）
