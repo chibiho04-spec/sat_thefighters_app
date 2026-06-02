@@ -6591,17 +6591,21 @@
   })();
 
   // ===== GAS URL デフォルト設定（統合シート版） =====
-  // 統合シートは新しい Apps Script URL を各端末が設定画面で1回入力し localStorage('gas_url') に保存する。
-  // 旧8個のハードコードURLは廃止（統合シートとは別物のため）。
-  // 運転記録表(driving)だけは従来どおり既定URLを保険として設定（未設定端末のみ）。
-  (function setDefaultGasUrls() {
-    const optionals = {
-      gas_url_driving: 'https://script.google.com/macros/s/AKfycbwJoOmPkOwf5rKPtKSseaXxEeTYjpX_k-SYuJk9orCY7YxMgIJu0_MHnOouBj7TjJCp/exec'
-    };
+  // 統合シートの Apps Script Web App URL を既定値としてコードに埋め込む。
+  // 「既定URLのバージョン」が変わったら全端末で1回だけ gas_url を強制差し替え（旧URL端末も移行）。
+  // 以後ユーザーが設定画面で手動変更しても、次に既定URLを変えるまでは戻さない。
+  const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxmpRZULJOD3a3zVtpFxY7lIfBNu24fvgtwODG9Zr6XqlknvIePfV_hd-JutbiUtuYtlA/exec';
+  (function seedGasUrl() {
     try {
-      Object.entries(optionals).forEach(([k, v]) => {
-        if (!localStorage.getItem(k)) localStorage.setItem(k, v);
-      });
+      // 統合シートURL：既定バージョンが未適用なら強制セット（旧URLを置き換える）
+      if (localStorage.getItem('gas_url_seed') !== GAS_URL_DEFAULT) {
+        localStorage.setItem('gas_url', GAS_URL_DEFAULT);
+        localStorage.setItem('gas_url_seed', GAS_URL_DEFAULT);
+      }
+      // 運転記録表(driving)：未設定端末のみ保険で既定URLをセット（統合同期の対象外）
+      if (!localStorage.getItem('gas_url_driving')) {
+        localStorage.setItem('gas_url_driving', 'https://script.google.com/macros/s/AKfycbwJoOmPkOwf5rKPtKSseaXxEeTYjpX_k-SYuJk9orCY7YxMgIJu0_MHnOouBj7TjJCp/exec');
+      }
     } catch(e) { console.warn('GAS URL default set failed', e); }
   })();
 
