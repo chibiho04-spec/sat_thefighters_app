@@ -9226,8 +9226,10 @@
 
   function openPrintPreview(type) {
     _currentPreviewType = type;
-    const html  = type === 'invoice' ? buildDocHTML('invoice') : buildDocHTML('estimate');
-    const label = type === 'invoice' ? '請求書 印刷プレビュー' : '見積書 印刷プレビュー';
+    const html  = buildDocHTML(type === 'estimate' ? 'estimate' : type === 'delivery' ? 'delivery' : 'invoice');
+    const label = type === 'estimate' ? '見積書 印刷プレビュー'
+                : type === 'delivery' ? '納品書 印刷プレビュー'
+                : '請求書 印刷プレビュー';
     document.getElementById('print-content').innerHTML = html;
     document.getElementById('print-preview-label').textContent = label;
 
