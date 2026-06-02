@@ -5101,7 +5101,7 @@
         <div class="wsd-header-num" style="color:#c7c7ec;">ステータス</div>
         <div class="wsd-header-title" id="sd-title">キャラクター詳細</div>
       </div>
-      <button id="sd-edit-btn" onclick="closeStaffDetail(); if(window._sdEditKey) openStaffEdit(window._sdEditKey);"
+      <button id="sd-edit-btn" onclick="var k=window._sdEditKey; closeStaffDetail(); if(k) openStaffEdit(k);"
         style="display:none;background:#5b5bb0;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">✏️ 編集</button>
     </div>
 
