@@ -9705,28 +9705,30 @@
     if (body) body.innerHTML = `
       <div style="padding:12px;background:var(--panel-bg);">
 
-        <div style="${cardStyle}position:relative;">
-          ${d.position ? `<div style="position:absolute;top:10px;right:10px;background:${posColor};color:white;font-size:10px;padding:2px 10px;border-radius:10px;">${_esc(d.position)}</div>` : ''}
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#eee;">${d.avatar || '👤'}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</div>
-              <div style="font-size:11px;color:#aaa;">${_esc(d.reading || '')}${d.english ? ` ・ ${_esc(d.english)}` : ''}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;align-items:stretch;">
+          <div style="${cardStyle}flex:1 1 320px;margin-bottom:0;position:relative;">
+            ${d.position ? `<div style="position:absolute;top:10px;right:10px;background:${posColor};color:white;font-size:10px;padding:2px 10px;border-radius:10px;">${_esc(d.position)}</div>` : ''}
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#eee;">${d.avatar || '👤'}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</div>
+                <div style="font-size:11px;color:#aaa;">${_esc(d.reading || '')}${d.english ? ` ・ ${_esc(d.english)}` : ''}</div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:#555;line-height:1.9;margin-top:8px;border-top:1px solid #f0e8cc;padding-top:8px;">
+              ${d.role ? `🎬 役割: ${_esc(d.role)}<br>` : ''}
+              ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}<br>` : ''}
+              <span style="color:#f1c40f;font-size:14px;">${stars}</span>
             </div>
           </div>
-          <div style="font-size:12px;color:#555;line-height:1.9;margin-top:8px;border-top:1px solid #f0e8cc;padding-top:8px;">
-            ${d.role ? `🎬 役割: ${_esc(d.role)}<br>` : ''}
-            ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}<br>` : ''}
-            <span style="color:#f1c40f;font-size:14px;">${stars}</span>
-          </div>
-        </div>
 
-        <div style="${cardStyle}">
-          <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:8px;">⚔️ ステータス　<span style="color:#333;">${lvText}</span></div>
-          ${expRow}
-          ${statRow('🦾 筋力', d.str)}
-          ${statRow('⚡ 素早さ', d.spd)}
-          ${statRow('🛡 粘り強さ', d.end)}
+          <div style="${cardStyle}flex:1 1 320px;margin-bottom:0;">
+            <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:8px;">⚔️ ステータス　<span style="color:#333;">${lvText}</span></div>
+            ${expRow}
+            ${statRow('🦾 筋力', d.str)}
+            ${statRow('⚡ 素早さ', d.spd)}
+            ${statRow('🛡 粘り強さ', d.end)}
+          </div>
         </div>
 
         ${workBlock}
