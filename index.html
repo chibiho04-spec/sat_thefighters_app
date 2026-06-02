@@ -5095,14 +5095,14 @@
     transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
     display:flex; flex-direction:column; overflow:hidden;">
 
-    <div style="display:flex;align-items:center;gap:10px;background:#3a3a6e;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #2c2c4a;">
-      <button class="wsd-back" onclick="closeStaffDetail()">◀ 戻る</button>
+    <div style="display:flex;align-items:center;gap:10px;background:#fff6d8;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #e8d5a0;">
+      <button class="wsd-back" onclick="closeStaffDetail()" style="background:#fff;border:2px solid #e8d5a0;color:#8a6d1e;">◀ 戻る</button>
       <div class="wsd-header-info" style="flex:1;">
-        <div class="wsd-header-num" style="color:#c7c7ec;">ステータス</div>
-        <div class="wsd-header-title" id="sd-title">キャラクター詳細</div>
+        <div class="wsd-header-num" style="color:#b89a3e;">ステータス</div>
+        <div class="wsd-header-title" id="sd-title" style="color:#333;">キャラクター詳細</div>
       </div>
       <button id="sd-edit-btn" onclick="var k=window._sdEditKey; closeStaffDetail(); if(k) openStaffEdit(k);"
-        style="display:none;background:#5b5bb0;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">✏️ 編集</button>
+        style="display:none;background:#27ae60;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">✏️ 編集</button>
     </div>
 
     <div class="wsd-scroll" id="sd-body">
@@ -9524,6 +9524,7 @@
       key: key,
       fullName: [base.name, base.firstName].filter(Boolean).join(' ') || (fighter.name || key),
       english: base.english || '',
+      reading: base.reading || '',
       role: base.role || '',
       position: base.position || '',
       joinDate: base.joinDate || '',
@@ -9660,70 +9661,81 @@
     const editBtn = document.getElementById('sd-edit-btn');
     if (editBtn) editBtn.style.display = d.isSelf ? 'block' : 'none';
 
-    const stars = '★'.repeat(d.stars) + '☆'.repeat(5 - d.stars);
+    const stars = (d.stars > 0) ? '⭐'.repeat(d.stars) : '－';
+    const posColor = STAFF_POSITION_COLOR[d.position] || '#2980b9';
     const bar = (v) => {
       const n = (typeof v === 'number') ? Math.max(0, Math.min(100, v)) : 0;
-      return `<div style="background:#1c1c2b;border-radius:4px;height:8px;overflow:hidden;margin-top:2px;">
-        <div style="background:linear-gradient(90deg,#9b59b6,#5b5bb0);height:100%;width:${n}%;"></div></div>`;
+      return `<div style="background:#f0e8cc;border-radius:4px;height:8px;overflow:hidden;margin-top:3px;border:1px solid #e8d5a0;">
+        <div style="background:linear-gradient(90deg,#f1c40f,#e8920a);height:100%;width:${n}%;"></div></div>`;
     };
 
-    // 右カラム（ゲームステータス）
+    // ゲームステータス
     const lvText = (d.level !== null) ? ('Lv' + d.level) : 'Lv-';
     const expRow = (d.exp !== null && d.expNext)
-      ? `<div style="margin-bottom:6px;font-size:11px;">EXP ${d.exp}/${d.expNext}
+      ? `<div style="margin-bottom:8px;font-size:11px;color:#555;">EXP ${d.exp}/${d.expNext}
            ${bar(Math.round((d.exp / d.expNext) * 100))}</div>` : '';
     const statRow = (label, v) =>
-      `<div style="font-size:11px;margin:4px 0;">${label} ${(v !== null) ? v : '-'}${bar(v)}</div>`;
+      `<div style="font-size:11px;margin:6px 0;color:#555;"><span>${label} <b style="color:#333;">${(v !== null) ? v : '-'}</b></span>${bar(v)}</div>`;
 
     // 勤務データ（本人のみ）
     const cases = getStaffCases(key);
     const nowYm = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
     const progress = cases.filter(c => String(c.date).slice(0, 7) === nowYm).length;
+    const statCard = (label, val, color) =>
+      `<div style="flex:1;background:white;border:2px solid #e8d5a0;border-radius:3px;box-shadow:2px 2px 0 #e8d5a0;padding:8px;text-align:center;font-size:11px;color:#666;">
+        ${label}<br><b style="font-size:18px;color:${color};">${val}</b></div>`;
     const workBlock = d.isSelf ? `
-      <div style="display:flex;gap:6px;margin:10px 12px 0;">
-        <div style="flex:1;background:#2c2c3e;border-radius:8px;padding:8px;color:#ddd;font-size:11px;text-align:center;">
-          月間勤務<br><b style="font-size:16px;color:#7fd6a0;">${(d.hours !== null) ? d.hours : '-'}h</b><br>
-          残業 ${(d.overtime !== null) ? d.overtime : '-'}h</div>
-        <div style="flex:1;background:#2c2c3e;border-radius:8px;padding:8px;color:#ddd;font-size:11px;text-align:center;">
-          進行中<br><b style="font-size:16px;color:#7fb0d6;">${progress}件</b></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        ${statCard('月間勤務', ((d.hours !== null) ? d.hours : '-') + 'h<br><span style="font-size:10px;font-weight:normal;color:#999;">残業 ' + ((d.overtime !== null) ? d.overtime : '-') + 'h</span>', '#27ae60')}
+        ${statCard('進行中', progress + '件', '#2980b9')}
       </div>` : '';
 
     // 担当案件リスト
     const casesRows = cases.length
       ? cases.map(c =>
           `<div onclick="closeStaffDetail(); openWS('${_esc(c.num)}');"
-            style="padding:7px 4px;border-bottom:1px solid #ffffff14;cursor:pointer;color:#ddd;font-size:12px;">
-            ・${_esc(c.num)} ${_esc(c.title)}${c.date ? `<span style="color:#9b9bd6;"> (${_esc(c.date)})</span>` : ''}</div>`
+            style="padding:8px 4px;border-bottom:1px solid #f0e8cc;cursor:pointer;color:#444;font-size:12px;">
+            <span style="color:#c0392b;font-weight:bold;">${_esc(c.num)}</span> ${_esc(c.title)}${c.date ? `<span style="color:#999;"> (${_esc(c.date)})</span>` : ''}</div>`
         ).join('')
-      : `<div style="color:#888;font-size:12px;padding:6px 4px;">担当案件はありません</div>`;
+      : `<div style="color:#999;font-size:12px;padding:6px 4px;">担当案件はありません</div>`;
+
+    const cardStyle = 'background:white;border:2px solid #e8d5a0;border-radius:3px;box-shadow:2px 2px 0 #e8d5a0;padding:12px 14px;margin-bottom:10px;';
 
     const body = document.getElementById('sd-body');
     if (body) body.innerHTML = `
-      <div style="background:linear-gradient(160deg,#3a3a6e,#2c2c3e);padding:16px 14px;color:#fff;">
-        <div style="display:flex;gap:12px;align-items:flex-start;">
-          <div style="flex:0 0 auto;width:112px;text-align:center;">
-            <div style="width:88px;height:88px;margin:0 auto;background:#46467a;border-radius:14px;
-              display:flex;align-items:center;justify-content:center;image-rendering:pixelated;overflow:hidden;">${d.avatar || '👤'}</div>
-            <div style="font-size:15px;font-weight:bold;margin-top:6px;">${_esc(d.fullName)}</div>
-            ${d.english ? `<div style="font-size:9px;color:#cfcfe8;">${_esc(d.english)}</div>` : ''}
-            ${d.role ? `<div style="font-size:10px;color:#ffd86b;margin-top:2px;">${_esc(d.role)}</div>` : ''}
-            ${(d.joinDate || d.tenureYears !== null) ? `<div style="font-size:9px;color:#b8b8d8;margin-top:4px;border-top:1px solid #ffffff22;padding-top:4px;">
-              ${d.joinDate ? '入社 ' + _esc(d.joinDate) + '<br>' : ''}${d.tenureYears !== null ? '勤続 ' + d.tenureYears + '年' : ''}</div>` : ''}
+      <div style="padding:12px;background:var(--panel-bg);">
+
+        <div style="${cardStyle}position:relative;">
+          ${d.position ? `<div style="position:absolute;top:10px;right:10px;background:${posColor};color:white;font-size:10px;padding:2px 10px;border-radius:10px;">${_esc(d.position)}</div>` : ''}
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#eee;">${d.avatar || '👤'}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:18px;font-weight:bold;color:#222;">${_esc(d.fullName)}</div>
+              <div style="font-size:11px;color:#aaa;">${_esc(d.reading || '')}${d.english ? ` ・ ${_esc(d.english)}` : ''}</div>
+            </div>
           </div>
-          <div style="flex:1;font-size:11px;color:#e7e7f5;padding-top:4px;">
-            <div style="margin-bottom:6px;"><b style="color:#c7c7ec;font-size:13px;">${lvText}</b>
-              <span style="color:#ffd86b;">${stars}</span></div>
-            ${expRow}
-            ${statRow('🦾 筋力', d.str)}
-            ${statRow('⚡ 素早さ', d.spd)}
-            ${statRow('🛡 粘り強さ', d.end)}
+          <div style="font-size:12px;color:#555;line-height:1.9;margin-top:8px;border-top:1px solid #f0e8cc;padding-top:8px;">
+            ${d.role ? `🎬 役割: ${_esc(d.role)}<br>` : ''}
+            ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}<br>` : ''}
+            <span style="color:#f1c40f;font-size:14px;">${stars}</span>
           </div>
         </div>
-      </div>
-      ${workBlock}
-      <div style="margin:10px 12px;background:#2c2c3e;border-radius:8px;padding:8px 10px;">
-        <b style="color:#9b9bd6;font-size:12px;">担当案件</b>
-        <div style="margin-top:4px;">${casesRows}</div>
+
+        <div style="${cardStyle}">
+          <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:8px;">⚔️ ステータス　<span style="color:#333;">${lvText}</span></div>
+          ${expRow}
+          ${statRow('🦾 筋力', d.str)}
+          ${statRow('⚡ 素早さ', d.spd)}
+          ${statRow('🛡 粘り強さ', d.end)}
+        </div>
+
+        ${workBlock}
+
+        <div style="${cardStyle}margin-bottom:0;">
+          <div style="font-size:13px;font-weight:bold;color:#6c3483;margin-bottom:4px;">📋 担当案件</div>
+          ${casesRows}
+        </div>
+
       </div>`;
 
     const screen = document.getElementById('staff-detail-screen');
