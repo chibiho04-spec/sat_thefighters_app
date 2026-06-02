@@ -9681,10 +9681,20 @@
     const cases = getStaffCases(key);
     const nowYm = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
     const progress = cases.filter(c => String(c.date).slice(0, 7) === nowYm).length;
-    // 基本情報ボックスに統合する勤務データ（本人のみ）
+    // 基本情報ボックス内に目立たせて入れる勤務データ（本人のみ）
     const workInfo = d.isSelf ? `
-      ⏱ 月間勤務 <b style="color:#27ae60;">${(d.hours !== null) ? d.hours : '-'}h</b>（残業 ${(d.overtime !== null) ? d.overtime : '-'}h）<br>
-      📂 進行中 <b style="color:#2980b9;">${progress}件</b><br>` : '';
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <div style="flex:1;background:#eafaf1;border:1px solid #abe0c4;border-radius:8px;padding:7px 6px;text-align:center;">
+          <div style="font-size:10px;color:#27926a;">⏱ 月間勤務</div>
+          <div style="font-size:20px;font-weight:bold;color:#27ae60;line-height:1.2;">${(d.hours !== null) ? d.hours : '-'}<span style="font-size:12px;">h</span></div>
+          <div style="font-size:9px;color:#7fae96;">残業 ${(d.overtime !== null) ? d.overtime : '-'}h</div>
+        </div>
+        <div style="flex:1;background:#eaf2fb;border:1px solid #aacbe8;border-radius:8px;padding:7px 6px;text-align:center;">
+          <div style="font-size:10px;color:#2471a3;">📂 進行中</div>
+          <div style="font-size:20px;font-weight:bold;color:#2980b9;line-height:1.2;">${progress}<span style="font-size:12px;">件</span></div>
+          <div style="font-size:9px;color:#8aafcf;">当月クルー</div>
+        </div>
+      </div>` : '';
 
     // 担当案件リスト
     const casesRows = cases.length
@@ -9714,8 +9724,8 @@
             <div style="font-size:12px;color:#555;line-height:1.9;margin-top:8px;border-top:1px solid #f0e8cc;padding-top:8px;">
               ${d.role ? `🎬 役割: ${_esc(d.role)}<br>` : ''}
               ${d.joinDate ? `📅 入社 ${_esc(d.joinDate)}${d.tenureYears !== null ? `　${d.tenureYears + 1}年目（勤続${d.tenureYears}年）` : ''}<br>` : ''}
-              ${workInfo}
               <span style="color:#f1c40f;font-size:14px;">${stars}</span>
+              ${workInfo}
             </div>
           </div>
 
