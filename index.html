@@ -8255,7 +8255,9 @@
   //     保存前に連続採番した分は sessionStorage で覚えて重複を防ぐ。
   //   （案件由来の T26xxx/Z26xxx とは番号体系で区別できる）
   function generateNewInvNum(mode) {
-    const prefix = (mode === 'estimate') ? 'EST-' : 'INV-';
+    const prefix = (mode === 'estimate') ? 'EST-'
+                 : (mode === 'delivery') ? 'DLV-'
+                 : 'INV-';
     const year   = String(new Date().getFullYear()).slice(-2);
     const head   = prefix + year;
     let maxSeq = 0;
