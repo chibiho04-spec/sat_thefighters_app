@@ -10939,36 +10939,36 @@
   }
 
   // ===== 見積書・請求書 一覧画面 =====
-  let _docListMode = 'estimate'; // 'estimate' / 'invoice'
+  let _docListMode = 'estimate'; // 'estimate' / 'invoice' / 'delivery'
+
+  // 一覧テーマ（invoice=緑 / estimate=橙 / delivery=青）
+  const DOC_LIST_THEME = {
+    invoice:  { base:'#27ae60', dark:'#145a2e', mid:'#1a7a40', labelColor:'#a8f0c0', listLabel:'請求書', accentBg:'#e8f8ee', createTxt:'＋ 新規請求書を作成' },
+    estimate: { base:'#e67e22', dark:'#7e4906', mid:'#b3650f', labelColor:'#fde2c2', listLabel:'見積書', accentBg:'#fef0e0', createTxt:'＋ 新規見積書を作成' },
+    delivery: { base:'#2980b9', dark:'#1a5c8a', mid:'#2471a3', labelColor:'#bcdcf0', listLabel:'納品書', accentBg:'#e8f1f8', createTxt:'＋ 新規納品書を作成' },
+  };
 
   function openDocList(mode) {
-    _docListMode = (mode === 'invoice') ? 'invoice' : 'estimate';
-    const isInvoice = _docListMode === 'invoice';
+    // 未知値は見積書にフォールバック（既存の二択フォールバック方針を踏襲）
+    _docListMode = DOC_LIST_THEME[mode] ? mode : 'estimate';
+    const T = DOC_LIST_THEME[_docListMode];
     // ヘッダー色とラベルを切替
     const header = document.getElementById('doc-list-header');
     if (header) {
-      header.style.background = isInvoice ? '#27ae60' : '#e67e22';
-      header.style.borderBottom = '3px solid ' + (isInvoice ? '#145a2e' : '#7e4906');
+      header.style.background = T.base;
+      header.style.borderBottom = '3px solid ' + T.dark;
     }
-    document.getElementById('doc-list-mode-label').textContent = isInvoice ? '請求書 一覧' : '見積書 一覧';
-    document.getElementById('doc-list-count-label').textContent = isInvoice ? '作成済の請求書' : '作成済の見積書';
-    document.querySelector('#doc-list-mode-label').style.color = isInvoice ? '#a8f0c0' : '#fde2c2';
+    document.getElementById('doc-list-mode-label').textContent = T.listLabel + ' 一覧';
+    document.getElementById('doc-list-count-label').textContent = '作成済の' + T.listLabel;
+    document.querySelector('#doc-list-mode-label').style.color = T.labelColor;
     // 新規作成ボタンの色を切り替え
     const btn = document.getElementById('doc-list-create-btn');
     if (btn) {
-      if (isInvoice) {
-        btn.style.background    = 'linear-gradient(180deg,#27ae60 0%,#1a7a40 100%)';
-        btn.style.borderColor   = '#145a2e';
-        btn.style.boxShadow     = '0 4px 0 #145a2e';
-        btn.style.textShadow    = '1px 1px 0 #145a2e';
-        btn.textContent         = '＋ 新規請求書を作成';
-      } else {
-        btn.style.background    = 'linear-gradient(180deg,#e67e22 0%,#b3650f 100%)';
-        btn.style.borderColor   = '#7e4906';
-        btn.style.boxShadow     = '0 4px 0 #7e4906';
-        btn.style.textShadow    = '1px 1px 0 #7e4906';
-        btn.textContent         = '＋ 新規見積書を作成';
-      }
+      btn.style.background  = `linear-gradient(180deg,${T.base} 0%,${T.mid} 100%)`;
+      btn.style.borderColor = T.dark;
+      btn.style.boxShadow   = '0 4px 0 ' + T.dark;
+      btn.style.textShadow  = '1px 1px 0 ' + T.dark;
+      btn.textContent       = T.createTxt;
     }
     // 検索リセット
     const s = document.getElementById('doc-list-search');
@@ -11040,8 +11040,9 @@
     const list = document.getElementById('doc-list-items');
     if (!list) return;
     const isInvoice = _docListMode === 'invoice';
-    const accent    = isInvoice ? '#27ae60' : '#e67e22';
-    const accentBg  = isInvoice ? '#e8f8ee' : '#fef0e0';
+    const _theme    = DOC_LIST_THEME[_docListMode] || DOC_LIST_THEME.estimate;
+    const accent    = _theme.base;
+    const accentBg  = _theme.accentBg;
     const q = (document.getElementById('doc-list-search')?.value || '').trim().toLowerCase();
     let _deletedInvs = [];
     try { _deletedInvs = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
@@ -11053,7 +11054,7 @@
     ) : all;
 
     document.getElementById('doc-list-count-label').textContent =
-      `作成済の${isInvoice ? '請求書' : '見積書'}（${items.length}件）`;
+      `作成済の${_theme.listLabel}（${items.length}件）`;
 
     if (!items.length) {
       // 診断：localStorage に何が入っているかが見えるように出す（原因切り分け用）
