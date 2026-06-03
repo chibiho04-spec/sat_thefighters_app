@@ -7464,10 +7464,10 @@
     loginSuccess(name);
   }
 
-  // ===== セッション管理：最終ログインから30分でタイムアウト =====
-  const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30分
+  // ===== セッション管理：無操作30分でタイムアウト =====
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 無操作30分
 
-  // 保存されたログインが有効か（ユーザーが存在し、最終ログインから30分以内）
+  // 保存されたログインが有効か（ユーザーが存在し、最終操作から30分以内）
   function _isSessionValid() {
     const savedName = localStorage.getItem('last_login_name');
     const savedTime = parseInt(localStorage.getItem('last_login_time') || '0');
@@ -7539,6 +7539,26 @@
     if (document.visibilityState === 'visible') _enforceSessionTimeout();
   });
   window.addEventListener('focus', _enforceSessionTimeout);
+
+  // ===== 無操作タイムアウト：操作のたびに最終操作時刻を更新（last_login_time を流用） =====
+  // 操作があれば計時をリセット → 「最後の操作から30分」でログイン画面へ戻す。
+  let _lastActivityWrite = 0;
+  function _markActivity() {
+    try {
+      if (!localStorage.getItem('last_login_name')) return;          // 未ログインなら無視
+      const screen = document.getElementById('login-screen');
+      if (screen && screen.style.display !== 'none') return;          // ログイン画面表示中は無視
+      const now = Date.now();
+      if (now - _lastActivityWrite < 60000) return;                  // 書き込みは最大60秒に1回（負荷軽減）
+      _lastActivityWrite = now;
+      localStorage.setItem('last_login_time', now);
+    } catch(e) {}
+  }
+  ['click', 'keydown', 'touchstart', 'pointerdown', 'scroll'].forEach(ev =>
+    document.addEventListener(ev, _markActivity, { passive: true, capture: true }));
+
+  // 開きっぱなしでも無操作30分でログイン画面へ戻す（1分ごとにチェック）
+  setInterval(_enforceSessionTimeout, 60 * 1000);
 
   // Enterキー対応（Googleログインのみのため無効化）
   // document.addEventListener('keydown', e => { ... });
