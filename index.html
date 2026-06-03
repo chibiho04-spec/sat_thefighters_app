@@ -6509,15 +6509,6 @@
       ◀ 閉じる
     </button>
     <div style="flex:1;font-size:12px;color:#aaa;white-space:nowrap;" id="print-preview-label">印刷プレビュー</div>
-    <!-- 請求書のときだけ表示される発行ボタン -->
-    <button id="preview-issue-btn" onclick="issueFromPreview()" style="
-      display:none;
-      font-family:'DotGothic16',monospace;font-size:12px;
-      background:#e67e22;border:2px solid #8b4500;
-      color:white;padding:7px 14px;border-radius:3px;cursor:pointer;
-      box-shadow:2px 2px 0 #5a2800;">
-      📄 発行する
-    </button>
     <button onclick="executePrint()" style="
       font-family:'DotGothic16',monospace;font-size:12px;
       background:#2980b9;border:2px solid #1a5c8a;
@@ -9387,18 +9378,9 @@
     document.getElementById('print-content').innerHTML = html;
     document.getElementById('print-preview-label').textContent = label;
 
-    // 発行ボタンは請求書のときだけ表示、発行済みなら非表示
+    // プレビュー画面に発行ボタンは置かない（発行は会計室の編集画面から）
     const issueBtn = document.getElementById('preview-issue-btn');
-    if (type === 'invoice') {
-      const num    = document.getElementById('inv-detail-num').textContent;
-      const status = loadInvStatus(num);
-      issueBtn.style.display = status.billed ? 'none' : 'inline-block';
-      issueBtn.textContent   = '📄 発行する';
-      issueBtn.style.background = '#e67e22';
-      issueBtn.disabled = false;
-    } else {
-      issueBtn.style.display = 'none';
-    }
+    if (issueBtn) issueBtn.style.display = 'none';
 
     document.getElementById('print-preview-overlay').style.display = 'flex';
     requestAnimationFrame(scalePrintContent);
@@ -12359,7 +12341,6 @@
 
     document.getElementById('print-content').innerHTML = html;
     document.getElementById('print-preview-label').textContent = 'ワークシート 印刷プレビュー';
-    document.getElementById('preview-issue-btn').style.display = 'none';
     document.getElementById('print-preview-overlay').style.display = 'flex';
     requestAnimationFrame(scalePrintContent);
     window.removeEventListener('resize', scalePrintContent);
