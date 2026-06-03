@@ -7339,11 +7339,31 @@
     } catch (e) { console.warn('worklog fetch', e); }
   }
 
+  // USER_STAFF に未登録のスタッフでも、SUMO_FIGHTERS のドット絵・能力値から
+  // ホームカード用のデータを自動生成する（数値はとりあえず0／スキル空）。
+  function _fallbackUserStaff(loginName) {
+    const keys = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS : [];
+    const idx = keys.indexOf(loginName);
+    if (idx < 0) return null;
+    const f = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS[idx] : null;
+    if (!f) return null;
+    const role   = (typeof STAFF_ROLES !== 'undefined' && STAFF_ROLES[idx]) ? STAFF_ROLES[idx] : '';
+    const avatar = (f.palette && typeof makePixelChar === 'function') ? makePixelChar(f.palette) : '👤';
+    return {
+      name: f.name || loginName, role: role,
+      status: '稼働中', statusColor: '#27ae60',
+      projects: 0, hours: 0, overtime: 0,
+      level: f.level || 1, exp: 0, expNext: (f.level || 1) * 100 + 200,
+      str: f.str || 0, spd: f.spd || 0, end: f.end || 0,
+      skills: [], avatar: avatar
+    };
+  }
+
   function renderUserStaffCard(loginName) {
     const card = document.getElementById('user-staff-card');
     if (!card) return;
     _applyCachedWorklog(loginName); // 取り込み済みの勤務時間があれば反映
-    const staff = USER_STAFF[loginName];
+    const staff = USER_STAFF[loginName] || _fallbackUserStaff(loginName);
     if (!staff) {
       card.style.display = 'none';
       return;
