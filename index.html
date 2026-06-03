@@ -3505,6 +3505,9 @@
           <div id="google-signin-btn"></div>
         </div>
         <div id="google-login-error" style="display:none;margin-top:8px;font-family:'DotGothic16',monospace;font-size:11px;color:#e74c3c;text-align:center;"></div>
+        <div style="text-align:center;margin-top:18px;">
+          <a href="#" onclick="showPinLogin();return false;" style="font-family:'DotGothic16',monospace;font-size:11px;color:#7a7aa0;text-decoration:underline;cursor:pointer;">PINでログイン（お試し用）</a>
+        </div>
       </div>
 
       <!-- PINログイン（file:// / HTTPS 共通） -->
@@ -3533,6 +3536,9 @@
         <button onclick="doLocalLogin()" style="font-family:'DotGothic16',monospace;font-size:15px;width:100%;padding:12px;background:linear-gradient(180deg,#f39c12,#d68910);border:2px solid #b7770d;color:white;border-radius:4px;cursor:pointer;letter-spacing:2px;">
           ▶ ログイン
         </button>
+        <div id="back-to-google-link" style="display:none;text-align:center;margin-top:14px;">
+          <a href="#" onclick="showGoogleLogin();return false;" style="font-family:'DotGothic16',monospace;font-size:11px;color:#7a7aa0;text-decoration:underline;cursor:pointer;">← Googleログインに戻る</a>
+        </div>
       </div>
     </div>
 
@@ -7198,6 +7204,24 @@
     loginSuccess(key);
   }
 
+  // ログイン方式の切り替え（Google ⇔ PIN）
+  function showPinLogin() {
+    const g = document.getElementById('google-login-section');
+    const l = document.getElementById('local-login-section');
+    if (g) g.style.display = 'none';
+    if (l) l.style.display = 'block';
+    // file:// ではGoogleが使えないため「戻る」リンクは隠す
+    const back = document.getElementById('back-to-google-link');
+    if (back) back.style.display = (window.location.protocol === 'file:') ? 'none' : 'block';
+  }
+  function showGoogleLogin() {
+    const g = document.getElementById('google-login-section');
+    const l = document.getElementById('local-login-section');
+    if (l) l.style.display = 'none';
+    if (g) g.style.display = 'block';
+    setTimeout(initGoogleSignIn, 100);
+  }
+
   // GIS スクリプト読み込み完了後に初期化
   window.addEventListener('load', () => {
     // 少し待ってからGISを初期化（スクリプト非同期読み込みのため）
@@ -7459,11 +7483,11 @@
           `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
         renderUserStaffCard(savedName);
       } else {
-        // PINログイン画面を表示（Googleログインは非表示）
+        // Googleログインを優先表示（PINは「お試し用」リンクからフォールバック）
         const gSection = document.getElementById('google-login-section');
         const lSection = document.getElementById('local-login-section');
-        if (gSection) gSection.style.display = 'none';
-        if (lSection) lSection.style.display = 'block';
+        if (gSection) gSection.style.display = 'block';
+        if (lSection) lSection.style.display = 'none';
       }
     } catch(e) { console.warn('auto login check failed', e); }
   })();
