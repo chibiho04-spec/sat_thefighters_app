@@ -13229,6 +13229,14 @@
         el.appendChild(row);
       });
     });
+
+    // ＋ 機材を追加ボタン（チェックリストの末尾に常時表示）
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.textContent = '＋ 機材を追加・編集';
+    addBtn.onclick = openEquipMaster;
+    addBtn.style.cssText = "grid-column:1 / -1;font-family:'DotGothic16',monospace;font-size:13px;background:#27ae60;border:2px solid #1a7a40;color:white;padding:8px 16px;border-radius:3px;margin-top:10px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;justify-self:start;";
+    el.appendChild(addBtn);
   }
 
   // チェックのオン/オフ
