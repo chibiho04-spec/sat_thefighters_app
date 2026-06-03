@@ -6430,6 +6430,12 @@
         <div class="wsd-save-note">保存するとGoogle Sheetsにも自動反映されます（フェーズ2接続予定）</div>
       </div>
 
+      <!-- 請求書を発行して案件終了 -->
+      <div style="margin:4px 12px 24px;padding-top:14px;border-top:1px dashed #ddd;">
+        <button type="button" onclick="openInvoiceFromWS()" style="font-family:'DotGothic16',monospace;font-size:14px;background:#27ae60;border:3px solid #1a7a40;color:white;padding:12px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #1a7a40;width:100%;">🧾 <span style="font-size:16px;">請</span>求書を発行して案件終了</button>
+        <div style="margin-top:6px;text-align:center;font-size:10px;color:#999;">請求書画面が開きます。内容を確認して「発行」を押すと「終了案件」へ移動します</div>
+      </div>
+
     </div><!-- /wsd-scroll -->
     </div><!-- /wsd-edit-panel -->
     </div><!-- /ws-detail-screen -->
@@ -13503,6 +13509,13 @@
   }
   function openInvoiceFromWS() {
     const num = document.getElementById('ws-detail-num').textContent;
+    openInvoiceForCase(num);
+  }
+
+  // 指定した案件番号の請求書編集画面を開く（案件画面・ホームカード共通）
+  function openInvoiceForCase(num) {
+    num = (num || '').trim();
+    if (!num) return;
     if (invData[num]) openInv(num, 'create');
     else              _openBlankInvFromWS(num, 'create');
     // ws-detail-screen(z:175)より上に表示するためフルページで重ねる
@@ -14554,6 +14567,7 @@
     // 「撮影予定」の見出しはパネル上部が兼ねるので不要。カードを先頭に並べる。
     upcoming.forEach(c => {
       c.classList.remove('ws-card-finished', 'ws-card-hidden');
+      _removeBillBtn(c);
       container.appendChild(c);
     });
 
@@ -14564,6 +14578,7 @@
     container.appendChild(billingHeader);
     billing.forEach(c => {
       c.classList.remove('ws-card-finished', 'ws-card-hidden');
+      _ensureBillBtn(c);
       container.appendChild(c);
     });
 
@@ -14591,10 +14606,33 @@
       finished.forEach(c => {
         c.classList.add('ws-card-finished');
         c.classList.toggle('ws-card-hidden', !open);
+        _removeBillBtn(c);
         endGrid.appendChild(c);
       });
       endSection.appendChild(endGrid);
     }
+  }
+
+  // 請求処理中カードに「請求書を発行して案件終了」ボタンを付与（重複防止）
+  function _ensureBillBtn(card) {
+    if (!card || card.querySelector('.ws-card-billbtn')) return;
+    const num = card.dataset.wsnum;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ws-card-billbtn';
+    btn.textContent = '🧾 請求書を発行して案件終了';
+    btn.style.cssText = "display:block;width:100%;margin-top:8px;font-family:'DotGothic16',monospace;font-size:11px;background:#27ae60;border:2px solid #1a7a40;color:white;padding:7px 8px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;";
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openInvoiceForCase(num);
+    });
+    card.appendChild(btn);
+  }
+
+  function _removeBillBtn(card) {
+    if (!card) return;
+    const b = card.querySelector('.ws-card-billbtn');
+    if (b) b.remove();
   }
 
   // ソート方向トグル
