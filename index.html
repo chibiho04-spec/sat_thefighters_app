@@ -7464,59 +7464,81 @@
     loginSuccess(name);
   }
 
-  // 起動時：自動ログインチェック
+  // ===== セッション管理：最終ログインから30分でタイムアウト =====
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30分
+
+  // 保存されたログインが有効か（ユーザーが存在し、最終ログインから30分以内）
+  function _isSessionValid() {
+    const savedName = localStorage.getItem('last_login_name');
+    const savedTime = parseInt(localStorage.getItem('last_login_time') || '0');
+    const elapsed   = Date.now() - savedTime;
+    const validUser = (typeof STAFF_KEYS !== 'undefined')
+      ? STAFF_KEYS.includes(savedName)
+      : !!(typeof USERS !== 'undefined' && USERS[savedName]);
+    return !!(savedName && validUser && elapsed < SESSION_TIMEOUT_MS);
+  }
+
+  // ログイン画面を表示（protocolに応じて Google / ローカルPIN を出し分け）
+  function _showLoginScreen() {
+    const screen = document.getElementById('login-screen');
+    if (screen) { screen.classList.remove('login-fade-out'); screen.style.display = 'flex'; }
+    const card = document.getElementById('user-staff-card');
+    if (card) card.style.display = 'none';
+    const gSection = document.getElementById('google-login-section');
+    const lSection = document.getElementById('local-login-section');
+    if (window.location.protocol === 'file:') {
+      // file:// はローカルPIN（選択のみ）ログイン
+      if (gSection) gSection.style.display = 'none';
+      if (lSection) lSection.style.display = 'block';
+    } else {
+      // HTTPS は Google ログインを優先表示（PINは「お試し用」リンクからフォールバック）
+      if (gSection) gSection.style.display = 'block';
+      if (lSection) lSection.style.display = 'none';
+      const btnEl = document.getElementById('google-signin-btn');
+      if (btnEl) { btnEl.innerHTML = ''; setTimeout(() => { try { initGoogleSignIn(); } catch(_) {} }, 200); }
+    }
+  }
+
+  // 自動ログイン成功時の画面更新（おかえり表示）
+  function _enterAppForUser(savedName) {
+    localStorage.setItem('last_login_time', Date.now());
+    const screen = document.getElementById('login-screen');
+    if (screen) screen.style.display = 'none';
+    const _f2 = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS : [];
+    const _si2 = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(savedName) : -1;
+    const displayName = (_si2 >= 0 && _f2[_si2]) ? _f2[_si2].name : (savedName.charAt(0).toUpperCase() + savedName.slice(1));
+    const bubble = document.querySelector('.speech-bubble');
+    if (bubble) bubble.innerHTML =
+      `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
+    renderUserStaffCard(savedName);
+  }
+
+  // 起動時：自動ログインチェック（file:// / HTTPS 共通で30分タイムアウトを適用）
   (function checkAutoLogin() {
     try {
-      const savedName = localStorage.getItem('last_login_name');
-      const savedTime = parseInt(localStorage.getItem('last_login_time') || '0');
-      const elapsed   = Date.now() - savedTime;
-      const THIRTY_MIN = 30 * 60 * 1000;
-      const _validUser = (typeof STAFF_KEYS !== 'undefined')
-        ? STAFF_KEYS.includes(savedName)
-        : !!(typeof USERS !== 'undefined' && USERS[savedName]);
-
-      // file:// で開いた場合：保存済みユーザーがあれば即ログイン、なければローカルログイン画面
-      if (window.location.protocol === 'file:') {
-        if (savedName && _validUser) {
-          localStorage.setItem('last_login_time', Date.now());
-          const screen = document.getElementById('login-screen');
-          if (screen) screen.style.display = 'none';
-          const _f2 = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS : [];
-          const _si2 = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(savedName) : -1;
-          const displayName = (_si2 >= 0 && _f2[_si2]) ? _f2[_si2].name : (savedName.charAt(0).toUpperCase() + savedName.slice(1));
-          const bubble = document.querySelector('.speech-bubble');
-          if (bubble) bubble.innerHTML =
-            `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
-          renderUserStaffCard(savedName);
-        } else {
-          // ローカルログイン画面を表示
-          document.getElementById('google-login-section').style.display = 'none';
-          document.getElementById('local-login-section').style.display = 'block';
-        }
-        return;
-      }
-
-      // HTTPS環境：30分以内なら自動スキップ、そうでなければPINログイン画面
-      if (savedName && elapsed < THIRTY_MIN && _validUser) {
-        localStorage.setItem('last_login_time', Date.now());
-        const screen = document.getElementById('login-screen');
-        if (screen) screen.style.display = 'none';
-        const _f2 = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS : [];
-        const _si2 = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(savedName) : -1;
-        const displayName = (_si2 >= 0 && _f2[_si2]) ? _f2[_si2].name : (savedName.charAt(0).toUpperCase() + savedName.slice(1));
-        const bubble = document.querySelector('.speech-bubble');
-        if (bubble) bubble.innerHTML =
-          `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
-        renderUserStaffCard(savedName);
+      if (_isSessionValid()) {
+        _enterAppForUser(localStorage.getItem('last_login_name'));
       } else {
-        // Googleログインを優先表示（PINは「お試し用」リンクからフォールバック）
-        const gSection = document.getElementById('google-login-section');
-        const lSection = document.getElementById('local-login-section');
-        if (gSection) gSection.style.display = 'block';
-        if (lSection) lSection.style.display = 'none';
+        // 未ログイン or セッション切れ → ログイン画面
+        _showLoginScreen();
       }
     } catch(e) { console.warn('auto login check failed', e); }
   })();
+
+  // タブ復帰・フォーカス時にも再チェック（開きっぱなしでも30分でタイムアウト）
+  function _enforceSessionTimeout() {
+    try {
+      const screen = document.getElementById('login-screen');
+      const loginVisible = screen && screen.style.display !== 'none';
+      if (loginVisible) return;                                   // すでにログイン画面なら何もしない
+      if (!localStorage.getItem('last_login_name')) return;        // そもそも未ログインなら無視
+      if (!_isSessionValid()) _showLoginScreen();                  // 30分経過 → 再ログインを促す
+    } catch(e) { console.warn('session check failed', e); }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _enforceSessionTimeout();
+  });
+  window.addEventListener('focus', _enforceSessionTimeout);
 
   // Enterキー対応（Googleログインのみのため無効化）
   // document.addEventListener('keydown', e => { ... });
