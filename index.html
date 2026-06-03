@@ -14540,7 +14540,14 @@
     // 既存のセクション/トグル/旧セパレータを除去
     container.querySelectorAll('.ws-section-header, .ws-end-toggle, .ws-end-container, .ws-month-divider').forEach(el => el.remove());
 
-    const cards = [...container.querySelectorAll('.ws-card[data-wsnum]')];
+    // ⚠️ 終了案件カードはパネル外の #ws-end-section に移動済みなので、
+    //    そこからも収集しないと2回目以降の再描画で endSection.innerHTML='' により破棄されてしまう。
+    //    （クリック後しばらくして案件が勝手に消えるバグの原因）
+    const endSectionCollect = document.getElementById('ws-end-section');
+    const cards = [
+      ...container.querySelectorAll('.ws-card[data-wsnum]'),
+      ...(endSectionCollect ? [...endSectionCollect.querySelectorAll('.ws-card[data-wsnum]')] : [])
+    ];
     const dir = localStorage.getItem('ws_sort_dir') === 'desc' ? -1 : 1;
 
     const getDate = num => {
