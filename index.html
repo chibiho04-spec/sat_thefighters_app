@@ -11570,13 +11570,14 @@
 
     // ===== 月別売り上げ推移グラフ（棒グラフ + 損益分岐ライン） =====
     const BREAK_EVEN = 5000000; // 損益分岐：500万円（暫定）
+    const TARGET_SALES = 6000000; // 目標売上：600万円（毎月）
     const chartKeys = Object.keys(byMonth).sort(); // 古い順
     const chartData = chartKeys.map(k => {
       const grp = byMonth[k];
       const net = grp.items.reduce((s, it) => s + (it.total - (it.outsourceCost || 0)), 0);
       return { key: k, label: grp.label, net };
     });
-    const maxVal = Math.max(BREAK_EVEN * 1.2, ...chartData.map(d => d.net), 1);
+    const maxVal = Math.max(BREAK_EVEN * 1.2, TARGET_SALES * 1.15, ...chartData.map(d => d.net), 1);
     const chartH = 220; // SVG高さ
     const padTop = 24, padBottom = 36, padLeft = 56, padRight = 16;
     const innerH = chartH - padTop - padBottom;
@@ -11584,6 +11585,7 @@
     const chartW = barAreaW + padLeft + padRight;
     const yScale = v => padTop + (1 - v / maxVal) * innerH;
     const yBreak = yScale(BREAK_EVEN);
+    const yTarget = yScale(TARGET_SALES);
 
     let bars = '';
     chartData.forEach((d, i) => {
@@ -11620,6 +11622,7 @@
             <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;vertical-align:middle;margin-right:3px;"></span>黒字</span>
             <span><span style="display:inline-block;width:10px;height:10px;background:#c0392b;vertical-align:middle;margin-right:3px;"></span>赤字</span>
             <span><span style="display:inline-block;width:14px;border-top:2px dashed #e67e22;vertical-align:middle;margin-right:3px;"></span>損益分岐 ¥${(BREAK_EVEN/10000).toLocaleString()}万円</span>
+            <span><span style="display:inline-block;width:14px;border-top:2px solid #2980b9;vertical-align:middle;margin-right:3px;"></span>目標売上 ¥${(TARGET_SALES/10000).toLocaleString()}万円</span>
           </div>
         </div>
         <div style="overflow-x:auto;">
@@ -11642,6 +11645,9 @@
             <!-- 損益分岐ライン -->
             <line x1="${padLeft}" x2="${padLeft + barAreaW}" y1="${yBreak}" y2="${yBreak}" stroke="#e67e22" stroke-width="2" stroke-dasharray="6,4"/>
             <text x="${padLeft + barAreaW - 4}" y="${yBreak - 4}" text-anchor="end" font-size="9" fill="#e67e22" font-weight="bold" font-family="DotGothic16,monospace">損益分岐 ¥${(BREAK_EVEN/10000).toFixed(0)}万</text>
+            <!-- 目標売上ライン -->
+            <line x1="${padLeft}" x2="${padLeft + barAreaW}" y1="${yTarget}" y2="${yTarget}" stroke="#2980b9" stroke-width="2"/>
+            <text x="${padLeft + 4}" y="${yTarget - 4}" text-anchor="start" font-size="9" fill="#2980b9" font-weight="bold" font-family="DotGothic16,monospace">🎯 目標 ¥${(TARGET_SALES/10000).toFixed(0)}万</text>
           </svg>
         </div>
       </div>
