@@ -5295,10 +5295,9 @@
       </select>
       <span style="font-size:12px;color:#666;margin-left:6px;">表示：</span>
       <select id="sales-status-filter" onchange="renderSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
-        <option value="all">すべて</option>
-        <option value="billed">請求済のみ</option>
+        <option value="all">すべて（請求済み）</option>
+        <option value="billed">未入金のみ</option>
         <option value="paid">入金済のみ</option>
-        <option value="unbilled">未請求のみ</option>
       </select>
     </div>
 
@@ -11384,7 +11383,8 @@
         items.push(_calcCaseSales(p.num, { title: p.title, client: p.company, date: p.date, lines: status.lines }));
       });
     } catch(e) { console.warn(e); }
-    return items;
+    // 売上は「請求済み（発行済み）」の案件だけを集計対象にする
+    return items.filter(it => it.billed);
   }
 
   // ===== 部門別売上：集計ロジック（編集・撮影・プロデュース・未分類） =====
@@ -11589,10 +11589,6 @@
           <div class="sales-status-card" style="background:#fff;border:2px solid #27ae60;border-left:5px solid #27ae60;box-shadow:2px 2px 0 #d4edda;">
             <div class="sales-status-lbl">✅ 入金済</div>
             <div class="sales-status-val" style="color:#1e8449;">${fmt(sumPaid)}</div>
-          </div>
-          <div class="sales-status-card" style="background:#fff;border:2px solid #95a5a6;border-left:5px solid #95a5a6;box-shadow:2px 2px 0 #e5e8e8;">
-            <div class="sales-status-lbl">⚪ 未請求</div>
-            <div class="sales-status-val" style="color:#566573;">${fmt(sumUnbilled)}</div>
           </div>
         </div>
 
