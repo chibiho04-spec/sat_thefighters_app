@@ -5295,9 +5295,10 @@
       </select>
       <span style="font-size:12px;color:#666;margin-left:6px;">表示：</span>
       <select id="sales-status-filter" onchange="renderSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
-        <option value="all">すべて（請求済み）</option>
-        <option value="billed">未入金のみ</option>
-        <option value="paid">入金済のみ</option>
+        <option value="all">すべて</option>
+        <option value="billed">請求済（未入金）</option>
+        <option value="paid">入金済</option>
+        <option value="unbilled">未請求（進行中）</option>
       </select>
     </div>
 
@@ -11383,8 +11384,9 @@
         items.push(_calcCaseSales(p.num, { title: p.title, client: p.company, date: p.date, lines: status.lines }));
       });
     } catch(e) { console.warn(e); }
-    // 売上は「請求済み（発行済み）」の案件だけを集計対象にする
-    return items.filter(it => it.billed);
+    // 全案件を返す（未請求も含む）。集計対象（請求済みのみ）への絞り込みは
+    // 表示側（renderSalesScreen / 部門別）で行い、リストには進行中案件も表示する。
+    return items;
   }
 
   // ===== 部門別売上：集計ロジック（編集・撮影・プロデュース・未分類） =====
@@ -11482,6 +11484,8 @@
   // period: 'all' | '2026' | '2025' ...
   function _collectDeptBreakdown(period) {
     let items = (typeof _collectSalesItems === 'function') ? _collectSalesItems() : [];
+    // 部門別売上も「請求済み」案件のみを集計対象にする
+    items = items.filter(it => it.billed);
     if (period && period !== 'all') {
       const y = parseInt(period, 10);
       items = items.filter(it => {
@@ -11519,18 +11523,20 @@
       });
     }
 
-    // ステータスフィルタ
+    // ステータスフィルタ（表示リストの絞り込み）
     if (statusFilter === 'billed')   items = items.filter(it => it.billed && !it.paid);
     if (statusFilter === 'paid')     items = items.filter(it => it.paid);
     if (statusFilter === 'unbilled') items = items.filter(it => !it.billed);
 
-    // 期間内の集計
-    const sumTotal       = items.reduce((s, it) => s + it.total, 0);
-    const sumOutsource   = items.reduce((s, it) => s + (it.outsourceCost || 0), 0);
+    // 集計対象＝「請求済み」の案件だけ。未請求（進行中）はリストに表示するが金額は計上しない。
+    const countedItems = items.filter(it => it.billed);
+
+    // 期間内の集計（請求済みのみ）
+    const sumTotal       = countedItems.reduce((s, it) => s + it.total, 0);
+    const sumOutsource   = countedItems.reduce((s, it) => s + (it.outsourceCost || 0), 0);
     const sumInhouse     = sumTotal - sumOutsource; // 社内流放（受注合計 − 外注費）
-    const sumBilledOnly  = items.filter(it => it.billed && !it.paid).reduce((s, it) => s + it.total, 0);
-    const sumPaid        = items.filter(it => it.paid).reduce((s, it) => s + it.total, 0);
-    const sumUnbilled    = items.filter(it => !it.billed).reduce((s, it) => s + it.total, 0);
+    const sumBilledOnly  = countedItems.filter(it => !it.paid).reduce((s, it) => s + it.total, 0);
+    const sumPaid        = countedItems.filter(it => it.paid).reduce((s, it) => s + it.total, 0);
 
     const fmt = n => '¥' + Number(n).toLocaleString();
 
@@ -11553,7 +11559,7 @@
               <span class="sales-bar-hl-label">🏢 売り上げ　</span>
               <span class="sales-bar-hl-val">${fmt(sumInhouse)}</span>
             </div>
-            <span class="sales-bar-hl-sub">請求合計 ${fmt(sumTotal)}（${items.length}件）− 外注費 ${fmt(sumOutsource)}</span>
+            <span class="sales-bar-hl-sub">請求合計 ${fmt(sumTotal)}（計上 ${countedItems.length}件）− 外注費 ${fmt(sumOutsource)}</span>
           </div>
           <!-- セグメントバー -->
           <div class="sales-seg-bar">
@@ -11615,10 +11621,15 @@
       return;
     }
 
+    const PROG_LABELS = ['受付', '準備中', '撮影中', '請求書作成中'];
     const statusBadge = it => {
       if (it.paid)   return '<span style="background:#27ae60;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">入金済</span>';
       if (it.billed) return '<span style="background:#f39c12;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">請求済</span>';
-      return '<span style="background:#bdc3c7;color:#555;font-size:10px;padding:2px 7px;border-radius:8px;">未請求</span>';
+      // 未請求：進行ステータスを表示（売上には計上されない）
+      let prog = 0;
+      try { prog = (typeof calcWsProgress === 'function') ? calcWsProgress(it.num) : 0; } catch (e) {}
+      const label = PROG_LABELS[Math.min(Math.max(prog, 0), 3)] || '進行中';
+      return `<span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:10px;padding:2px 7px;border-radius:8px;white-space:nowrap;">🚧 ${label}・未計上</span>`;
     };
 
     // ===== 月別売り上げ推移グラフ（棒グラフ + 損益分岐ライン） =====
@@ -11627,7 +11638,8 @@
     const chartKeys = Object.keys(byMonth).sort(); // 古い順
     const chartData = chartKeys.map(k => {
       const grp = byMonth[k];
-      const net = grp.items.reduce((s, it) => s + (it.total - (it.outsourceCost || 0)), 0);
+      // グラフは「請求済み」案件のみ集計
+      const net = grp.items.filter(it => it.billed).reduce((s, it) => s + (it.total - (it.outsourceCost || 0)), 0);
       return { key: k, label: grp.label, net };
     });
     const maxVal = Math.max(BREAK_EVEN * 1.2, TARGET_SALES * 1.15, ...chartData.map(d => d.net), 1);
@@ -11709,8 +11721,10 @@
     const _chartHtmlForBottom = chartData.length > 0 ? chartHTML : '';
     body.innerHTML = sortedKeys.map(key => {
       const grp = byMonth[key];
-      const grpSum  = grp.items.reduce((s, it) => s + it.total, 0);
-      const grpOut  = grp.items.reduce((s, it) => s + (it.outsourceCost || 0), 0);
+      // 月別小計は「請求済み」案件のみ計上（未請求は表示するが金額に含めない）
+      const grpBilled = grp.items.filter(it => it.billed);
+      const grpSum  = grpBilled.reduce((s, it) => s + it.total, 0);
+      const grpOut  = grpBilled.reduce((s, it) => s + (it.outsourceCost || 0), 0);
       const grpNet  = grpSum - grpOut;
       const rows = grp.items
         .sort((a, b) => {
@@ -11724,6 +11738,7 @@
           const paidIn  = !!it.paid;
           const paidOut = !!it.outsourcePaid || out === 0; // 外注費が0なら自動で済とみなす
           const confirmed = paidIn && paidOut;
+          const counted   = !!it.billed; // 請求済みのみ売上に計上
           // ボタンらしい3D見た目のトグル（押せる立体感・ホバー・ON/OFFが一目でわかる）
           const chkBtn = (checked, labelOn, labelOff, onclick, color) => {
             // ON：色を濃く＋押し込まれた感じ（影なし・少し沈む）
@@ -11749,7 +11764,7 @@
           };
           // 件名セルに請求書・ワークシートへの編集ボタンを表示
           return `
-          <div class="sales-row" style="background:${confirmed?'#f0faf4':'white'};">
+          <div class="sales-row" style="background:${!counted ? '#f6f7f8' : (confirmed ? '#f0faf4' : 'white')};${!counted ? 'opacity:0.92;' : ''}">
             <div class="row-top">
               <div class="col-title"
                 style="color:#333;padding:8px 10px;border-radius:3px;background:#fbfbfb;border:1px solid #ececec;display:flex;align-items:center;gap:10px;">
@@ -11784,10 +11799,12 @@
                 <div style="font-size:18px;font-weight:bold;line-height:1.1;letter-spacing:0.5px;">${out ? '−'+fmt(out) : '—'}</div>
                 ${out > 0 ? `<div style="margin-top:6px;">${chkBtn(paidOut, '支払済', '支払待ち', `toggleSalesPaidOut('${it.num}', event)`, '#8e44ad')}</div>` : ''}
               </div>
-              <div class="col-net" style="color:#0e6655;">
-                <div class="col-label" style="color:#0e6655;">🏢 売り上げ</div>
+              <div class="col-net" style="color:${counted ? '#0e6655' : '#9aa6ae'};">
+                <div class="col-label" style="color:${counted ? '#0e6655' : '#9aa6ae'};">🏢 売り上げ</div>
                 <div style="font-size:20px;font-weight:bold;line-height:1.1;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(14,102,85,0.12);">${fmt(net)}</div>
-                ${confirmed ? '<div style="margin-top:6px;"><span style="background:#27ae60;color:white;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;letter-spacing:1px;">✓ 確定</span></div>' : ''}
+                ${!counted
+                  ? '<div style="margin-top:6px;"><span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;">未計上</span></div>'
+                  : (confirmed ? '<div style="margin-top:6px;"><span style="background:#27ae60;color:white;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;letter-spacing:1px;">✓ 確定</span></div>' : '')}
               </div>
             </div>
           </div>`;
