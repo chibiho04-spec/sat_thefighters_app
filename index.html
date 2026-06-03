@@ -8454,7 +8454,20 @@
     try { return JSON.parse(localStorage.getItem('inv_' + num)) || {}; } catch { return {}; }
   }
   function saveInvStatus(num, data) {
+    data = data || {};
+    // 端末間同期のLWW判定用に、保存のたび必ず更新時刻を打つ。
+    // これが無いと次回の取り込み（pull）でシート側の古い版に上書きされ、
+    // 発行(billed)・入金(paid)などの状態変更が消えてしまう（終了案件が空になる原因）。
+    data._updatedAt = new Date().toISOString();
     localStorage.setItem('inv_' + num, JSON.stringify(data));
+    // 同期URL設定済みなら、この1件だけシートへ即送信（発行・入金・取消も全部反映）。
+    // ※ pull の書き戻し(_saveAllInvoices)は setItem を直接使うのでここは通らない＝ループしない。
+    try {
+      if (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
+        const _rec = Object.assign({ '受注No': String(num) }, data);
+        pushKind('invoice', [_rec]).catch(e => { try { pendingAdd('invoice', num); } catch (_) {} });
+      }
+    } catch (e) {}
   }
 
   // 現在の編集画面の内容を inv_${num} に保存（請求書 or 見積書共通）
@@ -8562,13 +8575,7 @@
       savedAt:  new Date().toLocaleString('ja-JP'),
       _updatedAt: new Date().toISOString(),
     };
-    saveInvStatus(newNum, status);
-
-    // シートへ自動送信（URL設定済みなら）— 納品書も invoice kind に乗る
-    if (typeof _gasUrlOne === 'function' && _gasUrlOne()) {
-      const _rec = Object.assign({ '受注No': newNum }, status);
-      pushKind('invoice', [_rec]).catch(e => { try { pendingAdd('invoice', newNum); } catch (_) {} });
-    }
+    saveInvStatus(newNum, status); // ← シートへの自動送信は saveInvStatus が内部で実施
 
     // 納品書モードで編集画面を開く（番号・宛先・明細をセット）
     document.getElementById('inv-screen-num').textContent  = newNum;
@@ -8632,13 +8639,7 @@
     status.addr     = (document.getElementById('inv-screen-addr')?.textContent || '').trim();
     status.docMode  = _docMode || 'invoice';
     status.savedAt  = new Date().toLocaleString('ja-JP');
-    status._updatedAt = new Date().toISOString(); // 端末間同期の新旧判定用
-    saveInvStatus(num, status);
-    // 請求書をシートへ自動送信（URL設定済みなら）— 旧 scheduleInvoicePush は廃止。新エンジンで該当1件だけ送る。
-    if (_gasUrlOne()) {
-      const _rec = Object.assign({ '受注No': num }, status);
-      pushKind('invoice', [_rec]).catch(e => { try { pendingAdd('invoice', num); } catch (_) {} });
-    }
+    saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
 
     // 売上表が開いていれば即時再描画
     if (typeof renderSalesScreen === 'function') {
