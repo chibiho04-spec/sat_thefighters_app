@@ -4891,9 +4891,13 @@
           💾 編集内容を保存
         </button>
         <button id="invd-preview-btn" class="wsd-save-btn" style="background:#1a5c8a;border-color:#0d3a5c;box-shadow:4px 4px 0 #0d3a5c;" onclick="saveAndPreview()">
-          🔍 印刷プレビュー・発行
+          🔍 印刷プレビュー
         </button>
-        <div class="wsd-save-note">プレビュー画面から内容を確認して発行・印刷できます</div>
+        <div class="wsd-save-note">内容を確認・印刷できます（発行はされません）</div>
+        <button id="invd-issue-btn" class="wsd-save-btn" style="display:none;background:#e67e22;border-color:#8b4500;box-shadow:4px 4px 0 #5a2800;margin-top:10px;" onclick="issueInvoice()">
+          📄 発行する（案件終了）
+        </button>
+        <div id="invd-issue-note" class="wsd-save-note" style="display:none;">発行すると「請求済」になり、ホームの「終了案件」へ移動します</div>
       </div>
       <div style="padding:0 12px 8px;">
         <button id="inv-cancel-btn" class="inv-cancel-issue-btn" onclick="cancelFromScreen()">
@@ -8715,6 +8719,16 @@
       b.style.background = selected ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)';
       b.style.fontWeight = selected ? 'bold' : 'normal';
     });
+    // 「発行する（案件終了）」ボタンは請求書モードかつ未発行のときだけ表示
+    const issueBtn  = document.getElementById('invd-issue-btn');
+    const issueNote = document.getElementById('invd-issue-note');
+    if (issueBtn) {
+      const num    = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+      const billed = num ? !!(loadInvStatus(num).billed) : false;
+      const show   = (_docMode === 'invoice' && !billed);
+      issueBtn.style.display  = show ? 'block' : 'none';
+      if (issueNote) issueNote.style.display = show ? 'block' : 'none';
+    }
   }
 
   function openInv(num, action) {
@@ -9112,10 +9126,14 @@
       if (name) lines.push({ code:'', name, unit:unit||'日', qty, price });
     });
 
-    saveInvStatus(num, { billed: true, invDate, title, lines, issuedAt: new Date().toLocaleString('ja-JP') });
+    // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き
+    const prev = loadInvStatus(num) || {};
+    saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, issuedAt: new Date().toLocaleString('ja-JP') }));
 
     // カードリストを再描画
     renderInvCards();
+    // ホームの進行状況カードを再分類（請求済み → 終了案件へ移動）
+    try { refreshHomeView(true); } catch (e) {}
 
     // ボタンを発行済みに（プレビュー画面のボタン）
     const btn = document.getElementById('preview-issue-btn');
@@ -9160,6 +9178,8 @@
     status.canceledAt = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status);
     renderInvCards();
+    // ホームの進行状況カードを再分類（終了案件 → 請求処理中へ戻す）
+    try { refreshHomeView(true); } catch (e) {}
     closeInv();
   }
 
