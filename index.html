@@ -11291,15 +11291,22 @@
     const memo = document.getElementById('sw-memo').value.trim();
     const list = loadSimpleWS();
     const nowIso = new Date().toISOString();
+    let rec = null;
     if (_swEditId) {
       const idx = list.findIndex(r => r.id === _swEditId);
       if (idx >= 0) {
-        list[idx] = Object.assign({}, list[idx], { date, user, content, equip, memo, updatedAt: nowIso });
+        list[idx] = Object.assign({}, list[idx], { date, user, content, equip, memo, updatedAt: nowIso, _updatedAt: nowIso });
+        rec = list[idx];
       }
     } else {
-      list.push({ id: 'sw' + Date.now(), date, user, content, equip, memo, createdAt: nowIso, updatedAt: nowIso });
+      rec = { id: 'sw' + Date.now(), date, user, content, equip, memo, createdAt: nowIso, updatedAt: nowIso, _updatedAt: nowIso };
+      list.push(rec);
     }
     saveSimpleWSList(list);
+    // 統合シートへ自動送信（URL未設定なら何もしない / fire-and-forget）
+    if (rec && typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
+      pushKind('simpleWS', [rec]).catch(e => { try { pendingAdd('simpleWS', rec.id); } catch (_) {} });
+    }
     status.style.color = '#27ae60';
     status.textContent = _swEditId ? '✅ 更新しました' : '✅ 保存しました';
     setTimeout(() => { closeNewSimpleWS(); renderSimpleWSList(); }, 700);
@@ -11308,8 +11315,14 @@
   function deleteSimpleWS() {
     if (!_swEditId) return;
     if (!confirm('この簡易ワークシートを削除しますか？')) return;
-    const list = loadSimpleWS().filter(r => r.id !== _swEditId);
+    const delId = _swEditId;
+    const list = loadSimpleWS().filter(r => r.id !== delId);
     saveSimpleWSList(list);
+    // 統合シートへ削除を送信（論理削除）
+    if (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
+      pushKind('simpleWS', [{ id: delId, _deleted: true, _updatedAt: new Date().toISOString() }])
+        .catch(e => { try { pendingAdd('simpleWS', delId); } catch (_) {} });
+    }
     closeNewSimpleWS();
     renderSimpleWSList();
   }
