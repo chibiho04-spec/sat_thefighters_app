@@ -17,7 +17,8 @@ var KINDS = {
   media:   { tab: 'メディア', key: 'ID',         headers: ['ID','使用日','メディア種別','使用カード','使用者','現場名','受注No','BU確認','返却者','備考','更新日時','削除フラグ'] },
   equip:   { tab: '機材',     key: 'id',       headers: ['id','cat','name','code','qty','price','更新日時','削除フラグ'] },
   invoice: { tab: '請求書',   key: '受注No',   headers: ['受注No','データ','更新日時','削除フラグ'] },
-  staff:   { tab: 'スタッフ', key: 'キー',     headers: ['キー','データ','更新日時','削除フラグ'] }
+  staff:   { tab: 'スタッフ', key: 'キー',     headers: ['キー','データ','更新日時','削除フラグ'] },
+  simpleWS:{ tab: '簡易ワークシート', key: 'id', headers: ['id','データ','更新日時','削除フラグ'] }
 };
 
 function _authOK(e) {

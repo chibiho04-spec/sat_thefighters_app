@@ -166,6 +166,51 @@ const USER_STAFF = {
 - SUMOトーナメント機能
 - 経験値・レベルアップシステム
 
+## ⚠️ 新機能追加時の確認ルール（2026-06-06 追加）
+
+新しいデータを扱う機能（一覧・編集・記録など）を実装したら、作業完了報告の前に必ず確認する：
+
+> **「この機能のデータを他の端末と同期できるようにしますか？　統合スプレッドシートに新しいシートを追加しますか？」**
+
+### 同期の追加方法（実装手順）
+
+同期を追加すると決まった場合、以下の3箇所を更新する：
+
+1. **`docs/superpowers/unified-sheet-Code.gs`** の `KINDS` に1行追加：
+   ```javascript
+   kindName: { tab: 'シート名', key: 'キー列名', headers: ['キー列名','データ','更新日時','削除フラグ'] }
+   ```
+
+2. **`index.html`** の `SYNC_KINDS` に設定を追加：
+   ```javascript
+   kindName: {
+     keyField: 'id', keyHeader: 'id',
+     loadLocal: () => loadXxx(),
+     saveLocal: (list) => saveXxx(list),
+     toRow: (rec) => _jsonToRow(rec, 'id', 'id'),   // ネスト構造ありなら jsonToRow
+     fromRow: (row) => { const r = _jsonFromRow(row); r.id = String(row['id'] || r.id || ''); return r; },
+     redraw: () => { try { _rerenderIfOpen('xxx-screen', renderXxx); } catch(e) {} }
+   }
+   ```
+
+3. **`index.html`** の `SYNC_ENABLED` 配列に `'kindName'` を追記
+
+4. ユーザーに「GASを再デプロイしてください」と伝える（GASのコードが変わった場合）
+
+### 現在の同期対象 kind 一覧
+
+| kind | シート名 | キー | 追加日 |
+|------|----------|------|--------|
+| order | 案件 | 受注No | 既存 |
+| child | 子 | 受注No | 既存 |
+| invoice | 請求書 | 受注No | 既存 |
+| equip | 機材 | id | 既存 |
+| client | 取引先 | 取引先コード | 既存 |
+| product | 商品 | 商品コード | 既存 |
+| media | メディア | ID | 既存 |
+| staff | スタッフ | キー | 既存 |
+| simpleWS | 簡易ワークシート | id | 2026-06-06 |
+
 ## 技術的注意点
 
 - `image-rendering: pixelated` でドット絵をシャープに表示
@@ -182,4 +227,4 @@ const USER_STAFF = {
 
 ---
 
-最終更新：2026-05-15 （セッション移行直前）
+最終更新：2026-06-06

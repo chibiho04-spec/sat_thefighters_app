@@ -10285,6 +10285,14 @@
       toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
       fromRow: (row) => { const r = _jsonFromRow(row); r['受注No'] = String(row['受注No'] || r['受注No'] || ''); return r; },
       redraw: () => {}
+    },
+    simpleWS: {
+      keyField: 'id', keyHeader: 'id',
+      loadLocal: () => loadSimpleWS(),
+      saveLocal: (list) => saveSimpleWSList(list),
+      toRow: (rec) => _jsonToRow(rec, 'id', 'id'),
+      fromRow: (row) => { const r = _jsonFromRow(row); r.id = String(row['id'] || r.id || ''); return r; },
+      redraw: () => { try { _rerenderIfOpen('simple-ws-list-screen', renderSimpleWSList); } catch(e) {} }
     }
   };
 
@@ -10377,7 +10385,7 @@
     try { refreshHomeView(true); } catch (e) {}
   }
 
-  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip', 'order', 'child']; // 配線済み kind
+  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip', 'order', 'child', 'simpleWS']; // 配線済み kind
   function _gasUrlOne() { return (localStorage.getItem('gas_url') || '').trim(); }
 
   async function pullKind(kind) {
