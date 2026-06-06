@@ -3634,7 +3634,7 @@
     <div class="home-new-project-wrap" style="padding:10px 15px 8px;display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;">
 
       <!-- 右：ログインユーザーのスタッフ情報（order:2 で右に配置） -->
-      <div id="user-staff-card" style="order:2;flex:1 1 380px;background:white;border:2px solid #e8d5a0;border-radius:3px;padding:10px 12px;box-shadow:2px 2px 0 #e8d5a0;display:none;align-items:center;gap:10px;">
+      <div id="user-staff-card" style="order:2;flex:1 1 380px;background:white;border:2px solid #e8d5a0;border-radius:3px;padding:10px 12px;box-shadow:2px 2px 0 #e8d5a0;display:none;align-items:center;gap:10px;flex-wrap:wrap;">
         <!-- ① アバター + 名前 + レベル -->
         <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;width:90px;">
           <div id="user-staff-avatar" style="width:64px;height:64px;border-radius:50%;overflow:hidden;"></div>
@@ -3658,9 +3658,9 @@
         </div>
 
         <!-- ② ゲームステータス（将来のミニゲーム用） -->
-        <div style="flex:1.2;display:flex;flex-direction:column;gap:4px;font-size:11px;border-right:1px dashed #ccc;padding-right:8px;">
+        <div style="flex:1 1 190px;display:flex;flex-direction:column;gap:4px;font-size:11px;border-right:1px dashed #ccc;padding-right:8px;">
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;white-space:nowrap;">
               <span>🦾 筋力</span><span id="user-stat-str" style="color:#c0392b;font-weight:bold;">0</span>
             </div>
             <div style="background:#eee;height:6px;border-radius:3px;overflow:hidden;margin-top:1px;">
@@ -3668,7 +3668,7 @@
             </div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;white-space:nowrap;">
               <span>⚡ 素早さ</span><span id="user-stat-spd" style="color:#d35400;font-weight:bold;">0</span>
             </div>
             <div style="background:#eee;height:6px;border-radius:3px;overflow:hidden;margin-top:1px;">
@@ -3676,7 +3676,7 @@
             </div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;white-space:nowrap;">
               <span>🛡 粘り強さ</span><span id="user-stat-end" style="color:#1e3a5f;font-weight:bold;">0</span>
             </div>
             <div style="background:#eee;height:6px;border-radius:3px;overflow:hidden;margin-top:1px;">
@@ -3690,7 +3690,7 @@
         </div>
 
         <!-- ③ 業務ステータス -->
-        <div style="flex:1;display:flex;flex-direction:column;gap:5px;font-size:11px;">
+        <div style="flex:1 1 130px;display:flex;flex-direction:column;gap:5px;font-size:11px;white-space:nowrap;">
           <div style="border-bottom:1px dashed #ddd;padding-bottom:4px;">
             <div style="color:#888;font-size:10px;">🎬 進行中案件</div>
             <div id="user-stat-projects" style="font-size:15px;font-weight:bold;color:#27ae60;">0 <span style="font-size:10px;color:#888;">件</span></div>
@@ -8194,28 +8194,46 @@
   // ===== 全体の文字サイズ調整（テキストのみ、レイアウトは触らない） =====
   // 各要素の computed font-size を data-base-fs に保存し、それに倍率を掛けて適用する。
   // CSS 由来・インラインスタイル由来どちらも対応。動的追加要素は MutationObserver で追随。
-  const _FS_SKIP_TAGS = new Set(['SCRIPT','STYLE','META','LINK','HEAD','BR','HR','SVG','PATH','RECT','CIRCLE','LINE','POLYGON','POLYLINE','G','DEFS','USE']);
+  const _FS_SKIP_TAGS = new Set(['HTML','BODY','SCRIPT','STYLE','META','LINK','HEAD','BR','HR','SVG','PATH','RECT','CIRCLE','LINE','POLYGON','POLYLINE','G','DEFS','USE']);
 
   function _captureAndApplyFs(scale, root) {
     (root || document).querySelectorAll('*:not([data-base-fs])').forEach(el => {
       if (_FS_SKIP_TAGS.has(el.tagName)) return;
       // ナビバー・APIバーは固定サイズを保つ（はみ出し防止）
-      if (el.closest('.nav-bar, .api-bar')) return;
+      // 印刷用A4シート(#print-content)は設計どおりの固定サイズを保つ（画面倍率の影響を受けない）
+      if (el.closest('.nav-bar, .api-bar, #print-content')) return;
+      // 既に「継承しているだけ」と判定済みの要素は触らない（再判定もしない）
+      if (el.dataset.fsInherit === '1') return;
       const computed = parseFloat(getComputedStyle(el).fontSize);
-      if (computed > 0) {
-        el.dataset.baseFs = computed;
-        if (scale !== 1.0) el.style.fontSize = (computed * scale) + 'px';
+      if (!(computed > 0)) return;
+      // 親と同じサイズ＝自前のfont-sizeを持たず継承しているだけ。
+      // ここを上書きすると入れ子のたびに掛け算で膨張するので、スケールせず祖先に追従させる。
+      const p = el.parentElement;
+      if (p && !_FS_SKIP_TAGS.has(p.tagName)) {
+        const parentFs = parseFloat(getComputedStyle(p).fontSize);
+        if (parentFs > 0 && Math.abs(computed - parentFs) < 0.5) {
+          el.dataset.fsInherit = '1';
+          return;
+        }
       }
+      el.dataset.baseFs = computed;
+      if (scale !== 1.0) el.style.fontSize = (computed * scale) + 'px';
     });
   }
 
   function applyFontScale() {
     const s = parseFloat(localStorage.getItem('font_scale'));
-    const scale = (isNaN(s) || s <= 0) ? 1.2 : Math.max(0.8, Math.min(1.8, s));
+    const scale = (isNaN(s) || s <= 0) ? 1.8 : Math.max(0.8, Math.min(2.2, s));
     // body の zoom は使わない（旧版で設定されていた場合に備えて毎回クリア）
     document.body.style.zoom = '';
-    // ナビバー・APIバー配下にうっかり付いてしまった inline font-size を剥がす
-    document.querySelectorAll('.nav-bar [data-base-fs], .api-bar [data-base-fs]').forEach(el => {
+    // html / body 自体はスケールしない（基準が膨らみ全体が過大になるため毎回リセット）
+    [document.documentElement, document.body].forEach(el => {
+      el.style.fontSize = '';
+      delete el.dataset.baseFs;
+      delete el.dataset.fsInherit;
+    });
+    // ナビバー・APIバー・印刷A4シート配下にうっかり付いてしまった inline font-size を剥がす
+    document.querySelectorAll('.nav-bar [data-base-fs], .api-bar [data-base-fs], #print-content [data-base-fs]').forEach(el => {
       el.style.fontSize = '';
       delete el.dataset.baseFs;
     });
@@ -8231,8 +8249,8 @@
   }
 
   function changeFontScale(delta) {
-    const cur = parseFloat(localStorage.getItem('font_scale')) || 1.2;
-    const next = Math.max(0.8, Math.min(1.8, Math.round((cur + delta) * 10) / 10));
+    const cur = parseFloat(localStorage.getItem('font_scale')) || 1.8;
+    const next = Math.max(0.8, Math.min(2.2, Math.round((cur + delta) * 10) / 10));
     localStorage.setItem('font_scale', next);
     applyFontScale();
   }
@@ -8245,7 +8263,7 @@
       _fsScheduled = true;
       requestAnimationFrame(() => {
         _fsScheduled = false;
-        const scale = parseFloat(localStorage.getItem('font_scale')) || 1.2;
+        const scale = parseFloat(localStorage.getItem('font_scale')) || 1.8;
         _captureAndApplyFs(scale);
       });
     }).observe(document.body, { childList: true, subtree: true });
