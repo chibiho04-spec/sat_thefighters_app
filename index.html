@@ -5532,6 +5532,8 @@
         <div class="wsd-header-num" style="color:#d1f2eb;">🧰 簡易ワークシート</div>
         <div class="wsd-header-title" id="sw-count-label">単発の機材使用記録</div>
       </div>
+      <button onclick="refreshSimpleWSList()"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 更新</button>
     </div>
     <div style="padding:10px 12px;background:#e8f8f4;border-bottom:2px solid #a3e4d7;flex-shrink:0;">
       <input id="sw-search" type="text" class="wsd-input" placeholder="🔍 使用日・使用者・機材で検索..." oninput="renderSimpleWSList()" style="width:100%;font-size:14px;padding:8px;">
@@ -11101,9 +11103,19 @@
     if (s) s.value = '';
     renderSimpleWSList();
     document.getElementById('simple-ws-list-screen').style.transform = 'translateX(0)';
+    // 開いたら裏でシートから最新を取り込む（オンライン時のみ）
+    if (_gasUrlOne()) { refreshSimpleWSList(); }
   }
   function closeSimpleWSList() {
     document.getElementById('simple-ws-list-screen').style.transform = 'translateX(100%)';
+  }
+  // シートから取り込んで再描画（手動更新）
+  async function refreshSimpleWSList() {
+    const lbl = document.getElementById('sw-count-label');
+    if (!_gasUrlOne()) { renderSimpleWSList(); return; }
+    if (lbl) lbl.textContent = '🔄 取り込み中…';
+    try { await pullKind('simpleWS'); } catch (e) { console.warn('simpleWS pull', e); }
+    renderSimpleWSList();
   }
 
   // 機材IDから「名前 ×数量」の配列を作る（マスタ参照）
