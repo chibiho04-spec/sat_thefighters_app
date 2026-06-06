@@ -62,7 +62,7 @@ function _hmsToHours(v) {
   return isNaN(n) ? null : Math.round(n);
 }
 
-// 1タブ分の表示値から「月間勤務時間」「月間普通残業時間」のラベル直下セルを探す。
+// 1タブ分の表示値から「月間勤務時間」「月間残業時間（=月間普通残業時間）」のラベル直下セルを探す。
 function _scanSheetForWork(sh) {
   var disp;
   try { disp = sh.getDataRange().getDisplayValues(); } catch (e) { return { work: null, over: null }; }
@@ -72,7 +72,9 @@ function _scanSheetForWork(sh) {
       var label = String(disp[r][c] || '').replace(/\s/g, '');
       if (!label) continue;
       if (work === null && label.indexOf('月間勤務時間') >= 0 && (r + 1) < disp.length) work = disp[r + 1][c];
-      if (over === null && label.indexOf('月間普通残業時間') >= 0 && (r + 1) < disp.length) over = disp[r + 1][c];
+      // シートにより「月間残業時間」または「月間普通残業時間」の表記ゆれがあるため両対応。
+      // 「内深夜残業時間」等を誤検出しないよう「月間〜残業時間」のみにマッチさせる。
+      if (over === null && (label.indexOf('月間残業時間') >= 0 || label.indexOf('月間普通残業時間') >= 0) && (r + 1) < disp.length) over = disp[r + 1][c];
     }
   }
   return { work: work, over: over };
