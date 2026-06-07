@@ -153,6 +153,7 @@
     flex-shrink: 0;
     display: flex;
     align-items: flex-end;
+    padding-top: 12px;   /* 上の紺色バーとの隙間（ユーザー要望 2026-06-07） */
     padding-bottom: 10px;
     padding-left: 10px;
     padding-right: 10px;
@@ -1940,7 +1941,7 @@
       position: fixed !important;
       left: 200px !important; right: 0 !important;
       top: 0 !important;
-      height: 36px !important;
+      height: 54px !important;   /* ボタン拡大に合わせて高さUP（2026-06-07） */
       flex-shrink: unset !important;
       margin-left: 0 !important;
       z-index: 90;
@@ -1949,7 +1950,7 @@
     .scene-area {
       position: fixed !important;
       left: 200px !important; right: 0 !important;
-      top: 36px !important;
+      top: 54px !important;   /* api-bar(54px)の直下 */
       width: auto !important;
       height: 80px !important;
       min-height: 80px !important;
@@ -1963,7 +1964,7 @@
     .scroll-content {
       position: fixed !important;
       left: 200px !important; right: 0 !important;
-      top: 116px !important; /* 36px + 80px */
+      top: 134px !important; /* 54px(api-bar) + 80px(scene) */
       bottom: 0 !important;
       height: auto !important;
       flex: unset !important;
