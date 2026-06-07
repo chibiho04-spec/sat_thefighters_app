@@ -3571,13 +3571,13 @@
   <div class="api-bar">
     <div class="api-dot"></div>
     <div class="api-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">Google Sheets API: <span>接続済み</span></div>
-    <div style="display:inline-flex;align-items:center;gap:2px;margin-right:6px;border:1px solid rgba(255,255,255,0.3);border-radius:3px;overflow:hidden;background:rgba(255,255,255,0.10);">
-      <button onclick="changeFontScale(-0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:14px;padding:2px 8px;cursor:pointer;font-weight:bold;" title="文字を小さく">A−</button>
-      <span id="font-scale-label" style="color:#ffe;font-family:'DotGothic16',monospace;font-size:11px;padding:0 4px;min-width:30px;text-align:center;">100%</span>
-      <button onclick="changeFontScale(0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:16px;padding:2px 8px;cursor:pointer;font-weight:bold;" title="文字を大きく">A+</button>
+    <div style="display:inline-flex;align-items:center;gap:2px;margin-right:8px;border:1px solid rgba(255,255,255,0.3);border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.10);">
+      <button onclick="changeFontScale(-0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:26px;padding:6px 14px;cursor:pointer;font-weight:bold;" title="文字を小さく">A−</button>
+      <span id="font-scale-label" style="color:#ffe;font-family:'DotGothic16',monospace;font-size:20px;padding:0 6px;min-width:56px;text-align:center;">100%</span>
+      <button onclick="changeFontScale(0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:30px;padding:6px 14px;cursor:pointer;font-weight:bold;" title="文字を大きく">A+</button>
     </div>
-    <button onclick="openSettings()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-family:'DotGothic16',monospace;font-size:12px;padding:2px 8px;border-radius:3px;cursor:pointer;margin-right:4px;" title="データ管理">データ管理</button>
-    <button onclick="doLogout()" style="background:rgba(255,100,100,0.25);border:1px solid rgba(255,150,150,0.4);color:#ffcccc;font-family:'DotGothic16',monospace;font-size:12px;padding:2px 8px;border-radius:3px;cursor:pointer;margin-right:8px;" title="ログアウト">⏏ 退出</button>
+    <button onclick="openSettings()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-family:'DotGothic16',monospace;font-size:22px;padding:6px 14px;border-radius:4px;cursor:pointer;margin-right:6px;" title="データ管理">データ管理</button>
+    <button onclick="doLogout()" style="background:rgba(255,100,100,0.25);border:1px solid rgba(255,150,150,0.4);color:#ffcccc;font-family:'DotGothic16',monospace;font-size:22px;padding:6px 14px;border-radius:4px;cursor:pointer;margin-right:8px;" title="ログアウト">⏏ 退出</button>
     <div class="api-label" id="clock"></div>
   </div>
 
@@ -8200,8 +8200,9 @@
     (root || document).querySelectorAll('*:not([data-base-fs])').forEach(el => {
       if (_FS_SKIP_TAGS.has(el.tagName)) return;
       // ナビバー・APIバーは固定サイズを保つ（はみ出し防止）
+      // シーンエリア(上のアニメーション)は固定デザインを保つ（文字拡大で吹き出しが切れるのを防止）
       // 印刷用A4シート(#print-content)は設計どおりの固定サイズを保つ（画面倍率の影響を受けない）
-      if (el.closest('.nav-bar, .api-bar, #print-content')) return;
+      if (el.closest('.nav-bar, .api-bar, .scene-area, #print-content')) return;
       // 既に「継承しているだけ」と判定済みの要素は触らない（再判定もしない）
       if (el.dataset.fsInherit === '1') return;
       const computed = parseFloat(getComputedStyle(el).fontSize);
@@ -8232,8 +8233,8 @@
       delete el.dataset.baseFs;
       delete el.dataset.fsInherit;
     });
-    // ナビバー・APIバー・印刷A4シート配下にうっかり付いてしまった inline font-size を剥がす
-    document.querySelectorAll('.nav-bar [data-base-fs], .api-bar [data-base-fs], #print-content [data-base-fs]').forEach(el => {
+    // ナビバー・APIバー・シーンエリア・印刷A4シート配下にうっかり付いてしまった inline font-size を剥がす
+    document.querySelectorAll('.nav-bar [data-base-fs], .api-bar [data-base-fs], .scene-area [data-base-fs], #print-content [data-base-fs]').forEach(el => {
       el.style.fontSize = '';
       delete el.dataset.baseFs;
     });
