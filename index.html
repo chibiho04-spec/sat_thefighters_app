@@ -1362,8 +1362,8 @@
   }
   .np-select-btn {
     font-family: 'DotGothic16', monospace;
-    font-size: 11px;
-    padding: 5px 10px;
+    font-size: 12px;
+    padding: 7px 13px;
     border: 2px solid #c8e6c9;
     border-radius: 3px;
     background: white;
@@ -1401,24 +1401,24 @@
   }
   .em-check-row {
     display: flex; align-items: center; gap: 6px;
-    padding: 5px 4px; border-bottom: 1px solid #f0eaf8;
-    background: white; border-radius: 2px; margin-bottom: 2px;
+    padding: 7px 5px; border-bottom: 1px solid #f0eaf8;
+    background: white; border-radius: 2px; margin-bottom: 3px;
   }
   .em-check-row.checked { background: #f0fbf4; }
-  .em-checkbox { width: 18px; height: 18px; accent-color: #27ae60; flex-shrink: 0; cursor: pointer; }
+  .em-checkbox { width: 22px; height: 22px; accent-color: #27ae60; flex-shrink: 0; cursor: pointer; }
   .em-check-name { flex: 1; font-size: 12px; color: var(--text-dark); }
   .em-check-name.checked { color: #27ae60; font-weight: bold; }
   .em-check-qty {
-    width: 38px; font-family: 'DotGothic16',monospace; font-size: 12px;
-    border: 1px solid #e0d0f0; border-radius: 2px; padding: 2px 4px; text-align: center;
+    width: 46px; font-family: 'DotGothic16',monospace; font-size: 12px;
+    border: 1px solid #e0d0f0; border-radius: 2px; padding: 4px 5px; text-align: center;
   }
   .em-check-code {
     font-size: 9px; color: #2980b9; background: #eaf0fb;
     border: 1px solid #aec6f0; padding: 1px 4px; border-radius: 2px; white-space: nowrap;
   }
   .em-check-memo {
-    width: 66px; font-family: 'DotGothic16',monospace; font-size: 10px;
-    border: 1px solid #e0d0f0; border-radius: 2px; padding: 2px 4px; color: #888; background: #fafafa;
+    width: 88px; font-family: 'DotGothic16',monospace; font-size: 11px;
+    border: 1px solid #e0d0f0; border-radius: 2px; padding: 4px 5px; color: #888; background: #fafafa;
   }
   .em-master-row {
     display: flex; align-items: center; gap: 6px;
@@ -2160,7 +2160,7 @@
     #worksheet-list-screen,
     #inv-trash-screen,
     #new-project-screen {
-      top:    36px !important; /* api-bar(36px)の下から開始 */
+      top:    54px !important; /* api-bar(54px)の直下から開始 */
       right:  0 !important;
       bottom: 0 !important;
       left:   200px !important;
@@ -2232,7 +2232,7 @@
     #worksheet-list-screen,
     #inv-trash-screen,
     #new-project-screen {
-      top:    36px !important; /* api-bar(36px)の下から開始 */
+      top:    54px !important; /* api-bar(54px)の直下から開始 */
       right:  0 !important;
       bottom: 0 !important;
       left:   200px !important;
@@ -6804,11 +6804,11 @@
       // phone-frame をブロックに（flex解除）
       pf.style.cssText = 'display:block;overflow:visible;height:auto;position:static;';
       // api-bar
-      api.style.cssText = 'position:fixed;left:200px;right:0;top:0;height:36px;z-index:90;';
+      api.style.cssText = 'position:fixed;left:200px;right:0;top:0;height:54px;z-index:90;';
       // scene
-      sce.style.cssText = 'position:fixed;left:200px;right:0;top:36px;height:80px;min-height:80px;max-height:80px;overflow:hidden;z-index:80;';
-      // scroll-content（top = 36 api + 80 scene = 116px）
-      sc.style.cssText  = 'position:fixed;left:200px;right:0;top:116px;bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:0;height:auto;background:var(--panel-bg);';
+      sce.style.cssText = 'position:fixed;left:200px;right:0;top:54px;height:80px;min-height:80px;max-height:80px;overflow:hidden;z-index:80;';
+      // scroll-content（top = 54 api + 80 scene = 134px）
+      sc.style.cssText  = 'position:fixed;left:200px;right:0;top:134px;bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:0;height:auto;background:var(--panel-bg);';
     } else {
       // モバイル：インラインスタイルをクリアしてCSSに戻す
       pf.style.cssText  = '';
