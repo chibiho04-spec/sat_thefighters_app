@@ -2680,10 +2680,16 @@
   /* === 狭い画面（<= 720px）：1段目=基本情報、2段目=金額カード3つ横並び === */
   @media (max-width: 720px) {
     .sales-row-head { display: none; } /* ヘッダー行は隠してセル内ラベルで案内 */
+    /* 1案件＝1枚の独立カードとしてくっきり見せる（枠を太く＋影＋余白＋角丸）。ユーザー要望 2026-06-09 */
     .sales-row {
-      padding: 12px 10px;
-      border-bottom: 2px solid #f4ccc8;
+      margin: 12px 8px;
+      padding: 12px 12px;
+      border: 2px solid #dca29b;
+      border-left: 6px solid #c0392b;
+      border-radius: 8px;
+      box-shadow: 3px 3px 0 rgba(192,57,43,0.13);
     }
+    .sales-row:first-child { margin-top: 10px; }
     .sales-row .row-top {
       display: grid;
       grid-template-columns: 1fr auto;
