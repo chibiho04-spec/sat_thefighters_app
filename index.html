@@ -2664,7 +2664,22 @@
       align-items: center;
       padding: 4px 10px;
     }
-    .sales-row { padding: 10px; border-bottom: 1px solid #eee; }
+    /* 1案件＝1枚の独立カードに（枠太く＋左帯＋影＋余白）。スマホ版と統一・ユーザー要望 2026-06-09 */
+    .sales-row {
+      padding: 12px 14px;
+      margin: 8px 10px;
+      border: 2px solid #dca29b;
+      border-left: 6px solid #c0392b;
+      border-radius: 8px;
+      box-shadow: 2px 2px 0 rgba(192,57,43,0.12);
+    }
+    /* 見出し行はカード化しないが、列位置をデータ行と揃える（左右マージン・左帯ぶんの幅を同じに） */
+    .sales-row-head {
+      margin: 0 10px;
+      padding: 6px 14px;
+      border: 2px solid transparent;
+      border-left: 6px solid transparent;
+    }
     /* display: contents で row-top / row-bottom を透過させ、子セルを直接grid配置 */
     .sales-row .row-top,
     .sales-row .row-bottom,
