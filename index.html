@@ -2798,10 +2798,21 @@
   .sales-status-val { font-size: 13px; font-weight: bold; }
   /* 狭い画面（680px以下）：全体縦積み＋カード横並び維持 */
   @media (max-width: 680px) {
-    .sales-summary-wrap   { flex-direction: column; }
+    .sales-summary-wrap   { flex-direction: column; gap: 6px; }
     .sales-status-section { width: 100%; }
     .sales-status-card    { flex: 1; width: auto; }
     .sales-bar-hl-val     { font-size: 18px; }
+
+    /* 売上サマリーと部門別売上をコンパクト化し、案件カードの表示領域を広げる（スマホ） */
+    #sales-summary, #sales-dept-breakdown { padding: 6px 10px !important; }
+    .sales-bar-section  { padding: 8px 10px; }
+    .sales-bar-headline { margin-bottom: 5px; }
+    .sales-seg-bar      { height: 13px; margin-bottom: 6px; }
+    .sales-status-card  { padding: 5px 9px; }
+    /* 部門別売上の内部（JS生成インラインstyleを上書き）：見出し余白・帯バー高さ・凡例余白を圧縮 */
+    #sales-dept-breakdown > div:nth-child(1) { margin-bottom: 4px !important; }
+    #sales-dept-breakdown > div:nth-child(2) { height: 14px !important; }
+    #sales-dept-breakdown > div:nth-child(3) { margin-top: 5px !important; }
   }
 
   /* ===== すべての詳細・編集パネル：スライドイン廃止＝ページ切り替え方式 ===== */
