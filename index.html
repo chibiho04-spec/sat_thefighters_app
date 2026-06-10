@@ -767,7 +767,7 @@
       gap: 10px;
     }
   }
-  @media (min-width: 768px) {
+  @media (min-width: 769px) {
     .ws-end-grid {
       grid-template-columns: 1fr 1fr 1fr;
     }
@@ -2654,8 +2654,8 @@
   .sales-row .col-label,
   .sales-row-head .col-label { display: none; }
 
-  /* === 広い画面（>= 721px）：6列1段 === */
-  @media (min-width: 721px) {
+  /* === 広い画面（>= 769px、アプリ全体のデスクトップ切替と統一）：6列1段 === */
+  @media (min-width: 769px) {
     .sales-row,
     .sales-row-head {
       display: grid;
@@ -2692,8 +2692,8 @@
     .sales-row .col-title { min-width: 0; }
   }
 
-  /* === 狭い画面（<= 720px）：1段目=基本情報、2段目=金額カード3つ横並び === */
-  @media (max-width: 720px) {
+  /* === 狭い画面（<= 768px、アプリ全体のモバイル幅と統一）：1段目=基本情報、2段目=金額カード3つ横並び === */
+  @media (max-width: 768px) {
     .sales-row-head { display: none; } /* ヘッダー行は隠してセル内ラベルで案内 */
     /* 1案件＝1枚の独立カードとしてくっきり見せる（枠を太く＋影＋余白＋角丸）。ユーザー要望 2026-06-09 */
     .sales-row {
@@ -2706,18 +2706,24 @@
     }
     .sales-row:first-child { margin-top: 10px; }
     .sales-row .row-top {
-      display: grid;
-      grid-template-columns: 1fr auto;
+      /* flex+wrap: 文字拡大(180%)時に状態バッジが収まらなければ自動で下の行に折り返し、件名の幅を確保する */
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
       margin-bottom: 12px;
     }
+    .sales-row .row-top .col-title  { flex: 1 1 200px; min-width: 0; }
+    .sales-row .row-top .col-status { flex: 0 0 auto; margin-left: auto; }
     .sales-row .row-bottom {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      /* minmax(0,1fr): 文字拡大(180%)時に長い金額がグリッドを押し広げてカードからはみ出すのを防ぐ */
+      /* 2列+売り上げ全幅: 6桁以上の金額が桁の途中で折り返されて読み誤るのを防ぐ */
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       align-items: stretch;
     }
+    .sales-row .col-net { grid-column: 1 / -1; }
     .sales-row .col-title { min-width: 0; }
     .sales-row .col-status { text-align: right; }
     /* 金額カード */
@@ -2729,6 +2735,8 @@
       border-radius: 4px;
       padding: 8px;
       text-align: left;
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .sales-row .col-total { border-left: 3px solid #c0392b; }
     .sales-row .col-out   { border-left: 3px solid #8e44ad; }
@@ -2825,8 +2833,8 @@
   }
   .sales-status-lbl { font-size: 10px; color: #666; margin-bottom: 3px; white-space: nowrap; }
   .sales-status-val { font-size: 13px; font-weight: bold; }
-  /* 狭い画面（680px以下）：全体縦積み＋カード横並び維持 */
-  @media (max-width: 680px) {
+  /* 狭い画面（768px以下、アプリ全体のモバイル幅と統一）：全体縦積み＋カード横並び維持 */
+  @media (max-width: 768px) {
     .sales-summary-wrap   { flex-direction: column; gap: 6px; }
     .sales-status-section { width: 100%; }
     .sales-status-card    { flex: 1; width: auto; }
@@ -8081,9 +8089,9 @@
         card.className = 'sch-event-card';
         card.style.borderLeftColor = typeColor[ev.type] || '#8e44ad';
         card.innerHTML = `
-          <div class="sch-event-title">${ev.num} ${ev.title}</div>
-          <div class="sch-event-meta">🏢 ${ev.company}　📺 ${ev.type}　🎯 ${ev.orderType}</div>
-          ${ev.crewC ? `<div class="sch-event-meta" style="margin-top:2px;">👤 C: ${ev.crewC}${ev.crewA ? ' / A: '+ev.crewA : ''}</div>` : ''}
+          <div class="sch-event-title">${escapeHtml(ev.num)} ${escapeHtml(ev.title)}</div>
+          <div class="sch-event-meta">🏢 ${escapeHtml(ev.company)}　📺 ${escapeHtml(ev.type)}　🎯 ${escapeHtml(ev.orderType)}</div>
+          ${ev.crewC ? `<div class="sch-event-meta" style="margin-top:2px;">👤 C: ${escapeHtml(ev.crewC)}${ev.crewA ? ' / A: '+escapeHtml(ev.crewA) : ''}</div>` : ''}
         `;
         card.onclick = () => { setTab(0); setTimeout(() => openWS(ev.num), 300); };
         list.appendChild(card);
@@ -8482,9 +8490,9 @@
         card.className = 'sch-event-card';
         card.style.borderLeftColor = typeColor[ev.type] || '#8e44ad';
         card.innerHTML = `
-          <div class="sch-event-title">${ev.num} ${ev.title}</div>
-          <div class="sch-event-meta">🏢 ${ev.company}　📺 ${ev.type}　🎯 ${ev.orderType}</div>
-          ${ev.crewC ? `<div class="sch-event-meta" style="margin-top:2px;">👤 C: ${ev.crewC}${ev.crewA?'/ A:'+ev.crewA:''}</div>` : ''}
+          <div class="sch-event-title">${escapeHtml(ev.num)} ${escapeHtml(ev.title)}</div>
+          <div class="sch-event-meta">🏢 ${escapeHtml(ev.company)}　📺 ${escapeHtml(ev.type)}　🎯 ${escapeHtml(ev.orderType)}</div>
+          ${ev.crewC ? `<div class="sch-event-meta" style="margin-top:2px;">👤 C: ${escapeHtml(ev.crewC)}${ev.crewA?'/ A:'+escapeHtml(ev.crewA):''}</div>` : ''}
         `;
         // ホームのカレンダーから選んだ案件 → タブ移動せず、ワークシート詳細を横からスライドイン
         card.onclick = () => { openWS(ev.num); };
@@ -12096,7 +12104,7 @@
     const sumBilledOnly  = countedItems.filter(it => !it.paid).reduce((s, it) => s + it.total, 0);
     const sumPaid        = countedItems.filter(it => it.paid).reduce((s, it) => s + it.total, 0);
 
-    const fmt = n => '¥' + Number(n).toLocaleString();
+    const fmt = n => '¥' + (Number(n) || 0).toLocaleString();
 
     // サマリー描画（macOS風セグメントバー＋ステータスカード）
     const summary = document.getElementById('sales-summary');
