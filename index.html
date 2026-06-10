@@ -4798,7 +4798,7 @@
 
     <!-- ヘッダー -->
     <div class="invd-header">
-      <button class="wsd-back" onclick="closeInv()">◀ 戻る</button>
+      <button class="wsd-back" onclick="closeInvGuarded()">◀ 戻る</button>
       <div class="wsd-header-info">
         <div class="wsd-header-num" id="inv-screen-num" style="color:#aec6f0;">Z26001</div>
         <div class="wsd-header-title" id="invd-header-title">📄 御請求書</div>
@@ -5600,7 +5600,7 @@
     transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
     display:flex; flex-direction:column; overflow:hidden;">
     <div style="display:flex;align-items:center;gap:10px;background:#27ae60;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #1a7a40;">
-      <button class="wsd-back" onclick="closeNewSimpleWS()">◀ 戻る</button>
+      <button class="wsd-back" onclick="closeNewSimpleWSGuarded()">◀ 戻る</button>
       <div class="wsd-header-info">
         <div class="wsd-header-num" id="sw-title-num" style="color:#a8f0c0;">簡易ワークシート</div>
         <div class="wsd-header-title" id="sw-title-sub">単発の機材使用を記録</div>
@@ -6231,7 +6231,7 @@
 
     <!-- 詳細ヘッダー -->
     <div class="wsd-header">
-      <button class="wsd-back" onclick="closeWS()">◀ 一覧</button>
+      <button class="wsd-back" onclick="closeWSGuarded()">◀ 一覧</button>
       <div class="wsd-header-info">
         <div class="wsd-header-num" id="ws-detail-num">Z26039</div>
         <div class="wsd-header-title" id="wsd-title">案件名</div>
@@ -6749,6 +6749,9 @@
     </div>
   </div>
 </div>
+
+<!-- 完了トースト（保存・削除などの操作結果を画面下に3秒表示する共通UI） -->
+<div id="app-toast" style="display:none;position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10500;background:#2c3e50;color:#fff;font-family:'DotGothic16',monospace;font-size:14px;padding:12px 18px;border:3px solid #16213e;border-radius:6px;box-shadow:4px 4px 0 rgba(0,0,0,0.35);max-width:86vw;text-align:center;opacity:0;transition:opacity 0.35s;pointer-events:none;white-space:pre-wrap;"></div>
 
 
 <script>
@@ -7948,7 +7951,11 @@
   function dpConfirm() {
     const val = _dpFormatter ? _dpFormatter(_dpSelected) : formatDpDates(_dpSelected);
     const el  = document.getElementById(_dpTargetId);
-    if (el) el.value = val;
+    if (el) {
+      el.value = val;
+      // 日付選択も「入力の変更」として未保存検知に乗せる
+      try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
+    }
     _dpFormatter = null;
     closeDatePicker();
   }
@@ -8131,6 +8138,43 @@
     { id: 'new-simple-ws-screen', close: () => closeNewSimpleWS(), save: () => saveSimpleWS(),     label: '簡易ワークシート' },
     { id: 'new-driving-screen',close: () => closeNewDriving(), save: () => saveNewDriving(),      label: '新規運転記録' },
   ];
+
+  // ===== 未保存変更の追跡 =====
+  // 編集パネル内でユーザーが入力・変更したら「未保存」フラグを立てる。
+  // 保存成功時・パネルを閉じた時に解除。プログラムからの値設定はイベントが出ないので反応しない。
+  const _dirtyScreens = new Set();
+  function _markDirty(id) { _dirtyScreens.add(id); }
+  function _markClean(id) { _dirtyScreens.delete(id); }
+  function _isDirty(id)   { return _dirtyScreens.has(id); }
+  _NAV_EDIT_PANELS.forEach(p => {
+    const el = document.getElementById(p.id);
+    if (!el) return;
+    el.addEventListener('input',  () => _markDirty(p.id));
+    el.addEventListener('change', () => _markDirty(p.id));
+  });
+
+  // 編集画面の「◀ 戻る」用：未保存の変更があれば3択（保存して閉じる／保存しないで閉じる／キャンセル）
+  // 保存関数が入力エラーで保存できなかった場合（フラグが残ったまま）は閉じずに画面に留まる。
+  function _guardedClose(id, label, saveFn, closeFn) {
+    if (!_isDirty(id)) { closeFn(); return; }
+    showConfirm(`${label}に保存していない変更があります。\nどうしますか？`, () => {
+      _markClean(id);
+      closeFn();
+    }, {
+      okText: '保存しないで閉じる', okBg: '#e67e22', okBorder: '#8b4500',
+      middleText: '💾 保存して閉じる',
+      onMiddle: () => {
+        try { saveFn(); } catch(e) { console.warn('save before close failed', e); }
+        if (_isDirty(id)) return; // 保存できていない（入力エラー等）→ 留まる
+        closeFn();
+      },
+      cancelText: 'キャンセル'
+    });
+  }
+  function closeWSGuarded()          { _guardedClose('ws-detail-screen',    'ワークシート',     saveWS,         closeWS); }
+  function closeInvGuarded()         { _guardedClose('inv-detail-screen',   '請求書/見積書',    saveInvDoc,     closeInv); }
+  function closeNewSimpleWSGuarded() { _guardedClose('new-simple-ws-screen','簡易ワークシート', saveSimpleWS,   closeNewSimpleWS); }
+
   function _isPanelOpen(el) {
     if (!el) return false;
     if (el.style.display === 'none') return false;
@@ -8185,13 +8229,20 @@
   }
 
   function setTab(idx) {
-    // 編集画面が開いていたら3択ダイアログ
+    // 編集画面が開いていたら3択ダイアログ（ただし何も変更していなければ聞かずに閉じて移動）
     const editOpen = _findOpenEditPanel();
     if (editOpen) {
+      if (!_isDirty(editOpen.id)) {
+        try { editOpen.close(); } catch(e) {}
+        _closeAllOpenListPanels();
+        _doSetTab(idx);
+        return;
+      }
       showConfirm(
-        `${editOpen.label}を編集中です。\nどうしますか？`,
+        `${editOpen.label}に保存していない変更があります。\nどうしますか？`,
         () => {
           // 「移動する」（保存しない）
+          _markClean(editOpen.id);
           try { editOpen.close(); } catch(e) {}
           _closeAllOpenListPanels();
           _doSetTab(idx);
@@ -8210,6 +8261,7 @@
             } catch(e) {
               console.warn('save failed before tab change', e);
             }
+            _markClean(editOpen.id);
             try { editOpen.close(); } catch(e) {}
             _closeAllOpenListPanels();
             _doSetTab(idx);
@@ -8632,7 +8684,7 @@
         badgeClass = 'done'; badgeText = '入金済 ✓';
         actionsHTML = `
           <button class="inv-btn" onclick="openInv('${num}','pdf')">PDF表示</button>
-          <button class="inv-btn cancel-btn" onclick="confirmCancel('${num}','done')">入金取消</button>`;
+          <button class="inv-btn cancel-btn" onclick="confirmCancel('${num}','done')">入金前に戻す</button>`;
       } else if (isBilled) {
         cardClass  = 'inv-card inv-billed';
         badgeClass = 'billed'; badgeText = '請求済';
@@ -8640,7 +8692,7 @@
         actionsHTML = `
           <button class="inv-btn primary done-btn" onclick="markPaid('${num}')">✓ 入金確認</button>
           <button class="inv-btn" onclick="openInv('${num}','pdf')">PDF表示</button>
-          <button class="inv-btn cancel-btn" onclick="confirmCancel('${num}','billed')">取消</button>`;
+          <button class="inv-btn cancel-btn" onclick="confirmCancel('${num}','billed')">請求前に戻す</button>`;
       } else {
         cardClass  = 'inv-card inv-unpaid';
         badgeClass = 'unpaid'; badgeText = '未請求';
@@ -8670,6 +8722,11 @@
       `;
       list.appendChild(card);
     });
+
+    // 空状態：1件もない時は「次に何をするか」を案内
+    if (!list.children.length) {
+      list.innerHTML = '<div style="padding:40px 14px;text-align:center;color:#888;font-size:13px;line-height:1.8;">📝 まだ案件がありません<br>ホームの「新規案件を作成」から案件を作ると<br>ここに請求書カードが並びます</div>';
+    }
 
     // 現在のフィルター状態を再適用
     const activeFilter = document.querySelector('.inv-filter.active');
@@ -8870,6 +8927,7 @@
     status.docMode  = _docMode || 'invoice';
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
+    _markClean('inv-detail-screen');
 
     // 売上表が開いていれば即時再描画
     if (typeof renderSalesScreen === 'function') {
@@ -9382,15 +9440,15 @@
   // ======== 取り消し確認ダイアログ ========
   function confirmCancel(num, currentStatus) {
     const msg = currentStatus === 'done'
-      ? `T${num} の入金確認を取り消しますか？\n「請求済（入金待ち）」に戻ります。`
-      : `T${num} の請求書発行を取り消しますか？\n「未請求」に戻ります。`;
+      ? `${num} を入金前の状態に戻しますか？\n「請求済（入金待ち）」に戻ります。`
+      : `${num} を請求前の状態に戻しますか？\n「未請求」に戻ります。`;
     showConfirm(msg, () => {
       if (currentStatus === 'done') {
         cancelPaid(num);
       } else {
         cancelInvoice(num);
       }
-    });
+    }, { okText: currentStatus === 'done' ? '入金前に戻す' : '請求前に戻す' });
   }
 
   function cancelInvoice(num) {
@@ -9449,6 +9507,23 @@
   }
   function hideConfirm() {
     document.getElementById('confirm-overlay').style.display = 'none';
+  }
+
+  // ===== 完了トースト =====
+  // 保存・削除など「やったことの結果」を画面下に表示する。画面が閉じても残るので見落としにくい。
+  let _toastTimer1 = null, _toastTimer2 = null;
+  function showToast(msg, opts = {}) {
+    const t = document.getElementById('app-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = opts.bg || '#2c3e50';
+    clearTimeout(_toastTimer1); clearTimeout(_toastTimer2);
+    t.style.display = 'block';
+    requestAnimationFrame(() => { t.style.opacity = '1'; });
+    _toastTimer1 = setTimeout(() => {
+      t.style.opacity = '0';
+      _toastTimer2 = setTimeout(() => { t.style.display = 'none'; }, 400);
+    }, opts.duration || 3000);
   }
 
   // ===== ゴミ箱（削除済み請求書） =====
@@ -9541,6 +9616,7 @@
         deletedNums.forEach(num => localStorage.removeItem('inv_' + num));
         localStorage.removeItem('deleted_inv');
         renderTrashCards();
+        showToast(`🗑 ゴミ箱の ${deletedNums.length} 件を完全削除しました`);
       },
       { okText: '🗑 全て完全削除', okBg: '#922b21', okBorder: '#641e16' }
     );
@@ -9564,10 +9640,12 @@
       // シートにも削除を伝える（他端末で復活しないように）。fire-and-forget。
       try { if (_gasUrlOne()) pushKind('invoice', [{'受注No': num, _deleted: true, _updatedAt: new Date().toISOString()}]).catch(e => console.warn('invoice delete push', e)); } catch(e) { console.warn(e); }
       closeInv();
+      showToast(`🗑 ${num} を会計室から削除しました`);
     }, { okText: '🗑 削除する', okBg: '#c0392b', okBorder: '#7b241c' });
   }
 
   function closeInv() {
+    _markClean('inv-detail-screen');
     // 明細モーダルが開いていたら必ず閉じる（次回開いた時に背景が残らないよう）
     closeInvLineModal();
     const el = document.getElementById('inv-detail-screen');
@@ -11309,6 +11387,7 @@
     document.querySelectorAll('#sw-user-group .np-select-btn').forEach(b => b.classList.remove('selected'));
     if (typeof event !== 'undefined' && event.target) event.target.classList.add('selected');
     document.getElementById('sw-user').value = value;
+    try { _markDirty('new-simple-ws-screen'); } catch(e) {}
   }
 
   function openNewSimpleWS() {
@@ -11328,6 +11407,7 @@
     document.getElementById('new-simple-ws-screen').style.transform = 'translateX(0)';
   }
   function closeNewSimpleWS() {
+    _markClean('new-simple-ws-screen');
     document.getElementById('new-simple-ws-screen').style.transform = 'translateX(100%)';
   }
   function openEditSimpleWS(id) {
@@ -11383,6 +11463,7 @@
       list.push(rec);
     }
     saveSimpleWSList(list);
+    _markClean('new-simple-ws-screen');
     // 統合シートへ自動送信（URL未設定なら何もしない / fire-and-forget）
     if (rec && typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
       pushKind('simpleWS', [rec]).catch(e => { try { pendingAdd('simpleWS', rec.id); } catch (_) {} });
@@ -11394,17 +11475,19 @@
 
   function deleteSimpleWS() {
     if (!_swEditId) return;
-    if (!confirm('この簡易ワークシートを削除しますか？')) return;
-    const delId = _swEditId;
-    const list = loadSimpleWS().filter(r => r.id !== delId);
-    saveSimpleWSList(list);
-    // 統合シートへ削除を送信（論理削除）
-    if (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
-      pushKind('simpleWS', [{ id: delId, _deleted: true, _updatedAt: new Date().toISOString() }])
-        .catch(e => { try { pendingAdd('simpleWS', delId); } catch (_) {} });
-    }
-    closeNewSimpleWS();
-    renderSimpleWSList();
+    showConfirm('この簡易ワークシートを削除しますか？', () => {
+      const delId = _swEditId;
+      const list = loadSimpleWS().filter(r => r.id !== delId);
+      saveSimpleWSList(list);
+      // 統合シートへ削除を送信（論理削除）
+      if (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
+        pushKind('simpleWS', [{ id: delId, _deleted: true, _updatedAt: new Date().toISOString() }])
+          .catch(e => { try { pendingAdd('simpleWS', delId); } catch (_) {} });
+      }
+      closeNewSimpleWS();
+      renderSimpleWSList();
+      showToast('🗑 簡易ワークシートを削除しました');
+    }, { okText: '🗑 削除する', okBg: '#c0392b', okBorder: '#7b241c' });
   }
 
   // 印刷用：チェック済み機材を表の行にする（カテゴリ順）
@@ -12183,7 +12266,7 @@
     // 本体描画
     const body = document.getElementById('sales-body');
     if (!items.length) {
-      body.innerHTML = '<div style="padding:30px 14px;text-align:center;color:#888;font-size:13px;">該当する案件がありません</div>';
+      body.innerHTML = '<div style="padding:30px 14px;text-align:center;color:#888;font-size:13px;line-height:1.8;">該当する案件がありません<br>上の「期間」「表示」を「すべて」に戻すと<br>表示されることがあります</div>';
       return;
     }
 
@@ -12195,7 +12278,7 @@
       let prog = 0;
       try { prog = (typeof calcWsProgress === 'function') ? calcWsProgress(it.num) : 0; } catch (e) {}
       const label = PROG_LABELS[Math.min(Math.max(prog, 0), 3)] || '進行中';
-      return `<span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:10px;padding:2px 7px;border-radius:8px;white-space:nowrap;">🚧 ${label}・未計上</span>`;
+      return `<span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:10px;padding:2px 7px;border-radius:8px;white-space:nowrap;">🚧 ${label}・未請求</span>`;
     };
 
     // ===== 月別売り上げ推移グラフ（棒グラフ + 損益分岐ライン） =====
@@ -12370,7 +12453,7 @@
                 <div style="font-size:20px;font-weight:bold;line-height:1.1;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(14,102,85,0.12);">${fmt(net)}</div>
                 ${!counted
                   ? '<div style="margin-top:6px;"><span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;">未計上</span></div>'
-                  : (confirmed ? '<div style="margin-top:6px;"><span style="background:#27ae60;color:white;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;letter-spacing:1px;">✓ 確定</span></div>' : '')}
+                  : (confirmed ? '<div style="margin-top:6px;"><span style="background:#27ae60;color:white;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;letter-spacing:1px;">✓ 入金・支払済</span></div>' : '')}
               </div>
             </div>
           </div>`;
@@ -13440,7 +13523,7 @@
     // レンダリング
     container.innerHTML = '';
     if (nums.length === 0) {
-      container.innerHTML = '<div style="padding:30px 12px;text-align:center;color:#999;font-size:13px;">該当するワークシートがありません</div>';
+      container.innerHTML = '<div style="padding:30px 12px;text-align:center;color:#999;font-size:13px;line-height:1.8;">該当するワークシートがありません<br>検索ワードを消すか、ホームの<br>「新規案件を作成」から作成できます</div>';
       return;
     }
 
@@ -13774,6 +13857,7 @@
         .catch(e => { try { pendingAdd('equip', id); } catch (_) {} });
     }
     renderEquipMasterList();
+    showToast('🗑 機材を削除しました');
   }
 
   // ワークシート詳細画面の機材チェックリストを描画
@@ -14617,6 +14701,7 @@
   }
 
   function closeWS() {
+    _markClean('ws-detail-screen');
     const ws = document.getElementById('ws-detail-screen');
     if (ws.dataset.fromSales === '1') {
       _resetFullPageStyle(ws);
@@ -14662,6 +14747,7 @@
     }
     document.querySelector('.speech-bubble').innerHTML =
       `🗑 ${num} のワークシートを削除しました<br>一覧から外しておきました<span class="blink">█</span>`;
+    showToast(`🗑 ${num} のワークシートを削除しました`);
   }
 
   // ===== レンタル機材リスト（複数行）管理 =====
@@ -14849,6 +14935,7 @@
     }
 
     localStorage.setItem('ws_' + num, JSON.stringify(data));
+    _markClean('ws-detail-screen');
     updateWSDProgress(num, data);
     refreshHomeView(true);
 
