@@ -2659,11 +2659,17 @@
     .sales-row,
     .sales-row-head {
       display: grid;
-      grid-template-columns: minmax(160px,2fr) 70px 110px 110px 100px;
+      /* 金額列は文字サイズ倍率(--fs-scale、A−/A+で変更)に連動して広げる。
+         固定110pxのままだと拡大180%で数字があふれて隣の列に重なる（2026-06-11の表示崩れ） */
+      grid-template-columns: minmax(140px,2fr) minmax(70px,auto)
+        calc(110px * var(--fs-scale, 1))
+        calc(110px * var(--fs-scale, 1))
+        calc(120px * var(--fs-scale, 1));
       gap: 6px;
       align-items: center;
       padding: 4px 10px;
     }
+    .sales-row .col-title { min-width: 0; }
     /* 1案件＝1枚の独立カードに（枠太く＋左帯＋影＋余白）。スマホ版と統一・ユーザー要望 2026-06-09 */
     .sales-row {
       padding: 12px 14px;
@@ -2828,7 +2834,9 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    width: 110px;
+    /* 固定110pxだと文字拡大180%で金額の末尾が切れるため、内容に合わせて広がる */
+    width: auto;
+    min-width: 110px;
     flex-shrink: 0;
   }
   .sales-status-lbl { font-size: 10px; color: #666; margin-bottom: 3px; white-space: nowrap; }
@@ -8326,6 +8334,8 @@
   function applyFontScale() {
     const s = parseFloat(localStorage.getItem('font_scale'));
     const scale = (isNaN(s) || s <= 0) ? 1.8 : Math.max(0.8, Math.min(2.2, s));
+    // 文字サイズに合わせて列幅などを伸縮させたいCSSのためのカスタムプロパティ（売上表の金額列等）
+    document.documentElement.style.setProperty('--fs-scale', scale);
     // body の zoom は使わない（旧版で設定されていた場合に備えて毎回クリア）
     document.body.style.zoom = '';
     // html / body 自体はスケールしない（基準が膨らみ全体が過大になるため毎回リセット）
@@ -12492,8 +12502,8 @@
                 style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.5);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-shadow:none;">📥 CSV</button>
             </span>
           </div>
-          <!-- 表（広い時=1段／狭い時=2段に折り返し） -->
-          <div style="background:white;border:2px solid #f4ccc8;border-top:none;border-radius:0 0 3px 3px;">
+          <!-- 表（広い時=1段／狭い時=2段に折り返し）。overflow-x:文字拡大×狭い窓で万一収まらない時は重ならず横スクロール -->
+          <div style="background:white;border:2px solid #f4ccc8;border-top:none;border-radius:0 0 3px 3px;overflow-x:auto;">
             <div class="sales-row-head" style="background:#f5e8e8;color:#641e16;font-size:11px;font-weight:bold;">
               <div class="row-top">
                 <div class="col-title">受注No／件名／取引先</div>
