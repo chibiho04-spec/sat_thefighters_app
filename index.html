@@ -8333,7 +8333,7 @@
 
   function applyFontScale() {
     const s = parseFloat(localStorage.getItem('font_scale'));
-    const scale = (isNaN(s) || s <= 0) ? 1.8 : Math.max(0.8, Math.min(2.2, s));
+    const scale = (isNaN(s) || s <= 0) ? 1.5 : Math.max(0.8, Math.min(2.2, s));
     // 文字サイズに合わせて列幅などを伸縮させたいCSSのためのカスタムプロパティ（売上表の金額列等）
     document.documentElement.style.setProperty('--fs-scale', scale);
     // body の zoom は使わない（旧版で設定されていた場合に備えて毎回クリア）
@@ -8361,7 +8361,7 @@
   }
 
   function changeFontScale(delta) {
-    const cur = parseFloat(localStorage.getItem('font_scale')) || 1.8;
+    const cur = parseFloat(localStorage.getItem('font_scale')) || 1.5;
     const next = Math.max(0.8, Math.min(2.2, Math.round((cur + delta) * 10) / 10));
     localStorage.setItem('font_scale', next);
     applyFontScale();
@@ -8375,7 +8375,7 @@
       _fsScheduled = true;
       requestAnimationFrame(() => {
         _fsScheduled = false;
-        const scale = parseFloat(localStorage.getItem('font_scale')) || 1.8;
+        const scale = parseFloat(localStorage.getItem('font_scale')) || 1.5;
         _captureAndApplyFs(scale);
       });
     }).observe(document.body, { childList: true, subtree: true });
