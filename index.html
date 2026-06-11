@@ -12557,13 +12557,70 @@
   }
 
   function openWSFromSales(num) {
-    // 売上表の上にワークシートを全画面で重ねる
+    // ワークシート未作成（単独請求書 INV- 等）なら、請求書の内容から作成するか確認
+    const exists = !!(wsData[num]
+      || getSavedProjects().find(p => String(p.num) === String(num))
+      || Object.keys(loadWS(num)).length);
+    if (!exists) {
+      showConfirm(
+        `${num} にはまだワークシートがありません。\n請求書の内容（件名・取引先・金額）を引き継いで作成しますか？`,
+        () => {
+          createWSFromInvoice(num);
+          _openWSOverSales(num);
+        },
+        { okText: '📋 作成する', okBg: '#27ae60', okBorder: '#1a7a40' }
+      );
+      return;
+    }
+    _openWSOverSales(num);
+  }
+  // 売上表の上にワークシートを全画面で重ねる
+  function _openWSOverSales(num) {
     openWS(num);
     const ws = document.getElementById('ws-detail-screen');
     if (ws) {
       _applyFullPageStyle(ws, 10000);
       ws.dataset.fromSales = '1';
     }
+  }
+
+  // 単独請求書（INV-xxxxx 等）からワークシート（案件）を作成する。
+  // 番号は請求書と同じものを使い、件名・取引先・日付・金額（税抜小計）を引き継ぐ。
+  function createWSFromInvoice(num) {
+    const status = loadInvStatus(num) || {};
+    const nowIso = new Date().toISOString();
+    const newProject = {
+      title:   status.title   || '',
+      company: status.company || '',
+      date:    status.workDate || status.invDate || '',
+      type: '未定', orderType: '未定', staff: status.staff || '',
+      memo: '',
+      receivedAt: nowIso.slice(0, 10),
+      _updatedAt: nowIso
+    };
+    wsData[num] = newProject;
+    saveProject(num, newProject);
+    try { addWsCard(num, newProject); } catch (e) {}
+    // ワークシート本体：請求書の明細から税抜小計を受注金額として引き継ぐ
+    const lines = status.lines || [];
+    const subtotal = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+    const data = Object.assign({}, loadWS(num), {
+      'edit_title':       newProject.title,
+      'edit_company':     newProject.company,
+      'wsd-shootdate':    newProject.date,
+      'wsd-order-amount': subtotal ? String(subtotal) : '',
+      _updatedAt: nowIso
+    });
+    localStorage.setItem('ws_' + num, JSON.stringify(data));
+    // 統合シートへ親（案件）＋子（ワークシート詳細）を送信（URL未設定なら何もしない）
+    if (_gasUrlOne()) {
+      pushKind('order', [{ '受注No': num, _project: newProject, _updatedAt: nowIso }])
+        .catch(e => { try { pendingAdd('order', num); } catch (_) {} });
+      pushKind('child', [Object.assign({}, data, { '受注No': num })])
+        .catch(e => { try { pendingAdd('child', num); } catch (_) {} });
+    }
+    try { refreshHomeView(true); } catch (e) {}
+    showToast(`📋 ${num} のワークシートを作成しました`);
   }
 
   // 月別CSV出力（月の見出しの「📥 CSV」ボタンから呼ばれる）
