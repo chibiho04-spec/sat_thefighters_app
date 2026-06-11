@@ -9387,7 +9387,8 @@
     const total  = document.getElementById('inv-total-big').textContent;
     showConfirm(
       `${num} の請求書を発行しますか？\n\n宛先: ${client}\n金額: ${total}\n\n発行後はステータスが「請求済」に変わります。`,
-      _issueInvoiceExec
+      _issueInvoiceExec,
+      { okText: '📄 発行する', okBg: '#27ae60', okBorder: '#1a7a40' }
     );
   }
 
@@ -9736,7 +9737,8 @@
         btn.textContent = '✓ 発行済み';
         btn.style.background = '#27ae60';
         btn.disabled = true;
-      }
+      },
+      { okText: '📄 発行する', okBg: '#27ae60', okBorder: '#1a7a40' }
     );
   }
 
