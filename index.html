@@ -4970,6 +4970,10 @@
           🔍 印刷プレビュー
         </button>
         <div class="wsd-save-note">内容を確認・印刷できます（発行はされません）</div>
+        <button id="invd-ws-btn" class="wsd-save-btn" style="background:#8e44ad;border-color:#5b2c6f;box-shadow:4px 4px 0 #5b2c6f;margin-top:10px;" onclick="openWSFromInvScreen()">
+          📋 ワークシートを開く
+        </button>
+        <div class="wsd-save-note">この案件のワークシートを開きます（まだ無ければ請求書の内容から作成）</div>
         <button id="invd-issue-btn" class="wsd-save-btn" style="display:none;background:#e67e22;border-color:#8b4500;box-shadow:4px 4px 0 #5a2800;margin-top:10px;" onclick="issueInvoice()">
           📄 発行する（案件終了）
         </button>
@@ -12584,6 +12588,40 @@
     }
   }
 
+  // 請求書編集画面の「📋 ワークシートを開く」ボタン。
+  // ワークシートがあればそのまま開き、無ければ請求書の内容から作成するか確認する。
+  function openWSFromInvScreen() {
+    const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+    if (!num || num === '新規') {
+      alert('先に「💾 編集内容を保存」をしてから開いてください\n（保存すると番号が確定します）');
+      return;
+    }
+    const exists = !!(wsData[num]
+      || getSavedProjects().find(p => String(p.num) === String(num))
+      || Object.keys(loadWS(num)).length);
+    if (!exists) {
+      showConfirm(
+        `${num} にはまだワークシートがありません。\n請求書の内容（件名・取引先・金額）を引き継いで作成しますか？`,
+        () => {
+          createWSFromInvoice(num);
+          _openWSOverInv(num);
+        },
+        { okText: '📋 作成する', okBg: '#27ae60', okBorder: '#1a7a40' }
+      );
+      return;
+    }
+    _openWSOverInv(num);
+  }
+  // 請求書編集画面の上にワークシートを全画面で重ねる
+  function _openWSOverInv(num) {
+    openWS(num);
+    const ws = document.getElementById('ws-detail-screen');
+    if (ws) {
+      _applyFullPageStyle(ws, 10010); // 請求書画面(〜10000)より上
+      ws.dataset.fromInv = '1';
+    }
+  }
+
   // 単独請求書（INV-xxxxx 等）からワークシート（案件）を作成する。
   // 番号は請求書と同じものを使い、件名・取引先・日付・金額（税抜小計）を引き継ぐ。
   function createWSFromInvoice(num) {
@@ -14798,6 +14836,10 @@
     if (ws.dataset.fromSales === '1') {
       _resetFullPageStyle(ws);
       ws.dataset.fromSales = '';
+    }
+    if (ws.dataset.fromInv === '1') {
+      _resetFullPageStyle(ws);
+      ws.dataset.fromInv = '';
     }
     ws.style.display = 'none';
     // 売上表・請求書カードリストを最新データで再描画
