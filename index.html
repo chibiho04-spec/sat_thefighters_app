@@ -2659,9 +2659,11 @@
     .sales-row,
     .sales-row-head {
       display: grid;
-      /* 金額列は文字サイズ倍率(--fs-scale、A−/A+で変更)に連動して広げる。
-         固定110pxのままだと拡大180%で数字があふれて隣の列に重なる（2026-06-11の表示崩れ） */
-      grid-template-columns: minmax(140px,2fr) minmax(70px,auto)
+      /* 金額列・状態列は文字サイズ倍率(--fs-scale、A−/A+で変更)に連動して広げる。
+         固定110pxのままだと拡大時に数字があふれて隣の列に重なる（2026-06-11の表示崩れ）。
+         状態列をauto（内容依存）にすると行ごとに列幅が変わり縦が揃わないため固定幅にする */
+      grid-template-columns: minmax(140px,2fr)
+        calc(125px * var(--fs-scale, 1))
         calc(110px * var(--fs-scale, 1))
         calc(110px * var(--fs-scale, 1))
         calc(120px * var(--fs-scale, 1));
@@ -2670,6 +2672,9 @@
       padding: 4px 10px;
     }
     .sales-row .col-title { min-width: 0; }
+    /* 状態バッジ：列幅は固定なので、収まらない長文はnowrapを解いて折り返す（重なり防止） */
+    .sales-row .col-status span,
+    .sales-row-head .col-status span { white-space: normal !important; }
     /* 1案件＝1枚の独立カードに（枠太く＋左帯＋影＋余白）。スマホ版と統一・ユーザー要望 2026-06-09 */
     .sales-row {
       padding: 12px 14px;
