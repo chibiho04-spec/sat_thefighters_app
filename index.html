@@ -8690,9 +8690,11 @@
       const isBilled = status.billed;
       const isPaid   = status.paid;
 
-      // 金額計算
+      // 金額計算（消費税は課税対象の明細のみ。非課税行 taxable:false は除外）
       const subtotal = master.lines.reduce((s, l) => s + l.qty * l.price, 0);
-      const tax      = Math.round(subtotal * 0.1);
+      const taxableAmt = master.lines.reduce((s, l) =>
+        (l && l.taxable === false) ? s : s + l.qty * l.price, 0);
+      const tax      = Math.floor(taxableAmt * 0.1);
       const total    = subtotal + tax;
       const fmtTotal = '¥' + total.toLocaleString();
 
@@ -9416,14 +9418,28 @@
     const invDate = document.getElementById('inv-screen-invdate').value;
     const title   = document.getElementById('inv-screen-title').value;
 
-    // 現在の明細を収集
+    // 現在の明細を収集（saveInvDoc と同じ方法。taxable/outsource を落とすと
+    // 発行した瞬間に非課税行が課税扱いに戻ってしまうので必ず保持する）
     const lines = [];
     document.querySelectorAll('.inv-line-row').forEach(tr => {
-      const name  = tr.querySelector('.inv-line-name')?.value;
-      const unit  = tr.querySelector('.inv-line-unit')?.value;
-      const qty   = parseFloat(tr.querySelector('.inv-line-qty')?.value || 0);
-      const price = parseFloat(tr.querySelector('.inv-line-price')?.value || 0);
-      if (name) lines.push({ code:'', name, unit:unit||'日', qty, price });
+      const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
+      const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
+      const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
+      const priceEl = tr.querySelector('.inv-line-price');
+      const priceTextEl = tr.querySelector('.inv-td-price span');
+      const codeEl  = tr.querySelector('.inv-td-code');
+      const taxEl   = tr.querySelector('.inv-line-tax');
+      const outsourceEl = tr.querySelector('.inv-line-outsource');
+      const name  = (nameEl?.value  || nameEl?.textContent  || '').trim();
+      const unit  = (unitEl?.value  || unitEl?.textContent  || '').trim();
+      const qty   = Number((qtyEl?.value || qtyEl?.textContent || '').replace(/[^\d.]/g, '')) || 0;
+      const rawPrice = (priceEl?.value || (priceTextEl?.textContent || '').replace(/[¥,]/g, ''));
+      const price = Number(rawPrice) || 0;
+      const code  = (codeEl?.textContent || '').trim();
+      const taxable = taxEl ? (taxEl.value === '1') : true;
+      const outsource = outsourceEl ? !!outsourceEl.checked : false;
+      if (!name && !price) return;
+      lines.push({ code, name, qty, unit: unit || '日', price, taxable, outsource });
     });
 
     // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き
@@ -9575,7 +9591,9 @@
       let totalStr = '';
       if (master && master.lines) {
         const subtotal = master.lines.reduce((s, l) => s + l.qty * l.price, 0);
-        totalStr = '¥' + (subtotal + Math.round(subtotal * 0.1)).toLocaleString();
+        const taxableAmt = master.lines.reduce((s, l) =>
+          (l && l.taxable === false) ? s : s + l.qty * l.price, 0);
+        totalStr = '¥' + (subtotal + Math.floor(taxableAmt * 0.1)).toLocaleString();
       }
       return `
       <div style="background:white;border:2px solid #d5d8dc;border-left:4px solid #808b96;border-radius:3px;padding:10px 12px;margin-bottom:8px;opacity:0.85;">
@@ -11962,7 +11980,10 @@
     // 明細：status.lines があればそちら（編集後）、無ければ master.lines
     const lines = (status.lines && status.lines.length) ? status.lines : (master.lines || []);
     const subtotal = lines.reduce((s, l) => s + (Number(l.qty)||0) * (Number(l.price)||0), 0);
-    const tax      = Math.round(subtotal * 0.1);
+    // 消費税は課税対象の明細だけに掛ける（請求書画面 calcInvTotal と同じ計算。非課税行 taxable:false は除外）
+    const taxableAmt = lines.reduce((s, l) =>
+      (l && l.taxable === false) ? s : s + (Number(l.qty)||0) * (Number(l.price)||0), 0);
+    const tax      = Math.floor(taxableAmt * 0.1);
     const total    = subtotal + tax;
 
     // 外注費：ワークシートの外注リスト＋レンタル料金 ＋ 請求書明細で「外注」チェックされた行
