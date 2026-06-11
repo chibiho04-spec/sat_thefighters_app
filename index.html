@@ -12035,6 +12035,24 @@
         items.push(_calcCaseSales(p.num, { title: p.title, client: p.company, date: p.date, lines: status.lines }));
       });
     } catch(e) { console.warn(e); }
+    // 案件と紐づかない単独請求書（INV-xxxxx、書類一覧の新規作成で採番）も売上に含める。
+    // 見積書（EST-）・納品書（DLV-）は売上ではないため対象外。
+    try {
+      const deletedInv = JSON.parse(localStorage.getItem('deleted_inv') || '[]');
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('inv_INV-') !== 0) return;
+        const num = k.slice(4);
+        if (seen.has(num)) return; seen.add(num);
+        if (deletedInv.includes(num)) return;
+        const status = loadInvStatus(num) || {};
+        if (!status.lines || !status.lines.length) return; // 明細がない空ドキュメントは除外
+        items.push(_calcCaseSales(num, {
+          title:  status.title   || '',
+          client: status.company || status.contact || '',
+          date:   status.invDate || ''
+        }));
+      });
+    } catch(e) { console.warn(e); }
     // 全案件を返す（未請求も含む）。集計対象（請求済みのみ）への絞り込みは
     // 表示側（renderSalesScreen / 部門別）で行い、リストには進行中案件も表示する。
     return items;
