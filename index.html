@@ -4958,6 +4958,14 @@
           <div class="invd-bank-row">沖縄海邦銀行　宜野湾支店　（普） 0572453</div>
         </div>
 
+        <!-- 備考 -->
+        <div class="invd-memo-block" style="margin-top:10px;">
+          <div class="invd-bank-title">備考</div>
+          <textarea id="inv-screen-memo" rows="3"
+            placeholder="例）お支払いは月末締め翌月末払いでお願いいたします"
+            style="width:100%;box-sizing:border-box;font-family:'DotGothic16',monospace;font-size:13px;color:var(--text-dark);border:2px solid #e0d0f0;border-radius:3px;padding:8px;resize:vertical;background:#fffefb;"></textarea>
+        </div>
+
       </div><!-- /invd-paper -->
 
       <!-- 保存 / 印刷プレビュー / 取り消しボタン -->
@@ -8655,6 +8663,8 @@
     document.getElementById('inv-screen-staff').value         = '';
     document.getElementById('inv-screen-invdate').value       = today;
     document.getElementById('inv-detail-num').textContent     = newNum;
+    const memoEl2 = document.getElementById('inv-screen-memo');
+    if (memoEl2) memoEl2.value = '';
     renderInvLines([], [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
     calcInvTotal();
     // 見積書・請求書 どちらも編集画面で開く（編集可能）
@@ -8897,6 +8907,8 @@
     document.getElementById('inv-screen-workdate').value   = status.workDate;
     document.getElementById('inv-screen-staff').value      = status.staff;
     document.getElementById('inv-screen-invdate').value    = status.invDate;
+    const memoEl3 = document.getElementById('inv-screen-memo');
+    if (memoEl3) memoEl3.value = status.memo || '';
     // 明細が空でも1行は表示する（値引きも引き継ぐ）
     renderInvLines([], lines.length ? lines : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false, status.discount);
     calcInvTotal();
@@ -8949,6 +8961,7 @@
     status.addr     = (document.getElementById('inv-screen-addr')?.textContent || '').trim();
     status.docMode  = _docMode || 'invoice';
     status.discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0; // お値引きも保存（再表示・売上集計で使用）
+    status.memo     = (document.getElementById('inv-screen-memo')?.value || '').trim(); // 備考も保存
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
     _markClean('inv-detail-screen');
@@ -9058,6 +9071,8 @@
     // 発行済みの場合は保存済み日付のみを使う（今日の日付で上書きしない）
     document.getElementById('inv-screen-invdate').value      = status.invDate || (isBilled ? '' : today);
     document.getElementById('inv-detail-num').textContent    = num;
+    const memoEl0 = document.getElementById('inv-screen-memo');
+    if (memoEl0) memoEl0.value = status.memo || '';
 
     // 明細行を描画（保存済みの値引きも復元）
     renderInvLines(master.lines, status.lines || master.lines, isBilled, status.discount);
@@ -9448,7 +9463,9 @@
     // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き（値引きも保存）
     const prev = loadInvStatus(num) || {};
     const discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0;
-    saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, discount, issuedAt: new Date().toLocaleString('ja-JP') }));
+    saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, discount,
+      memo: (document.getElementById('inv-screen-memo')?.value || '').trim(),
+      issuedAt: new Date().toLocaleString('ja-JP') }));
 
     // カードリストを再描画
     renderInvCards();
@@ -13369,6 +13386,16 @@
         </table>
       </div>
 
+      ${(() => {
+        // 備考（編集画面のtextareaから。escapeHtml必須・改行は保持）
+        const memoTxt = (document.getElementById('inv-screen-memo')?.value || '').trim();
+        return memoTxt ? `
+      <!-- 備考 -->
+      <div style="border-top:1px dashed #bbb;padding-top:3mm;margin-bottom:3mm;font-size:9pt;color:#333;">
+        <div style="font-weight:bold;margin-bottom:1mm;color:#222;">備考</div>
+        <div style="white-space:pre-wrap;line-height:1.6;">${escapeHtml(memoTxt)}</div>
+      </div>` : '';
+      })()}
       <!-- お振込先 -->
       <div style="border-top:1px dashed #bbb;padding-top:3mm;font-size:8pt;color:#444;">
         <div style="font-weight:bold;margin-bottom:2mm;color:#222;">お振込先</div>
@@ -14390,6 +14417,8 @@
     // 発行済みの場合は保存済み日付のみを使う（今日の日付で上書きしない）
     document.getElementById('inv-screen-invdate').value      = savedStatus.invDate  || (savedStatus.billed ? '' : today);
     document.getElementById('inv-detail-num').textContent    = num;
+    const memoEl1 = document.getElementById('inv-screen-memo');
+    if (memoEl1) memoEl1.value = savedStatus.memo || '';
 
     // 保存済み明細があればそれを描画して終了（値引きも復元）
     if (hasSavedDoc) {
