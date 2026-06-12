@@ -6439,12 +6439,16 @@
             </select>
           </div>
           <div style="flex:1;">
-            <label class="wsd-label">🎯 種別</label>
-            <select id="wsd-edit-order" class="wsd-select" style="width:100%;margin-top:3px;">
-              <option value="">選択...</option>
-              <option>撮影</option><option>編集</option><option>撮影・編集</option>
-              <option>プロデュース</option><option>企画・演出</option><option>スタッフ派遣</option>
-            </select>
+            <label class="wsd-label">🎯 種別（複数選択可）</label>
+            <div class="np-btn-group" id="wsd-edit-order-group" style="margin-top:3px;">
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">撮影</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">編集</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">撮影・編集</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">プロデュース</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">企画・演出</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">スタッフ派遣</button>
+            </div>
+            <input id="wsd-edit-order-extra" class="wsd-input" type="text" placeholder="その他（直接入力）" style="margin-top:4px;">
           </div>
         </div>
         <div class="wsd-field-row" style="margin-top:6px;">
@@ -14234,9 +14238,48 @@
 
   function selectNp(field, value) {
     const groupId = { staff:'np-staff-group', type:'np-type-group', order:'np-order-group' }[field];
+    // 受注分類は複数選択可：押すたびにON/OFFし、選択中を「／」で結合してテキスト欄へ
+    if (field === 'order') {
+      event.target.classList.toggle('selected');
+      const sel = [...document.querySelectorAll(`#${groupId} .np-select-btn.selected`)].map(b => b.textContent.trim());
+      document.getElementById('np-order').value = sel.join('／');
+      return;
+    }
     document.querySelectorAll(`#${groupId} .np-select-btn`).forEach(b => b.classList.remove('selected'));
     event.target.classList.add('selected');
     document.getElementById('np-' + field).value = value;
+  }
+
+  // ===== ワークシート編集パネルの「種別（受注分類）」：複数選択 =====
+  // 値は「撮影／編集」のように「／」区切りの1つの文字列として保存する
+  // （同期シート・印刷・一覧・検索は従来どおり文字列のまま扱えるため互換性が保たれる。
+  //   プリセット「撮影・編集」の「・」と区別するため区切りは「／」）
+  function toggleWsOrderBtn(btn) {
+    btn.classList.toggle('selected');
+    try { _markDirty('ws-detail-screen'); } catch (e) {}
+  }
+  function _setWsEditOrder(value) {
+    const group = document.getElementById('wsd-edit-order-group');
+    const extra = document.getElementById('wsd-edit-order-extra');
+    if (!group) return;
+    const btns = [...group.querySelectorAll('.np-select-btn')];
+    btns.forEach(b => b.classList.remove('selected'));
+    const presets = btns.map(b => b.textContent.trim());
+    const rest = [];
+    String(value || '').split('／').map(s => s.trim()).filter(Boolean).forEach(t => {
+      const i = presets.indexOf(t);
+      if (i >= 0) btns[i].classList.add('selected'); else rest.push(t);
+    });
+    if (extra) extra.value = rest.join('／');
+  }
+  function _getWsEditOrder() {
+    const group = document.getElementById('wsd-edit-order-group');
+    const extra = document.getElementById('wsd-edit-order-extra');
+    if (!group) return '';
+    const sel = [...group.querySelectorAll('.np-select-btn.selected')].map(b => b.textContent.trim());
+    const ex = ((extra && extra.value) || '').trim();
+    if (ex) sel.push(ex);
+    return sel.join('／');
   }
 
   function updateNpNum() {
@@ -14878,12 +14921,11 @@
     const compEl    = document.getElementById('wsd-edit-company');
     const contactEl = document.getElementById('wsd-edit-contact');
     const typeEl    = document.getElementById('wsd-edit-type');
-    const orderEl   = document.getElementById('wsd-edit-order');
     if (titleEl)   titleEl.value   = saved['edit_title']   || data.title     || '';
     if (compEl)    compEl.value    = saved['edit_company']  || data.company   || '';
     if (contactEl) contactEl.value = saved['edit_contact']  || data.contact   || '';
     if (typeEl)    typeEl.value    = saved['edit_type']     || data.type      || '';
-    if (orderEl)   orderEl.value   = saved['edit_order']    || data.orderType || '';
+    _setWsEditOrder(saved['edit_order'] || data.orderType || '');
 
     // 機材チェックリストを描画
     renderEquipChecklist(num, saved.equip || {});
@@ -15079,7 +15121,7 @@
     data['edit_company']  = document.getElementById('wsd-edit-company')?.value || '';
     data['edit_contact']  = document.getElementById('wsd-edit-contact')?.value || '';
     data['edit_type']     = document.getElementById('wsd-edit-type')?.value    || '';
-    data['edit_order']    = document.getElementById('wsd-edit-order')?.value   || '';
+    data['edit_order']    = _getWsEditOrder();
 
     // 保存した値でwsDataも更新（閲覧パネルに即反映）
     const num2 = document.getElementById('ws-detail-num').textContent;
@@ -15254,6 +15296,8 @@
   }
 
   function getWsStatusClass(orderType) {
+    // 複数選択（「／」区切り）の場合は先頭の分類でバッジ色を決める
+    const key = String(orderType || '').split('／')[0].trim();
     return {
       'CM撮影': 'cm',
       '撮影': 'shooting',
@@ -15262,7 +15306,7 @@
       '撮影・編集': 'edit',
       'プロデュース': 'produce',
       '企画・演出': 'plan',
-    }[orderType] || 'shooting';
+    }[key] || 'shooting';
   }
 
   // ws_${num} に意味のある中身があるか（空の孤立エントリ判定用）
