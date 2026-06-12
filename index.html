@@ -8690,12 +8690,14 @@
       const isBilled = status.billed;
       const isPaid   = status.paid;
 
-      // 金額計算（消費税は課税対象の明細のみ。非課税行 taxable:false は除外）
+      // 金額計算（消費税は課税対象の明細のみ・値引きは課税対象から差し引く＝calcInvTotalと同式）
       const subtotal = master.lines.reduce((s, l) => s + l.qty * l.price, 0);
       const taxableAmt = master.lines.reduce((s, l) =>
         (l && l.taxable === false) ? s : s + l.qty * l.price, 0);
-      const tax      = Math.floor(taxableAmt * 0.1);
-      const total    = subtotal + tax;
+      const discount = Number(status.discount) || 0;
+      const taxBase  = Math.max(0, taxableAmt - discount);
+      const tax      = Math.floor(taxBase * 0.1);
+      const total    = (subtotal - discount) + tax;
       const fmtTotal = '¥' + total.toLocaleString();
 
       let cardClass, badgeClass, badgeText, actionsHTML, alertHTML = '';
@@ -8895,8 +8897,8 @@
     document.getElementById('inv-screen-workdate').value   = status.workDate;
     document.getElementById('inv-screen-staff').value      = status.staff;
     document.getElementById('inv-screen-invdate').value    = status.invDate;
-    // 明細が空でも1行は表示する
-    renderInvLines([], lines.length ? lines : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
+    // 明細が空でも1行は表示する（値引きも引き継ぐ）
+    renderInvLines([], lines.length ? lines : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false, status.discount);
     calcInvTotal();
     setDocMode('delivery');
     document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
@@ -8946,6 +8948,7 @@
     status.zip      = (document.getElementById('inv-screen-zip')?.textContent  || '').trim();
     status.addr     = (document.getElementById('inv-screen-addr')?.textContent || '').trim();
     status.docMode  = _docMode || 'invoice';
+    status.discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0; // お値引きも保存（再表示・売上集計で使用）
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
     _markClean('inv-detail-screen');
@@ -9056,8 +9059,8 @@
     document.getElementById('inv-screen-invdate').value      = status.invDate || (isBilled ? '' : today);
     document.getElementById('inv-detail-num').textContent    = num;
 
-    // 明細行を描画
-    renderInvLines(master.lines, status.lines || master.lines, isBilled);
+    // 明細行を描画（保存済みの値引きも復元）
+    renderInvLines(master.lines, status.lines || master.lines, isBilled, status.discount);
     calcInvTotal();
 
     // PDF表示は直接プレビュー（請求書として確定）
@@ -9073,7 +9076,7 @@
     syncCancelBtn(isBilled);
   }
 
-  function renderInvLines(masterLines, savedLines, readonly) {
+  function renderInvLines(masterLines, savedLines, readonly, discount) {
     const tbody = document.getElementById('inv-lines-body');
     tbody.innerHTML = '';
     savedLines.forEach((line, i) => {
@@ -9121,10 +9124,10 @@
       `;
       tbody.appendChild(tr);
     });
-    // 値引き入力（フッターに移設済み）を初期化
+    // 値引き入力（フッターに移設済み）：保存済みの値引きを復元（無ければ0）
     _invReadonly = !!readonly;
     const disc = document.getElementById('inv-discount');
-    if (disc) { disc.value = 0; disc.disabled = !!readonly; }
+    if (disc) { disc.value = Number(discount) || 0; disc.disabled = !!readonly; }
     const discWrap = document.getElementById('inv-discount-wrap');
     if (discWrap) discWrap.style.display = readonly ? 'none' : 'flex';
     // freee風カードを描画
@@ -9442,9 +9445,10 @@
       lines.push({ code, name, qty, unit: unit || '日', price, taxable, outsource });
     });
 
-    // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き
+    // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き（値引きも保存）
     const prev = loadInvStatus(num) || {};
-    saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, issuedAt: new Date().toLocaleString('ja-JP') }));
+    const discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0;
+    saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, discount, issuedAt: new Date().toLocaleString('ja-JP') }));
 
     // カードリストを再描画
     renderInvCards();
@@ -9593,7 +9597,9 @@
         const subtotal = master.lines.reduce((s, l) => s + l.qty * l.price, 0);
         const taxableAmt = master.lines.reduce((s, l) =>
           (l && l.taxable === false) ? s : s + l.qty * l.price, 0);
-        totalStr = '¥' + (subtotal + Math.floor(taxableAmt * 0.1)).toLocaleString();
+        const discount = Number(status.discount) || 0;
+        const taxBase  = Math.max(0, taxableAmt - discount);
+        totalStr = '¥' + ((subtotal - discount) + Math.floor(taxBase * 0.1)).toLocaleString();
       }
       return `
       <div style="background:white;border:2px solid #d5d8dc;border-left:4px solid #808b96;border-radius:3px;padding:10px 12px;margin-bottom:8px;opacity:0.85;">
@@ -9950,6 +9956,10 @@
     } finally { _retryingPending = false; }
     updatePendingDisplay();
     if (showStatus) setGasStatus(`🔁 再送：成功 ${ok}件 / 失敗 ${fail}件`, fail ? '#e67e22' : '#27ae60');
+    // 自動再送（裏で実行）の場合も、全件さばけたらトーストで知らせる（同期失敗の見落とし対策）
+    if (!showStatus && ok > 0 && getSyncPending().length === 0) {
+      try { showToast(`📤 未送信だった ${ok}件をシートへ送信しました`); } catch (e) {}
+    }
     return { ok, fail };
   }
   // データ管理画面の「未送信◯件」表示を更新（要素が無ければ何もしない）
@@ -9960,6 +9970,15 @@
     if (n > 0) { el.textContent = `⚠️ 未送信 ${n} 件（あとで自動再送します）`; el.style.color = '#e67e22'; }
     else { el.textContent = '✅ 未送信なし'; el.style.color = '#27ae60'; }
   }
+
+  // 保留分の自動再送：従来は起動時と手動ボタンのみで、開きっぱなしの端末では
+  // 失敗分が放置されたままになっていた。5分ごと＋ネット復帰時にも裏で再送する。
+  setInterval(() => {
+    try { if (_gasUrlOne() && getSyncPending().length) retrySyncPending(false).catch(() => {}); } catch (e) {}
+  }, 5 * 60 * 1000);
+  window.addEventListener('online', () => {
+    try { if (_gasUrlOne() && getSyncPending().length) retrySyncPending(false).catch(() => {}); } catch (e) {}
+  });
 
   // ===== スタッフ（漢たち）情報の編集・同期 =====
   // 10名固定。カードをタップ→編集フォーム→保存でローカル保存＋シート送信（全社共有）。
@@ -11980,11 +11999,13 @@
     // 明細：status.lines があればそちら（編集後）、無ければ master.lines
     const lines = (status.lines && status.lines.length) ? status.lines : (master.lines || []);
     const subtotal = lines.reduce((s, l) => s + (Number(l.qty)||0) * (Number(l.price)||0), 0);
-    // 消費税は課税対象の明細だけに掛ける（請求書画面 calcInvTotal と同じ計算。非課税行 taxable:false は除外）
+    // 消費税は課税対象の明細だけ・値引きは課税対象から差し引く（請求書画面 calcInvTotal と同じ計算）
     const taxableAmt = lines.reduce((s, l) =>
       (l && l.taxable === false) ? s : s + (Number(l.qty)||0) * (Number(l.price)||0), 0);
-    const tax      = Math.floor(taxableAmt * 0.1);
-    const total    = subtotal + tax;
+    const discount = Number(status.discount) || 0;
+    const taxBase  = Math.max(0, taxableAmt - discount);
+    const tax      = Math.floor(taxBase * 0.1);
+    const total    = (subtotal - discount) + tax;
 
     // 外注費：ワークシートの外注リスト＋レンタル料金 ＋ 請求書明細で「外注」チェックされた行
     let outsourceCost = 0;
@@ -11995,14 +12016,15 @@
       const rentalCost = Number(String(saved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
       outsourceCost += rentalCost;
     } catch(e) { console.warn(e); }
-    // 明細行で「外注」チェックの入っている分も加算
-    const invLineOutsource = lines.reduce((s, l) => {
-      if (l && l.outsource) return s + (Number(l.qty)||0) * (Number(l.price)||0);
-      return s;
-    }, 0);
-    outsourceCost += invLineOutsource;
-    // 消費税10%込みに換算
-    outsourceCost = Math.round(outsourceCost * 1.1);
+    // 明細行で「外注」チェックの入っている分も加算。
+    // 外注費は「実際に支払う税込額」で売上から引く（ユーザー決定 2026-06-12）。
+    // WS外注リスト・レンタル・課税の外注行は税抜入力前提なので×1.1で税込に換算し、
+    // 非課税の外注行（taxable:false）は税がかからないのでそのまま加算する。
+    const invLineOutsourceTaxable = lines.reduce((s, l) =>
+      (l && l.outsource && l.taxable !== false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
+    const invLineOutsourceExempt = lines.reduce((s, l) =>
+      (l && l.outsource && l.taxable === false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
+    outsourceCost = Math.round((outsourceCost + invLineOutsourceTaxable) * 1.1) + invLineOutsourceExempt;
     // 社内流放 = 受注総額 − 外注費（≒ 会社の取り分）
     const netInhouse = total - outsourceCost;
 
@@ -13175,14 +13197,15 @@
     const dateLabel  = _L.date;
     const amtLabel   = _L.amt;
 
-    const num      = document.getElementById('inv-detail-num').textContent;
-    const client   = document.getElementById('inv-screen-client').textContent;
-    const zip      = document.getElementById('inv-screen-zip').textContent;
-    const addr     = document.getElementById('inv-screen-addr').textContent;
-    const docDate  = document.getElementById('inv-screen-invdate').value;
-    const workDate = document.getElementById('inv-screen-workdate').value;
-    const title    = document.getElementById('inv-screen-title').value;
-    const staff    = document.getElementById('inv-screen-staff').value;
+    // 印刷用HTMLに流し込む文字は全てエスケープ（取引先名の「&」「<」等で印刷が崩れるのを防ぐ）
+    const num      = escapeHtml(document.getElementById('inv-detail-num').textContent);
+    const client   = escapeHtml(document.getElementById('inv-screen-client').textContent);
+    const zip      = escapeHtml(document.getElementById('inv-screen-zip').textContent);
+    const addr     = escapeHtml(document.getElementById('inv-screen-addr').textContent);
+    const docDate  = escapeHtml(document.getElementById('inv-screen-invdate').value);
+    const workDate = escapeHtml(document.getElementById('inv-screen-workdate').value);
+    const title    = escapeHtml(document.getElementById('inv-screen-title').value);
+    const staff    = escapeHtml(document.getElementById('inv-screen-staff').value);
     const total    = document.getElementById('inv-total-big').textContent;
     const subtotal = document.getElementById('inv-subtotal').textContent;
     const tax      = document.getElementById('inv-tax').textContent;
@@ -13202,12 +13225,12 @@
       const taxEl   = tr.querySelector('.inv-line-tax');
       const amtEl   = document.getElementById('inv-amount-' + i);
 
-      const name  = nameEl?.value  || nameEl?.textContent?.trim()  || '';
-      const unit  = unitEl?.value  || unitEl?.textContent?.trim()  || '';
-      const qty   = qtyEl?.value   || qtyEl?.textContent?.trim()   || '';
+      const name  = escapeHtml(nameEl?.value  || nameEl?.textContent?.trim()  || '');
+      const unit  = escapeHtml(unitEl?.value  || unitEl?.textContent?.trim()  || '');
+      const qty   = escapeHtml(qtyEl?.value   || qtyEl?.textContent?.trim()   || '');
       const rawPrice = priceEl?.value || priceTextEl?.textContent?.replace(/[¥,]/g, '') || '';
       const price = rawPrice ? Number(rawPrice).toLocaleString() : '';
-      const code  = codeEl?.textContent?.trim() || '';
+      const code  = escapeHtml(codeEl?.textContent?.trim() || '');
       const amt   = amtEl?.textContent?.trim()  || '';
       const taxable = taxEl ? (taxEl.value === '1')
                             : (tr.querySelector('.inv-td-tax span')?.textContent?.trim() !== '非課税');
@@ -14195,7 +14218,8 @@
   }
 
   function registerNewProject() {
-    const num     = _npPrefix + document.getElementById('np-num').value.trim();
+    // 番号は英数字とハイフンのみ許可（' や < 等の記号はボタンや画面表示を壊すため除去）
+    const num     = (_npPrefix + document.getElementById('np-num').value.trim()).replace(/[^0-9A-Za-z\-_]/g, '');
     const company = document.getElementById('np-company').value.trim();
     const title   = document.getElementById('np-title').value.trim();
     const date    = document.getElementById('np-date').value.trim();
@@ -14367,9 +14391,9 @@
     document.getElementById('inv-screen-invdate').value      = savedStatus.invDate  || (savedStatus.billed ? '' : today);
     document.getElementById('inv-detail-num').textContent    = num;
 
-    // 保存済み明細があればそれを描画して終了
+    // 保存済み明細があればそれを描画して終了（値引きも復元）
     if (hasSavedDoc) {
-      renderInvLines([], savedStatus.lines, false);
+      renderInvLines([], savedStatus.lines, false, savedStatus.discount);
       calcInvTotal();
       setDocMode(savedStatus.docMode || _actionToMode(action));
       document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
