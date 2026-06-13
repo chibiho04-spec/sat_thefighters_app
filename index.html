@@ -4968,6 +4968,17 @@
 
       </div><!-- /invd-paper -->
 
+      <!-- 社内用：売上計算専用の外注費（請求書・PDFには出ません） -->
+      <div style="margin:10px 12px 0;padding:10px 12px;background:#f4f0fb;border:2px dashed #b38ed6;border-radius:5px;">
+        <div style="font-size:12px;font-weight:bold;color:#6c3483;margin-bottom:2px;">🤝 外注費（売上計算用・社内メモ）</div>
+        <div style="font-size:10px;color:#8e7aa0;line-height:1.5;margin-bottom:6px;">この金額は<b>売上から差し引かれます</b>。<b>請求書・PDFには表示されません</b>。<br>ワークシートが無い案件などに、実際に支払う外注費（税込）を入力してください。</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:14px;color:#6c3483;font-weight:bold;">¥</span>
+          <input id="inv-screen-outsource" type="number" min="0" value="0" placeholder="0"
+            style="flex:1;min-width:0;font-family:'DotGothic16',monospace;font-size:14px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);">
+        </div>
+      </div>
+
       <!-- 保存 / 印刷プレビュー / 取り消しボタン -->
       <div style="padding:12px 12px 4px;">
         <span id="inv-detail-num" style="display:none;"></span>
@@ -8669,6 +8680,8 @@
     document.getElementById('inv-detail-num').textContent     = newNum;
     const memoEl2 = document.getElementById('inv-screen-memo');
     if (memoEl2) memoEl2.value = '';
+    const outEl2 = document.getElementById('inv-screen-outsource');
+    if (outEl2) outEl2.value = 0;
     renderInvLines([], [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
     calcInvTotal();
     // 見積書・請求書 どちらも編集画面で開く（編集可能）
@@ -8913,6 +8926,8 @@
     document.getElementById('inv-screen-invdate').value    = status.invDate;
     const memoEl3 = document.getElementById('inv-screen-memo');
     if (memoEl3) memoEl3.value = status.memo || '';
+    const outEl3 = document.getElementById('inv-screen-outsource');
+    if (outEl3) outEl3.value = Number(status.outsourceExtra) || 0;
     // 明細が空でも1行は表示する（値引きも引き継ぐ）
     renderInvLines([], lines.length ? lines : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false, status.discount);
     calcInvTotal();
@@ -8966,6 +8981,7 @@
     status.docMode  = _docMode || 'invoice';
     status.discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0; // お値引きも保存（再表示・売上集計で使用）
     status.memo     = (document.getElementById('inv-screen-memo')?.value || '').trim(); // 備考も保存
+    status.outsourceExtra = parseFloat(document.getElementById('inv-screen-outsource')?.value || 0) || 0; // 売上計算用の外注費（請求書非表示・税込）
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
     _markClean('inv-detail-screen');
@@ -9077,6 +9093,8 @@
     document.getElementById('inv-detail-num').textContent    = num;
     const memoEl0 = document.getElementById('inv-screen-memo');
     if (memoEl0) memoEl0.value = status.memo || '';
+    const outEl0 = document.getElementById('inv-screen-outsource');
+    if (outEl0) outEl0.value = Number(status.outsourceExtra) || 0;
 
     // 明細行を描画（保存済みの値引きも復元）
     renderInvLines(master.lines, status.lines || master.lines, isBilled, status.discount);
@@ -9469,6 +9487,7 @@
     const discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0;
     saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, discount,
       memo: (document.getElementById('inv-screen-memo')?.value || '').trim(),
+      outsourceExtra: parseFloat(document.getElementById('inv-screen-outsource')?.value || 0) || 0,
       issuedAt: new Date().toLocaleString('ja-JP') }));
 
     // カードリストを再描画
@@ -12046,6 +12065,10 @@
     const invLineOutsourceExempt = lines.reduce((s, l) =>
       (l && l.outsource && l.taxable === false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
     outsourceCost = Math.round((outsourceCost + invLineOutsourceTaxable) * 1.1) + invLineOutsourceExempt;
+    // 請求書編集画面の「外注費（売上計算用・社内メモ）」。実際に支払う税込額なので
+    // ×1.1はせずそのまま加算（請求書には表示されない＝社内専用の控除）。
+    const extraOutsource = Number(status.outsourceExtra) || 0;
+    outsourceCost += extraOutsource;
     // 社内流放 = 受注総額 − 外注費（≒ 会社の取り分）
     const netInhouse = total - outsourceCost;
 
@@ -14462,6 +14485,8 @@
     document.getElementById('inv-detail-num').textContent    = num;
     const memoEl1 = document.getElementById('inv-screen-memo');
     if (memoEl1) memoEl1.value = savedStatus.memo || '';
+    const outEl1 = document.getElementById('inv-screen-outsource');
+    if (outEl1) outEl1.value = Number(savedStatus.outsourceExtra) || 0;
 
     // 保存済み明細があればそれを描画して終了（値引きも復元）
     if (hasSavedDoc) {
