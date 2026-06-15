@@ -15980,9 +15980,11 @@
       return ['☀️ 直近2週間に撮影の予定はないよ。<br>ゆっくり次の準備をしよう！<span class="blink">█</span>'];
     }
     try {
+      // 気象庁モデル(jma_seamless)。日本の本家モデルなので天気の種類が気象庁/Yahoo天気と揃う。
+      // ただし降水確率は返さないため、降水量(precipitation_sum, mm)で代用する。
       const url = 'https://api.open-meteo.com/v1/forecast?latitude=26.25&longitude=127.72'
-        + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
-        + '&timezone=Asia%2FTokyo&forecast_days=16';
+        + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum'
+        + '&timezone=Asia%2FTokyo&forecast_days=16&models=jma_seamless';
       const res = await fetch(url);
       if (!res.ok) throw new Error('weather http ' + res.status);
       const day = (await res.json()).daily || {};
@@ -15995,10 +15997,12 @@
         const w = _WMO[day.weather_code[i]] || ['🌈', '—'];
         const tmax = Math.round(day.temperature_2m_max[i]);
         const tmin = Math.round(day.temperature_2m_min[i]);
-        const pop = day.precipitation_probability_max[i];
         const code = day.weather_code[i];
-        const warn = (code >= 95) ? ' ⚡雷雨注意！' : (pop != null && pop >= 60) ? ' ☔傘の準備を！' : '';
-        const rain = (pop != null) ? `・降水${pop}%` : '';
+        const mm = (day.precipitation_sum || [])[i];
+        const rain = (mm == null) ? '' : (mm < 0.1 ? '・雨なし' : `・雨量${mm < 10 ? mm.toFixed(1) : Math.round(mm)}mm`);
+        const warn = (code >= 95) ? ' ⚡雷雨注意！'
+                   : (mm != null && mm >= 20) ? ' ☔強い雨に注意！'
+                   : (mm != null && mm >= 3)  ? ' ☔傘の準備を！' : '';
         return `${w[0]} ${head} の撮影<br>${w[1]}・最高${tmax}°/最低${tmin}°${rain}${warn}<span class="blink">█</span>`;
       });
     } catch (e) {
