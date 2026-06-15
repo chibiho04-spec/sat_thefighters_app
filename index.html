@@ -6724,10 +6724,10 @@
   <!-- プレビュー本体 -->
   <div id="print-content-wrapper" style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center;align-items:flex-start;background:#666;">
     <div id="print-content" style="
-      background:white;width:210mm;height:297mm;
-      padding:2mm 5mm;
+      background:white;width:210mm;min-height:297mm;
+      padding:15mm;
       box-shadow:0 4px 20px rgba(0,0,0,0.5);
-      box-sizing:border-box;overflow:hidden;flex-shrink:0;transform-origin:top center;">
+      box-sizing:border-box;overflow:visible;flex-shrink:0;transform-origin:top center;">
     </div>
   </div>
   <!-- 下部の印刷バー（簡易ワークシートのプレビュー時のみ表示） -->
@@ -9762,13 +9762,56 @@
   // ===== 印刷プレビュー =====
   let _currentPreviewType = 'invoice';
 
+  // 請求書/見積書/納品書を、フッター（合計・振込先）が単独で次ページに
+  // 取り残されないよう空行数を自動調整して #print-content に描画する。
+  // A4(余白15mm)＝本文幅180mm・本文高267mm を1ページとして計算（executePrint と同じ）。
+  function _renderDocBalanced(type) {
+    const content = document.getElementById('print-content');
+    if (!content) return;
+    content.style.transform = '';            // 前回の縮小スケールを解除（計測を実寸で行う）
+    content.style.marginBottom = '';
+    const PAGE_MM = 297, MARGIN_MM = 15, MIN_TAIL = 3;
+    const measure = (E) => {
+      content.innerHTML = buildDocHTML(type, E);
+      const pxPerMm = content.offsetWidth / 210;
+      const pageH   = pxPerMm * (PAGE_MM - MARGIN_MM * 2);
+      if (!pageH) return null;
+      const padTop  = parseFloat(getComputedStyle(content).paddingTop || '0');
+      const areaTop = content.getBoundingClientRect().top + padTop;
+      const footer  = content.querySelector('#doc-footer-block');
+      if (!footer) return null;
+      const fr = footer.getBoundingClientRect();
+      const footerTopY = fr.top - areaTop;
+      const pageOfFooter = Math.floor((footerTopY + 0.5) / pageH);
+      const yInPage = footerTopY - pageOfFooter * pageH;
+      const footerFits = (yInPage + fr.height) <= pageH + 2;
+      let rowsAbove = 0;
+      content.querySelectorAll('tbody tr').forEach(r => {
+        const ry = r.getBoundingClientRect().top - areaTop;
+        if (Math.floor((ry + 0.5) / pageH) === pageOfFooter && ry < footerTopY - 1) rowsAbove++;
+      });
+      return { pageOfFooter, footerFits, rowsAbove };
+    };
+    // 実明細数を数えて開始の空行数を決める（従来どおり最低10行）
+    measure(0);
+    const realRows = content.querySelectorAll('tbody tr').length;
+    let E = Math.max(0, 10 - realRows), guard = 0, m = null;
+    while (guard++ < 80) {
+      m = measure(E);
+      if (!m) break;
+      if (m.pageOfFooter === 0 && m.footerFits) break;          // 1ページに収まった
+      if (m.footerFits && m.rowsAbove >= MIN_TAIL) break;       // フッターのページに項目行が十分ある＝孤立でない
+      E++;                                                       // 空行を足してバランスを取る
+    }
+    // 最終描画は measure() 内で完了済み
+  }
+
   function openPrintPreview(type) {
     _currentPreviewType = type;
-    const html  = buildDocHTML(type === 'estimate' ? 'estimate' : type === 'delivery' ? 'delivery' : 'invoice');
+    const docType = type === 'estimate' ? 'estimate' : type === 'delivery' ? 'delivery' : 'invoice';
     const label = type === 'estimate' ? '見積書 印刷プレビュー'
                 : type === 'delivery' ? '納品書 印刷プレビュー'
                 : '請求書 印刷プレビュー';
-    document.getElementById('print-content').innerHTML = html;
     document.getElementById('print-preview-label').textContent = label;
 
     // プレビュー画面に発行ボタンは置かない（発行は会計室の編集画面から）
@@ -9778,7 +9821,8 @@
     if (_bb) _bb.style.display = 'none';
 
     document.getElementById('print-preview-overlay').style.display = 'flex';
-    requestAnimationFrame(scalePrintContent);
+    // レイアウト確定後に計測してバランス描画→縮小表示
+    requestAnimationFrame(() => { _renderDocBalanced(docType); scalePrintContent(); });
     // 重複登録防止
     window.removeEventListener('resize', scalePrintContent);
     window.addEventListener('resize', scalePrintContent);
@@ -9847,6 +9891,11 @@
   }
   body { margin: 0; padding: 0; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }
   table { border-collapse: collapse; width: 100%; }
+  /* 行は途中で割らない／表ヘッダーは各ページ先頭で繰り返す */
+  tr { page-break-inside: avoid; break-inside: avoid; }
+  thead { display: table-header-group; }
+  /* フッター（合計・備考・振込先）はひとかたまりで割らない */
+  #doc-footer-block { page-break-inside: avoid; break-inside: avoid; }
 </style>
 </head><body>${content}</body></html>`);
     win.document.close();
@@ -13230,7 +13279,7 @@
 
 
   // ===== Excel書式に準拠した請求書・見積書HTML生成 =====
-  function buildDocHTML(type) {
+  function buildDocHTML(type, emptyRows) {
     const _T = {
       invoice:  { title: '御　請　求　書', date: '御請求日', amt: '御請求金額', lead: '下記の通りご請求申し上げます。' },
       estimate: { title: '御　見　積　書', date: '御見積日', amt: '御見積金額', lead: '下記の通り御見積り申し上げます。' },
@@ -13293,11 +13342,17 @@
           <td style="${tdS}text-align:center;">${noteCell}</td>
         </tr>`;
     });
-    // 空行補充：A4一枚に収まるよう最低限の枠だけ見せる（明細が多いときは空行を足さない）
+    // 空行補充：emptyRows指定があればその数、無ければ最低10行になるよう補う。
+    // 印刷プレビューの _renderDocBalanced が、フッター（合計・振込先）が単独で
+    // 次ページに取り残されないよう最適な空行数を渡す。
     const MIN_TABLE_ROWS = 10;
-    for (let i = rowCount; i < MIN_TABLE_ROWS; i++) {
-      const bg = i % 2 === 0 ? '#f9f9f9' : 'white';
-      linesHTML += `<tr style="background:${bg};">${`<td style="${tdS}">&nbsp;</td>`.repeat(6)}</tr>`;
+    const emptyCount = (typeof emptyRows === 'number' && emptyRows >= 0)
+      ? emptyRows
+      : Math.max(0, MIN_TABLE_ROWS - rowCount);
+    for (let k = 0; k < emptyCount; k++) {
+      const idx = rowCount + k;
+      const bg = idx % 2 === 0 ? '#f9f9f9' : 'white';
+      linesHTML += `<tr class="doc-empty-row" style="background:${bg};">${`<td style="${tdS}">&nbsp;</td>`.repeat(6)}</tr>`;
     }
     // お値引き行（0円のときはプレビューに表示しない）
     const discountEl = document.getElementById('inv-discount');
@@ -13401,6 +13456,8 @@
         <tbody>${linesHTML}</tbody>
       </table>
 
+      <!-- フッター（合計・備考・振込先を1ブロックに。ページ途中で割れない＋孤立させない） -->
+      <div id="doc-footer-block" style="page-break-inside:avoid;break-inside:avoid;">
       <!-- 集計行 -->
       <div style="display:flex;justify-content:flex-end;margin-bottom:4mm;">
         <table style="border-collapse:collapse;font-size:9pt;">
@@ -13435,6 +13492,7 @@
           <div>沖縄海邦銀行　宜野湾支店　（普）0572453</div>
         </div>
       </div>`}
+      </div><!-- /doc-footer-block -->
 
     </div>`;
   }
