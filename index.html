@@ -4971,7 +4971,7 @@
       <!-- 社内用：売上計算専用の外注費（請求書・PDFには出ません） -->
       <div style="margin:10px 12px 0;padding:10px 12px;background:#f4f0fb;border:2px dashed #b38ed6;border-radius:5px;">
         <div style="font-size:12px;font-weight:bold;color:#6c3483;margin-bottom:2px;">🤝 外注費（売上計算用・社内メモ）</div>
-        <div style="font-size:10px;color:#8e7aa0;line-height:1.5;margin-bottom:6px;">合計が<b>売上から差し引かれます</b>。<b>請求書・PDFには表示されません</b>。<br>名目と金額（実際に支払う税込額）を分けて記入できます。行は「＋ 行を追加」で増やせます。</div>
+        <div style="font-size:10px;color:#8e7aa0;line-height:1.5;margin-bottom:6px;">合計が<b>売上から差し引かれます</b>。<b>請求書・PDFには表示されません</b>。<br>名目と金額を記入。<b>課税</b>＝税抜で入力（自動で+10%）／<b>非課税</b>＝そのまま。行は「＋ 行を追加」で増やせます。</div>
         <div id="inv-outsource-rows" style="display:flex;flex-direction:column;gap:6px;">
           <!-- JSで動的生成（最低1行） -->
         </div>
@@ -6324,7 +6324,7 @@
           <span class="wsv-val" id="wsv-order">―</span>
         </div>
         <div class="wsv-row" id="wsv-order-amount-row">
-          <span class="wsv-lbl">💴 受注金額</span>
+          <span class="wsv-lbl">💴 受注金額（税別）</span>
           <span class="wsv-val" id="wsv-order-amount-wrap" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;">
             <span id="wsv-order-amount" style="color:#c0392b;font-weight:bold;">―</span>
             <span id="wsv-order-amount-net" style="font-size:11px;color:#2980b9;font-weight:normal;"></span>
@@ -6469,7 +6469,7 @@
           <span id="wsd-recdate" class="wsd-readonly">受注ノートから自動入力</span>
         </div>
         <div class="wsd-field-row" style="margin-top:6px;">
-          <label class="wsd-label">💴 受注金額（円）</label>
+          <label class="wsd-label">💴 受注金額（税別・円）</label>
           <input id="wsd-order-amount" class="wsd-input" type="number" placeholder="0" min="0">
         </div>
       </div>
@@ -8942,9 +8942,15 @@
   // 値は status.outsourceExtraList = [{name, cost(税込)}]。旧 status.outsourceExtra(単一数値)とも互換。
   function _loadInvOutsourceList(status) {
     status = status || {};
-    if (Array.isArray(status.outsourceExtraList)) return status.outsourceExtraList.slice();
-    const v = Number(status.outsourceExtra) || 0;        // 後方互換：旧・単一値を1行に
-    return v > 0 ? [{ name: '', cost: String(v) }] : [];
+    if (Array.isArray(status.outsourceExtraList)) {
+      // 旧データ(taxable無し)は従来どおり税込そのまま＝非課税扱いにして数字を変えない
+      return status.outsourceExtraList.map(o => ({
+        name: o.name || '', cost: o.cost,
+        taxable: (typeof o.taxable === 'boolean') ? o.taxable : false
+      }));
+    }
+    const v = Number(status.outsourceExtra) || 0;        // 後方互換：旧・単一値を1行に（税込＝非課税扱い）
+    return v > 0 ? [{ name: '', cost: String(v), taxable: false }] : [];
   }
   function renderInvOutsourceRows(items) {
     const wrap = document.getElementById('inv-outsource-rows');
@@ -8957,13 +8963,18 @@
   function _appendInvOutsourceRow(wrap, it) {
     const row = document.createElement('div');
     row.className = 'inv-os-row';
-    row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+    const taxable = (it.taxable !== false); // 新規行は課税。読込済みの旧データは非課税(false)で渡る
     row.innerHTML = `
       <input type="text" class="inv-os-name" placeholder="名目 (例: ドローン撮影 ◯◯社)" value="${escapeHtml(it.name || '')}"
-        style="flex:2;min-width:0;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);">
+        style="flex:2;min-width:110px;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);">
       <span style="font-size:13px;color:#6c3483;font-weight:bold;flex-shrink:0;">¥</span>
-      <input type="number" class="inv-os-cost" placeholder="税込" min="0" value="${escapeHtml(String(it.cost || ''))}"
-        style="flex:1;max-width:120px;min-width:0;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);text-align:right;">
+      <input type="number" class="inv-os-cost" placeholder="金額" min="0" value="${escapeHtml(String(it.cost || ''))}"
+        style="flex:1;max-width:100px;min-width:0;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);text-align:right;">
+      <select class="inv-os-tax" title="課税＝税抜で入力(自動で+10%)／非課税＝そのまま" style="font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 4px;background:#fff;color:var(--text-dark);max-width:90px;flex-shrink:0;">
+        <option value="1" ${taxable ? 'selected' : ''}>課税</option>
+        <option value="0" ${taxable ? '' : 'selected'}>非課税</option>
+      </select>
       <button type="button" onclick="this.parentElement.remove(); try{_markDirty('inv-detail-screen');}catch(e){}" title="この行を削除"
         style="background:#e74c3c;color:white;border:2px solid #922b21;padding:0 10px;border-radius:3px;font-size:15px;cursor:pointer;height:36px;line-height:1;flex-shrink:0;">×</button>
     `;
@@ -8980,12 +8991,16 @@
     wrap.querySelectorAll('.inv-os-row').forEach(r => {
       const name = (r.querySelector('.inv-os-name')?.value || '').trim();
       const cost = (r.querySelector('.inv-os-cost')?.value || '').trim();
-      if (name || cost) rows.push({ name, cost });
+      const taxable = (r.querySelector('.inv-os-tax')?.value !== '0'); // 既定は課税
+      if (name || cost) rows.push({ name, cost, taxable });
     });
     return rows;
   }
+  // 売上から引かれる実際の支払額（税込）：課税は×1.1、非課税はそのまま
   function _sumInvOutsource(list) {
-    return (list || []).reduce((s, o) => s + (Number(o.cost) || 0), 0);
+    let base = 0, exempt = 0;
+    (list || []).forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) exempt += c; else base += c; });
+    return Math.round(base * 1.1) + exempt;
   }
 
   function saveInvDoc() {
@@ -12148,31 +12163,28 @@
     const tax      = Math.floor(taxBase * 0.1);
     const total    = (subtotal - discount) + tax;
 
-    // 外注費：ワークシートの外注リスト＋レンタル料金 ＋ 請求書明細で「外注」チェックされた行
-    let outsourceCost = 0;
+    // 外注費：実際に支払う税込額で売上から控除（ユーザー決定 2026-06-12 / 課税・非課税の選択 2026-06-16）。
+    // 課税は税抜入力前提なので×1.1、非課税はそのまま加算。
+    //   osTaxableBase … ×1.1する税抜合計 ／ osExemptSum … そのまま加算（非課税・税込）
+    let osTaxableBase = 0, osExemptSum = 0;
     try {
       const saved = (typeof loadWS === 'function') ? loadWS(num) : {};
       const items = (typeof loadOutsourceItems === 'function') ? loadOutsourceItems(saved) : [];
-      outsourceCost += items.reduce((s, o) => s + (Number(o.cost) || 0), 0);
-      const rentalCost = Number(String(saved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
-      outsourceCost += rentalCost;
+      // WS外注リスト：フラグ無し（旧データ）は課税扱い（従来どおり×1.1）
+      items.forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) osExemptSum += c; else osTaxableBase += c; });
+      // レンタルは課税扱い
+      osTaxableBase += Number(String(saved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
     } catch(e) { console.warn(e); }
-    // 明細行で「外注」チェックの入っている分も加算。
-    // 外注費は「実際に支払う税込額」で売上から引く（ユーザー決定 2026-06-12）。
-    // WS外注リスト・レンタル・課税の外注行は税抜入力前提なので×1.1で税込に換算し、
-    // 非課税の外注行（taxable:false）は税がかからないのでそのまま加算する。
-    const invLineOutsourceTaxable = lines.reduce((s, l) =>
-      (l && l.outsource && l.taxable !== false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
-    const invLineOutsourceExempt = lines.reduce((s, l) =>
-      (l && l.outsource && l.taxable === false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
-    outsourceCost = Math.round((outsourceCost + invLineOutsourceTaxable) * 1.1) + invLineOutsourceExempt;
-    // 請求書編集画面の「外注費（売上計算用・社内メモ）」。実際に支払う税込額なので
-    // ×1.1はせずそのまま加算（請求書には表示されない＝社内専用の控除）。
-    // 複数行リスト(outsourceExtraList)を優先。無ければ旧・単一値(outsourceExtra)。
-    const extraOutsource = Array.isArray(status.outsourceExtraList)
-      ? status.outsourceExtraList.reduce((s, o) => s + (Number(o.cost) || 0), 0)
-      : (Number(status.outsourceExtra) || 0);
-    outsourceCost += extraOutsource;
+    // 請求書明細で「外注」チェックの行（行自体の課税/非課税に従う）
+    osTaxableBase += lines.reduce((s, l) => (l && l.outsource && l.taxable !== false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
+    osExemptSum   += lines.reduce((s, l) => (l && l.outsource && l.taxable === false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
+    // 請求書の「外注費（売上計算用）」リスト：課税(taxable===true)は×1.1、それ以外（非課税・旧データ）はそのまま
+    if (Array.isArray(status.outsourceExtraList)) {
+      status.outsourceExtraList.forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === true) osTaxableBase += c; else osExemptSum += c; });
+    } else {
+      osExemptSum += Number(status.outsourceExtra) || 0; // 旧・単一値はそのまま
+    }
+    const outsourceCost = Math.round(osTaxableBase * 1.1) + osExemptSum;
     // 社内流放 = 受注総額 − 外注費（≒ 会社の取り分）
     const netInhouse = total - outsourceCost;
 
@@ -12223,21 +12235,24 @@
         if (!status.lines || !status.lines.length) {
           // 明細が無い案件：外注費はWSから、請求額はWSの受注金額をフォールバックで使用
           let outsourceCost = 0;
-          let wsOrderAmount = 0;
+          let subtotal = 0, tax = 0, total = 0;
           try {
             const wsSaved = loadWS(p.num);
-            const items2 = loadOutsourceItems(wsSaved);
-            outsourceCost = items2.reduce((s, o) => s + (Number(o.cost) || 0), 0);
-            outsourceCost += Number(String(wsSaved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
-            // 消費税10%込みに換算
-            outsourceCost = Math.round(outsourceCost * 1.1);
-            // 受注金額をフォールバックとして使用（請求書未作成でも売上表に反映）
-            wsOrderAmount = Number(String(wsSaved['wsd-order-amount'] || '').replace(/[^\d]/g, '')) || 0;
+            // 外注：課税は×1.1、非課税はそのまま（_calcCaseSales と同じ扱い）
+            let base = 0, exempt = 0;
+            loadOutsourceItems(wsSaved).forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) exempt += c; else base += c; });
+            base += Number(String(wsSaved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
+            outsourceCost = Math.round(base * 1.1) + exempt;
+            // 受注金額は税別（本体）→ 売上表では税込換算（請求済案件＝税込と揃える）
+            const oa = Number(String(wsSaved['wsd-order-amount'] || '').replace(/[^\d]/g, '')) || 0;
+            subtotal = oa;
+            tax      = Math.floor(oa * 0.1);
+            total    = oa + tax;
           } catch(e) {}
           items.push({
             num: p.num, title: p.title || '', client: p.company || '', date: status.invDate || p.date || '',
-            subtotal: wsOrderAmount, tax: 0, total: wsOrderAmount,
-            outsourceCost, netInhouse: wsOrderAmount - outsourceCost,
+            subtotal, tax, total,
+            outsourceCost, netInhouse: total - outsourceCost,
             billed: !!status.billed, paid: !!status.paid, outsourcePaid: !!status.outsourcePaid
           });
           return;
@@ -14692,7 +14707,8 @@
         name: name || '名目未設定',
         qty:  1,
         unit: '式',
-        price: cost
+        price: cost,
+        taxable: (o.taxable !== false) // WSの外注の課税/非課税を請求書明細にも引き継ぐ
       });
     });
 
@@ -14756,19 +14772,19 @@
       if (!isNaN(oaNum) && oaNum > 0) {
         oaEl.textContent = '¥' + oaNum.toLocaleString();
         oaEl.style.color = '#c0392b';
-        // 外注費＝レンタル料金合計＋外注料金合計
+        // 受注額は税別 → 税込換算して売上ベースに（売上表と同じ計算）
+        const revenue = oaNum + Math.floor(oaNum * 0.1);
+        // 外注費（実際に支払う税込）＝ レンタル(課税)＋外注リスト（課税×1.1／非課税そのまま）
         const rentalTotal = loadRentalItems(saved).reduce((s, r) => s + (Number(r.cost) || 0), 0);
-        const outsourceTotal = loadOutsourceItems(saved).reduce((s, o) => s + (Number(o.cost) || 0), 0);
-        const net = oaNum - rentalTotal - outsourceTotal;
+        let osBase = 0, osExempt = 0;
+        loadOutsourceItems(saved).forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) osExempt += c; else osBase += c; });
+        const outsourcePaid = Math.round((osBase + rentalTotal) * 1.1) + osExempt;
+        const net = revenue - outsourcePaid;
         if (netEl) {
-          if (rentalTotal > 0 || outsourceTotal > 0) {
-            netEl.innerHTML =
-              `（− レンタル ¥${rentalTotal.toLocaleString()} ` +
-              `− 外注 ¥${outsourceTotal.toLocaleString()} ＝ ` +
-              `<span style="color:#2980b9;font-weight:bold;">想定売上 ¥${net.toLocaleString()}</span>）`;
-          } else {
-            netEl.textContent = '';
-          }
+          netEl.innerHTML =
+            `（税込 ¥${revenue.toLocaleString()}` +
+            (outsourcePaid > 0 ? ` − 外注・レンタル ¥${outsourcePaid.toLocaleString()}` : '') +
+            ` ＝ <span style="color:#2980b9;font-weight:bold;">想定売上 ¥${net.toLocaleString()}</span>）`;
         }
       } else {
         oaEl.textContent = '― 未入力';
@@ -14903,8 +14919,9 @@
       const lines = outsourceItems.map(o => {
         const n = o.name || '(名目なし)';
         const c = (o.cost !== '' && !isNaN(Number(o.cost))) ? ' ¥' + Number(o.cost).toLocaleString() : '';
+        const taxNote = (o.taxable === false) ? '<span style="font-size:10px;color:#888;">（非課税）</span>' : '';
         return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dashed #eee;">
-                  <span>🤝 ${escapeHtml(n)}</span>
+                  <span>🤝 ${escapeHtml(n)} ${taxNote}</span>
                   <span style="color:#c0392b;font-weight:bold;font-size:13px;">${c}</span>
                 </div>`;
       }).join('');
@@ -15198,7 +15215,7 @@
     // 後方互換：旧形式の単一値があれば1行に変換
     const name = saved['wsd-outsource']      || '';
     const cost = saved['wsd-outsource-cost'] || '';
-    if (name || cost) return [{ name, cost: String(cost) }];
+    if (name || cost) return [{ name, cost: String(cost), taxable: true }]; // 旧データは課税扱い（従来どおり×1.1）
     return [];
   }
   // 行を描画（デフォルト3行、items が多ければそれを表示）
@@ -15215,10 +15232,15 @@
   function _appendOutsourceRow(wrap, it) {
     const row = document.createElement('div');
     row.className = 'wsd-outsource-row';
-    row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+    const taxable = (it.taxable !== false); // フラグ無し（旧データ・新規行）は課税
     row.innerHTML = `
-      <input type="text" class="wsd-input wsd-os-name" placeholder="名目 (例: ドローン撮影 ◯◯社)" value="${escapeHtml(it.name || '')}" style="flex:2;min-width:0;">
-      <input type="number" class="wsd-input wsd-os-cost" placeholder="料金" value="${escapeHtml(String(it.cost || ''))}" min="0" style="flex:1;max-width:130px;">
+      <input type="text" class="wsd-input wsd-os-name" placeholder="名目 (例: ドローン撮影 ◯◯社)" value="${escapeHtml(it.name || '')}" style="flex:2;min-width:120px;">
+      <input type="number" class="wsd-input wsd-os-cost" placeholder="料金" value="${escapeHtml(String(it.cost || ''))}" min="0" style="flex:1;max-width:100px;min-width:0;">
+      <select class="wsd-input wsd-os-tax" title="課税＝税抜で入力(自動で+10%)／非課税＝そのまま" style="max-width:92px;flex-shrink:0;">
+        <option value="1" ${taxable ? 'selected' : ''}>課税</option>
+        <option value="0" ${taxable ? '' : 'selected'}>非課税</option>
+      </select>
       <button type="button" onclick="this.parentElement.remove()" title="この行を削除"
         style="background:#e74c3c;color:white;border:2px solid #922b21;padding:0 10px;border-radius:3px;font-size:15px;cursor:pointer;height:34px;line-height:1;flex-shrink:0;">×</button>
     `;
@@ -15235,7 +15257,8 @@
     wrap.querySelectorAll('.wsd-outsource-row').forEach(r => {
       const name = r.querySelector('.wsd-os-name').value.trim();
       const cost = r.querySelector('.wsd-os-cost').value.trim();
-      if (name || cost) rows.push({ name, cost });
+      const taxable = (r.querySelector('.wsd-os-tax')?.value !== '0'); // 既定は課税
+      if (name || cost) rows.push({ name, cost, taxable });
     });
     return rows;
   }
