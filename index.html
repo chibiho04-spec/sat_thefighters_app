@@ -3719,38 +3719,6 @@
           </div>
         </div>
 
-        <!-- ② ゲームステータス（将来のミニゲーム用） -->
-        <div style="flex:1 1 190px;display:flex;flex-direction:column;gap:4px;font-size:11px;border-right:1px dashed #ccc;padding-right:8px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;white-space:nowrap;">
-              <span>🦾 筋力</span><span id="user-stat-str" style="color:#c0392b;font-weight:bold;">0</span>
-            </div>
-            <div style="background:#eee;height:6px;border-radius:3px;overflow:hidden;margin-top:1px;">
-              <div id="user-stat-str-bar" style="background:linear-gradient(90deg,#e74c3c,#c0392b);height:100%;width:0%;"></div>
-            </div>
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;white-space:nowrap;">
-              <span>⚡ 素早さ</span><span id="user-stat-spd" style="color:#d35400;font-weight:bold;">0</span>
-            </div>
-            <div style="background:#eee;height:6px;border-radius:3px;overflow:hidden;margin-top:1px;">
-              <div id="user-stat-spd-bar" style="background:linear-gradient(90deg,#f39c12,#e67e22);height:100%;width:0%;"></div>
-            </div>
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;white-space:nowrap;">
-              <span>🛡 粘り強さ</span><span id="user-stat-end" style="color:#1e3a5f;font-weight:bold;">0</span>
-            </div>
-            <div style="background:#eee;height:6px;border-radius:3px;overflow:hidden;margin-top:1px;">
-              <div id="user-stat-end-bar" style="background:linear-gradient(90deg,#3498db,#2980b9);height:100%;width:0%;"></div>
-            </div>
-          </div>
-          <div style="margin-top:2px;">
-            <div style="font-size:10px;color:#888;">✨ 覚えた技</div>
-            <div id="user-stat-skills" style="font-size:10px;color:#444;line-height:1.3;"></div>
-          </div>
-        </div>
-
         <!-- ③ 業務ステータス -->
         <div style="flex:1 1 130px;display:flex;flex-direction:column;gap:5px;font-size:11px;white-space:nowrap;">
           <div style="border-bottom:1px dashed #ddd;padding-bottom:4px;">
@@ -7611,13 +7579,6 @@
     document.getElementById('user-stat-level').textContent = staff.level;
     document.getElementById('user-stat-exp-text').textContent = `${staff.exp}/${staff.expNext}`;
     document.getElementById('user-stat-exp-bar').style.width = Math.min(100, (staff.exp / staff.expNext) * 100) + '%';
-    document.getElementById('user-stat-str').textContent = staff.str;
-    document.getElementById('user-stat-spd').textContent = staff.spd;
-    document.getElementById('user-stat-end').textContent = staff.end;
-    document.getElementById('user-stat-str-bar').style.width = staff.str + '%';
-    document.getElementById('user-stat-spd-bar').style.width = staff.spd + '%';
-    document.getElementById('user-stat-end-bar').style.width = staff.end + '%';
-    document.getElementById('user-stat-skills').innerHTML = (staff.skills || []).map(s => `・${s}`).join('<br>');
     card.style.cursor = 'pointer';
     card.onclick = () => openStaffDetail(loginName);
     card.style.display = 'flex';
