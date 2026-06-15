@@ -6063,17 +6063,20 @@
         <div class="wsd-field-row" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap;">
           <label class="wsd-label" style="white-space:nowrap;">受注番号</label>
           <div id="np-prefix-group" style="display:inline-flex;gap:4px;">
-            <button type="button" class="np-prefix-btn selected" data-prefix="T" onclick="selectOrderPrefix('T')"
+            <button type="button" class="np-prefix-btn selected" data-prefix="T" onclick="selectOrderPrefix('T')" title="技術部（撮影・音声）"
               style="font-family:'DotGothic16',monospace;font-size:14px;background:#27ae60;color:white;border:2px solid #1a7a40;padding:5px 14px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;">T</button>
-            <button type="button" class="np-prefix-btn" data-prefix="E" onclick="selectOrderPrefix('E')"
+            <button type="button" class="np-prefix-btn" data-prefix="E" onclick="selectOrderPrefix('E')" title="編集"
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 14px;border-radius:3px;cursor:pointer;">E</button>
-            <button type="button" class="np-prefix-btn" data-prefix="D" onclick="selectOrderPrefix('D')"
-              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 14px;border-radius:3px;cursor:pointer;">D</button>
+            <button type="button" class="np-prefix-btn" data-prefix="P" onclick="selectOrderPrefix('P')" title="制作（演出）"
+              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 14px;border-radius:3px;cursor:pointer;">P</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <input id="np-num" class="wsd-input" type="number" style="width:90px;"
-              placeholder="26041" oninput="updateNpNum()">
-            <span id="np-num-preview" style="font-size:12px;color:#888;">→ T26041</span>
+              placeholder="26001" oninput="updateNpNum()">
+            <span id="np-num-preview" style="font-size:12px;color:#888;">→ T26001</span>
+          </div>
+          <div style="flex-basis:100%;font-size:11px;color:#888;line-height:1.5;">
+            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）　※番号は年ごとに自動でリセット
           </div>
         </div>
       </div>
@@ -14291,16 +14294,19 @@
 
   // ===== 新規案件登録 =====
 
+  // 受注番号の次番号を返す。形式は「接頭辞 + 西暦下2桁 + 連番3桁」。
+  // 連番は《その接頭辞 × その年》ごとに独立し、年が変わると自動で 001 に戻る。
+  //   例）2026年の T 最大が T26044 → "26045"（→ T26045）／ 2027年最初は "27001"（→ T27001）
   function getNextOrderNum(prefix) {
     prefix = (prefix || 'T').toUpperCase();
-    const re = new RegExp('^' + prefix + '(\\d+)$', 'i');
+    const yy = String(new Date().getFullYear()).slice(-2); // 例 "26"
+    const re = new RegExp('^' + prefix + yy + '(\\d+)$', 'i');
     const saved = getSavedProjects();
-    const existingNums = Object.keys(wsData)
-      .map(k => { const m = k.match(re); return m ? parseInt(m[1], 10) : NaN; });
-    const savedNums = saved
-      .map(p => { const m = String(p.num || '').match(re); return m ? parseInt(m[1], 10) : NaN; });
-    const allNums = [...existingNums, ...savedNums].filter(n => !isNaN(n));
-    return allNums.length ? Math.max(...allNums) + 1 : 26041;
+    const nums = [...Object.keys(wsData), ...saved.map(p => String(p.num || ''))]
+      .map(k => { const m = String(k).match(re); return m ? parseInt(m[1], 10) : NaN; })
+      .filter(n => !isNaN(n));
+    const nextSeq = nums.length ? Math.max(...nums) + 1 : 1;
+    return yy + String(nextSeq).padStart(3, '0'); // 例 "26045" / 翌年 "27001"
   }
 
   // ===== 担当クルー プルダウン =====
