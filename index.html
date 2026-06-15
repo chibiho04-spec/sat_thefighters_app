@@ -2055,10 +2055,10 @@
       font-size: 21px;              /* 約1.5倍に拡大（老眼配慮・ユーザー要望 2026-06-07） */
       flex: 0 1 auto !important;     /* キャラと吹き出しを縮めて空を見せる */
       max-width: 540px;
-      padding: 5px 10px !important;
-      line-height: 1.4 !important;
+      padding: 4px 10px !important;
+      line-height: 1.3 !important;  /* 2行が80pxのシーンエリアに収まるよう詰める */
       align-self: flex-end !important;
-      margin-bottom: 6px;
+      margin-bottom: 2px;
     }
     /* ビル：80px帯に収まるよう縮小 */
     .building {
@@ -15989,21 +15989,21 @@
       if (!res.ok) throw new Error('weather http ' + res.status);
       const day = (await res.json()).daily || {};
       const idx = {}; (day.time || []).forEach((t, i) => idx[t] = i);
+      // 吹き出しは固定高(約80px)なので、必ず2行に収まる短さにする
       return shoots.map(s => {
-        const more = s.titles.length > 1 ? ` 他${s.titles.length - 1}件` : '';
-        const head = `${s.m}/${s.d}(${_DOW[s.dow]}) ${escapeHtml((s.titles[0] || '無題').slice(0, 8))}${more}`;
+        const head = `📷 ${s.m}/${s.d}(${_DOW[s.dow]}) ${escapeHtml((s.titles[0] || '無題').slice(0, 6))}`;
         const i = idx[s.iso];
-        if (i == null) return `📅 ${head} の撮影<br>天気は取得範囲外だよ<span class="blink">█</span>`;
+        if (i == null) return `${head}<br>天気は取得範囲外だよ<span class="blink">█</span>`;
         const w = _WMO[day.weather_code[i]] || ['🌈', '—'];
         const tmax = Math.round(day.temperature_2m_max[i]);
         const tmin = Math.round(day.temperature_2m_min[i]);
         const code = day.weather_code[i];
         const mm = (day.precipitation_sum || [])[i];
-        const rain = (mm == null) ? '' : (mm < 0.1 ? '・雨なし' : `・雨量${mm < 10 ? mm.toFixed(1) : Math.round(mm)}mm`);
-        const warn = (code >= 95) ? ' ⚡雷雨注意！'
-                   : (mm != null && mm >= 20) ? ' ☔強い雨に注意！'
-                   : (mm != null && mm >= 3)  ? ' ☔傘の準備を！' : '';
-        return `${w[0]} ${head} の撮影<br>${w[1]}・最高${tmax}°/最低${tmin}°${rain}${warn}<span class="blink">█</span>`;
+        const rain = (mm == null) ? '' : (mm < 0.1 ? ' 雨なし' : ` 雨${mm < 10 ? mm.toFixed(1) : Math.round(mm)}mm`);
+        const warn = (code >= 95) ? ' ⚡雷雨'
+                   : (mm != null && mm >= 20) ? ' ☔大雨'
+                   : (mm != null && mm >= 3)  ? ' ☔傘' : '';
+        return `${head}<br>${w[0]} ${w[1]} ${tmax}°/${tmin}°${rain}${warn}<span class="blink">█</span>`;
       });
     } catch (e) {
       console.warn('weather fetch failed', e);
