@@ -4878,27 +4878,23 @@
               <input id="inv-screen-staff" type="text" placeholder="自社担当"
                 style="flex:1;min-width:0;width:90px;border:none;border-bottom:1px dashed #aaa;background:transparent;font-size:10pt;padding:1px 2px;font-family:inherit;">
             </div>
-          </div>
-        </div>
-
-        <!-- 受注番号（新規の単独書類はT/E/Pで採番・編集可。既存案件/INV-等は表示のみ） -->
-        <div class="invd-subject-row" style="margin-top:4px;align-items:center;">
-          <div class="invd-subject-label">受注番号</div>
-          <div style="flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <div id="inv-order-edit" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
-              <div id="inv-order-prefix-group" style="display:inline-flex;gap:3px;">
-                <button type="button" class="inv-order-pfx-btn" data-prefix="T" onclick="selectInvOrderPrefix('T')" title="技術部（撮影・音声）"
-                  style="font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#27ae60;border:2px solid #27ae60;padding:3px 11px;border-radius:3px;cursor:pointer;">T</button>
-                <button type="button" class="inv-order-pfx-btn" data-prefix="E" onclick="selectInvOrderPrefix('E')" title="編集"
-                  style="font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#27ae60;border:2px solid #27ae60;padding:3px 11px;border-radius:3px;cursor:pointer;">E</button>
-                <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
-                  style="font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#27ae60;border:2px solid #27ae60;padding:3px 11px;border-radius:3px;cursor:pointer;">P</button>
+            <!-- 受注番号（自社担当の直下・右揃え）。新規はT/E/P編集可、既存は表示のみ -->
+            <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;flex-wrap:wrap;margin-top:4px;">
+              <span style="font-size:12px;color:#888;">受注番号</span>
+              <div id="inv-order-edit" style="display:none;align-items:center;gap:4px;">
+                <div id="inv-order-prefix-group" style="display:inline-flex;gap:2px;">
+                  <button type="button" class="inv-order-pfx-btn" data-prefix="T" onclick="selectInvOrderPrefix('T')" title="技術部（撮影・音声）"
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 8px;border-radius:3px;cursor:pointer;">T</button>
+                  <button type="button" class="inv-order-pfx-btn" data-prefix="E" onclick="selectInvOrderPrefix('E')" title="編集"
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 8px;border-radius:3px;cursor:pointer;">E</button>
+                  <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 8px;border-radius:3px;cursor:pointer;">P</button>
+                </div>
+                <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
+                  style="width:74px;font-family:'DotGothic16',monospace;font-size:12px;border:1px solid #aaa;border-radius:3px;padding:2px 6px;text-align:right;">
               </div>
-              <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
-                style="width:88px;font-family:'DotGothic16',monospace;font-size:13px;border:1px solid #aaa;border-radius:3px;padding:3px 6px;">
-              <span style="font-size:10px;color:#888;">T=技術部 / E=編集 / P=制作</span>
+              <span id="inv-order-readonly" style="display:none;font-family:'DotGothic16',monospace;font-size:12pt;color:#c0392b;font-weight:bold;"></span>
             </div>
-            <span id="inv-order-readonly" style="display:none;font-family:'DotGothic16',monospace;font-size:13pt;color:#c0392b;font-weight:bold;"></span>
           </div>
         </div>
 
