@@ -15939,18 +15939,96 @@
   // 初回は少し待ってから開始
   setTimeout(teppouLoop, 1200);
 
-  // セリフをランダム変更（2行に統一）
-  const messages = [
-    '📸 今週も撮影3件入ってるよ！<br>未請求 <strong style="color:#e74c3c;">3件</strong> 早めに請求書を送ってね！<span class="blink">█</span>',
-    '💴 今月の請求額が目標に近づいてきた！<br>このまま頑張ろう！<span class="blink">█</span>',
-    '🎥 機材のダブルブッキングなし！<br>スケジュール管理バッチリだよ<span class="blink">█</span>',
-    '⚠️ Z26036の作業報告がまだ未入力！<br>現場から報告してね！<span class="blink">█</span>',
+  // ===== 川崎会長の天気予報セリフ（直近2週間の撮影日の天気を実際の予報と照合） =====
+  // 天気はOpen-Meteo（APIキー不要・CORS対応・16日先まで）。場所は会社所在地の沖縄（浦添）。
+  const _WMO = {
+    0:['☀️','快晴'],1:['🌤','晴れ'],2:['⛅','薄曇り'],3:['☁️','曇り'],
+    45:['🌫','霧'],48:['🌫','霧'],
+    51:['🌦','霧雨'],53:['🌦','霧雨'],55:['🌦','強い霧雨'],56:['🌧','凍える霧雨'],57:['🌧','凍える霧雨'],
+    61:['🌧','小雨'],63:['🌧','雨'],65:['🌧','強い雨'],66:['🌧','凍える雨'],67:['🌧','凍える雨'],
+    71:['🌨','小雪'],73:['🌨','雪'],75:['🌨','大雪'],77:['🌨','霧雪'],
+    80:['🌦','にわか雨'],81:['🌦','にわか雨'],82:['🌦','激しいにわか雨'],
+    85:['🌨','にわか雪'],86:['🌨','にわか雪'],
+    95:['⛈','雷雨'],96:['⛈','雷雨'],99:['⛈','激しい雷雨']
+  };
+  const _DOW = ['日','月','火','水','木','金','土'];
+
+  // 直近 days 日以内で撮影がある日を集める（カレンダーと同じ getEventsForDate を使用）
+  function _collectUpcomingShoots(days) {
+    const out = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 0; i < days; i++) {
+      const dt = new Date(today); dt.setDate(today.getDate() + i);
+      const y = dt.getFullYear(), m = dt.getMonth(), d = dt.getDate();
+      let evs = [];
+      try { evs = (typeof getEventsForDate === 'function') ? getEventsForDate(y, m, d) : []; } catch (e) {}
+      if (evs.length) {
+        out.push({
+          m: m + 1, d, dow: dt.getDay(),
+          iso: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+          titles: evs.map(e => e.title || e.num || '')
+        });
+      }
+    }
+    return out;
+  }
+
+  // 撮影日ごとの天気セリフ配列を作る（取得失敗なら null）
+  async function _buildWeatherMessages() {
+    const shoots = _collectUpcomingShoots(14);
+    if (!shoots.length) {
+      return ['☀️ 直近2週間に撮影の予定はないよ。<br>ゆっくり次の準備をしよう！<span class="blink">█</span>'];
+    }
+    try {
+      const url = 'https://api.open-meteo.com/v1/forecast?latitude=26.25&longitude=127.72'
+        + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
+        + '&timezone=Asia%2FTokyo&forecast_days=16';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('weather http ' + res.status);
+      const day = (await res.json()).daily || {};
+      const idx = {}; (day.time || []).forEach((t, i) => idx[t] = i);
+      return shoots.map(s => {
+        const more = s.titles.length > 1 ? ` 他${s.titles.length - 1}件` : '';
+        const head = `${s.m}/${s.d}(${_DOW[s.dow]}) ${escapeHtml((s.titles[0] || '無題').slice(0, 8))}${more}`;
+        const i = idx[s.iso];
+        if (i == null) return `📅 ${head} の撮影<br>天気は取得範囲外だよ<span class="blink">█</span>`;
+        const w = _WMO[day.weather_code[i]] || ['🌈', '—'];
+        const tmax = Math.round(day.temperature_2m_max[i]);
+        const tmin = Math.round(day.temperature_2m_min[i]);
+        const pop = day.precipitation_probability_max[i];
+        const code = day.weather_code[i];
+        const warn = (code >= 95) ? ' ⚡雷雨注意！' : (pop != null && pop >= 60) ? ' ☔傘の準備を！' : '';
+        const rain = (pop != null) ? `・降水${pop}%` : '';
+        return `${w[0]} ${head} の撮影<br>${w[1]}・最高${tmax}°/最低${tmin}°${rain}${warn}<span class="blink">█</span>`;
+      });
+    } catch (e) {
+      console.warn('weather fetch failed', e);
+      return null;
+    }
+  }
+
+  // セリフのローテーション（天気予報優先・取れない時は既定）
+  const _defaultMessages = [
+    '🎬 今日も一日、安全第一でいこう！<br>進行中の案件を確認してね<span class="blink">█</span>',
+    '💴 請求もれはないかな？<br>会計室で売上をチェックしよう<span class="blink">█</span>',
   ];
-  let msgIdx = 0;
-  setInterval(() => {
-    msgIdx = (msgIdx + 1) % messages.length;
-    document.querySelector('.speech-bubble').innerHTML = messages[msgIdx];
-  }, 4000);
+  let _bubbleMessages = _defaultMessages.slice();
+  let _bubbleIdx = 0;
+  function _showBubbleMsg() {
+    const b = document.querySelector('.speech-bubble');
+    if (b && _bubbleMessages.length) b.innerHTML = _bubbleMessages[_bubbleIdx % _bubbleMessages.length];
+  }
+  async function refreshWeatherBubble() {
+    const b = document.querySelector('.speech-bubble');
+    if (b) b.innerHTML = '🌤 撮影日の天気を確認中…<span class="blink">█</span>';
+    const msgs = await _buildWeatherMessages();
+    _bubbleMessages = (msgs && msgs.length) ? msgs : _defaultMessages.slice();
+    _bubbleIdx = 0;
+    _showBubbleMsg();
+  }
+  setTimeout(refreshWeatherBubble, 1500);          // 起動時に取得
+  setInterval(refreshWeatherBubble, 30 * 60 * 1000); // 30分ごとに更新
+  setInterval(() => { _bubbleIdx = (_bubbleIdx + 1) % _bubbleMessages.length; _showBubbleMsg(); }, 4000); // 4秒ごとにローテーション
 </script>
 </body>
 </html>
