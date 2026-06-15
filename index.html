@@ -4881,6 +4881,27 @@
           </div>
         </div>
 
+        <!-- 受注番号（新規の単独書類はT/E/Pで採番・編集可。既存案件/INV-等は表示のみ） -->
+        <div class="invd-subject-row" style="margin-top:4px;align-items:center;">
+          <div class="invd-subject-label">受注番号</div>
+          <div style="flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <div id="inv-order-edit" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
+              <div id="inv-order-prefix-group" style="display:inline-flex;gap:3px;">
+                <button type="button" class="inv-order-pfx-btn" data-prefix="T" onclick="selectInvOrderPrefix('T')" title="技術部（撮影・音声）"
+                  style="font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#27ae60;border:2px solid #27ae60;padding:3px 11px;border-radius:3px;cursor:pointer;">T</button>
+                <button type="button" class="inv-order-pfx-btn" data-prefix="E" onclick="selectInvOrderPrefix('E')" title="編集"
+                  style="font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#27ae60;border:2px solid #27ae60;padding:3px 11px;border-radius:3px;cursor:pointer;">E</button>
+                <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
+                  style="font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#27ae60;border:2px solid #27ae60;padding:3px 11px;border-radius:3px;cursor:pointer;">P</button>
+              </div>
+              <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
+                style="width:88px;font-family:'DotGothic16',monospace;font-size:13px;border:1px solid #aaa;border-radius:3px;padding:3px 6px;">
+              <span style="font-size:10px;color:#888;">T=技術部 / E=編集 / P=制作</span>
+            </div>
+            <span id="inv-order-readonly" style="display:none;font-family:'DotGothic16',monospace;font-size:13pt;color:#c0392b;font-weight:bold;"></span>
+          </div>
+        </div>
+
         <!-- 件名・作業日 -->
         <div class="invd-subject-row">
           <div class="invd-subject-label">件名</div>
@@ -8668,12 +8689,69 @@
     return head + String(nextSeq).padStart(3, '0');
   }
 
+  // ===== 単独で作る書類の受注番号（T/E/Pに統一・ワークシートと連番共有） =====
+  let _invIsNew = false;       // 新規作成中（番号を編集できる）か
+  let _invOrderPrefix = 'T';   // 受注番号の接頭辞
+
+  // 受注番号が既にワークシート/案件/請求書のいずれかで使われているか
+  function _orderNumExists(num) {
+    if (!num) return false;
+    if (localStorage.getItem('ws_'  + num)) return true;
+    if (localStorage.getItem('inv_' + num)) return true;
+    if (typeof wsData === 'object' && wsData && wsData[num]) return true;
+    try { if (getSavedProjects().some(p => String(p.num) === String(num))) return true; } catch (e) {}
+    return false;
+  }
+  function _highlightInvOrderPrefix() {
+    document.querySelectorAll('#inv-order-prefix-group .inv-order-pfx-btn').forEach(b => {
+      const on = b.dataset.prefix === _invOrderPrefix;
+      b.style.background = on ? '#27ae60' : 'white';
+      b.style.color      = on ? 'white'   : '#27ae60';
+      b.style.boxShadow  = on ? '2px 2px 0 #1a7a40' : 'none';
+    });
+  }
+  // 受注番号フィールドを描画。editable=true で接頭辞ボタン＋番号入力、false で表示のみ。
+  function _setInvOrderField(num, editable) {
+    const editWrap = document.getElementById('inv-order-edit');
+    const ro       = document.getElementById('inv-order-readonly');
+    const input    = document.getElementById('inv-order-num');
+    if (!editWrap || !ro || !input) return;
+    const m = String(num || '').match(/^([TEP])(\d+)$/i);
+    if (editable && m) {
+      editWrap.style.display = 'flex';
+      ro.style.display = 'none';
+      _invOrderPrefix = m[1].toUpperCase();
+      input.value = m[2];
+      _highlightInvOrderPrefix();
+    } else {
+      editWrap.style.display = 'none';
+      ro.style.display = 'inline';
+      ro.textContent = num || '';
+    }
+  }
+  // フィールドの接頭辞＋番号を inv-detail-num / inv-screen-num に反映
+  function _applyInvOrderNum() {
+    const digits = (document.getElementById('inv-order-num').value || '').replace(/[^0-9]/g, '');
+    const num = _invOrderPrefix + digits;
+    document.getElementById('inv-detail-num').textContent = num;
+    const sn = document.getElementById('inv-screen-num'); if (sn) sn.textContent = num;
+  }
+  function selectInvOrderPrefix(p) {
+    _invOrderPrefix = (p || 'T').toUpperCase();
+    _highlightInvOrderPrefix();
+    if (_invIsNew) document.getElementById('inv-order-num').value = getNextOrderNum(_invOrderPrefix); // 接頭辞ごとの次番号
+    _applyInvOrderNum();
+  }
+  function updateInvOrderNum() { _applyInvOrderNum(); }
+
   function _openBlankInvScreen(action) {
     _attachInvCompanyAc();
     const today = new Date().toLocaleDateString('ja-JP',
       {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
-    // 自動採番（'新規' という固定文字列ではなく実番号を入れて保存可能にする）
-    const newNum = generateNewInvNum(_actionToMode(action));
+    // 受注番号を T/E/P で自動採番（ワークシートと連番を共有・重複しない）。新規は編集可
+    _invIsNew = true;
+    _invOrderPrefix = 'T';
+    const newNum = 'T' + getNextOrderNum('T');
     document.getElementById('inv-screen-num').textContent     = newNum;
     _setInvClientFields('', '');
     document.getElementById('inv-screen-zip').textContent     = '';
@@ -8683,6 +8761,7 @@
     document.getElementById('inv-screen-staff').value         = '';
     document.getElementById('inv-screen-invdate').value       = today;
     document.getElementById('inv-detail-num').textContent     = newNum;
+    _setInvOrderField(newNum, true); // 受注番号フィールド（編集可）
     const memoEl2 = document.getElementById('inv-screen-memo');
     if (memoEl2) memoEl2.value = '';
     renderInvOutsourceRows([]); // 新規作成は空（最低1行）
@@ -8921,6 +9000,7 @@
     // 納品書モードで編集画面を開く（番号・宛先・明細をセット）
     document.getElementById('inv-screen-num').textContent  = newNum;
     document.getElementById('inv-detail-num').textContent  = newNum;
+    _invIsNew = false; _setInvOrderField(newNum, false); // 納品書化：受注番号は表示のみ
     _setInvClientFields(status.company, status.contact);
     document.getElementById('inv-screen-zip').textContent  = status.zip;
     document.getElementById('inv-screen-addr').textContent = status.addr;
@@ -9012,6 +9092,17 @@
       alert('受注Noが未設定のため保存できません。\nワークシートから請求書を作成すると保存可能になります。');
       return;
     }
+    // 新規の単独書類：受注番号の妥当性と重複をチェック
+    if (_invIsNew) {
+      if (!/^[TEP]\d+$/i.test(num)) {
+        alert('受注番号を入力してください（例：T26046）。');
+        return;
+      }
+      if (_orderNumExists(num)) {
+        alert(`受注番号「${num}」は既に使われています。\n別の番号にしてください（次の空き番号：${_invOrderPrefix}${getNextOrderNum(_invOrderPrefix)}）。`);
+        return;
+      }
+    }
     // 明細行を収集
     const tbody = document.getElementById('inv-lines-body');
     const lines = [];
@@ -9054,6 +9145,7 @@
     status.outsourceExtra     = _sumInvOutsource(_invOsList); // 後方互換：合計のミラー
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
+    if (_invIsNew) { _invIsNew = false; _setInvOrderField(num, false); } // 保存後は番号を確定（以後は表示のみ）
     _markClean('inv-detail-screen');
 
     // 売上表が開いていれば即時再描画
@@ -9161,6 +9253,7 @@
     // 発行済みの場合は保存済み日付のみを使う（今日の日付で上書きしない）
     document.getElementById('inv-screen-invdate').value      = status.invDate || (isBilled ? '' : today);
     document.getElementById('inv-detail-num').textContent    = num;
+    _invIsNew = false; _setInvOrderField(num, false); // 既存書類は受注番号を表示のみ
     const memoEl0 = document.getElementById('inv-screen-memo');
     if (memoEl0) memoEl0.value = status.memo || '';
     renderInvOutsourceRows(_loadInvOutsourceList(status));
@@ -12263,13 +12356,15 @@
         items.push(_calcCaseSales(p.num, { title: p.title, client: p.company, date: p.date, lines: status.lines }));
       });
     } catch(e) { console.warn(e); }
-    // 案件と紐づかない単独請求書（INV-xxxxx、書類一覧の新規作成で採番）も売上に含める。
-    // 見積書（EST-）・納品書（DLV-）は売上ではないため対象外。
+    // 案件と紐づかない単独請求書も売上に含める。
+    // 対象：INV-xxxxx（旧）と T/E/P受注番号（新）。見積書（EST-）・納品書（DLV-）は対象外。
+    // 案件由来の請求書(T26044等)は上の projects_saved ループで seen 済みなので二重計上しない。
     try {
       const deletedInv = JSON.parse(localStorage.getItem('deleted_inv') || '[]');
       Object.keys(localStorage).forEach(k => {
-        if (k.indexOf('inv_INV-') !== 0) return;
+        if (k.indexOf('inv_') !== 0) return;
         const num = k.slice(4);
+        if (!/^(INV-\d|[TEP]\d)/.test(num)) return; // INV- か T/E/P受注番号のみ（EST-/DLV-は除外）
         if (seen.has(num)) return; seen.add(num);
         if (deletedInv.includes(num)) return;
         const status = loadInvStatus(num) || {};
@@ -14302,11 +14397,15 @@
     const yy = String(new Date().getFullYear()).slice(-2); // 例 "26"
     const re = new RegExp('^' + prefix + yy + '(\\d+)$', 'i');
     const saved = getSavedProjects();
-    const nums = [...Object.keys(wsData), ...saved.map(p => String(p.num || ''))]
+    // ワークシート（wsData/projects_saved）＋単独請求書（inv_キー）の両方を走査して
+    // 番号が絶対に被らないようにする（受注番号を T/E/P に一本化したため）
+    const invKeyNums = Object.keys(localStorage)
+      .filter(k => k.indexOf('inv_') === 0).map(k => k.slice(4));
+    const nums = [...Object.keys(wsData), ...saved.map(p => String(p.num || '')), ...invKeyNums]
       .map(k => { const m = String(k).match(re); return m ? parseInt(m[1], 10) : NaN; })
       .filter(n => !isNaN(n));
     const nextSeq = nums.length ? Math.max(...nums) + 1 : 1;
-    return yy + String(nextSeq).padStart(3, '0'); // 例 "26045" / 翌年 "27001"
+    return yy + String(nextSeq).padStart(3, '0'); // 例 "26046" / 翌年 "27001"
   }
 
   // ===== 担当クルー プルダウン =====
@@ -14471,7 +14570,7 @@
     if (!company)            { alert('取引先を入力してください'); return; }
     if (!title)              { alert('件名を入力してください'); return; }
     if (!date)               { alert('撮影日程を入力してください'); return; }
-    if (wsData[num])         { alert(`${num} はすでに登録済みです`); return; }
+    if (_orderNumExists(num)) { alert(`${num} はすでに使われています（案件または請求書）`); return; }
 
     // オートコンプリートで選んだ取引先のコード（あれば）
     const clientCode = document.getElementById('np-company')?.dataset.clientCode || '';
@@ -14620,6 +14719,7 @@
     // 発行済みの場合は保存済み日付のみを使う（今日の日付で上書きしない）
     document.getElementById('inv-screen-invdate').value      = savedStatus.invDate  || (savedStatus.billed ? '' : today);
     document.getElementById('inv-detail-num').textContent    = num;
+    _invIsNew = false; _setInvOrderField(num, false); // 既存書類は受注番号を表示のみ
     const memoEl1 = document.getElementById('inv-screen-memo');
     if (memoEl1) memoEl1.value = savedStatus.memo || '';
     renderInvOutsourceRows(_loadInvOutsourceList(savedStatus));
