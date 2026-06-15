@@ -3708,13 +3708,14 @@
             <span id="user-stat-level">1</span>
           </div>
 
-          <!-- EXPバー -->
+          <!-- 勤務時間バー（0〜160h。160を超えた分は残業として赤で右に追加） -->
           <div style="width:100%;">
             <div style="display:flex;justify-content:space-between;font-size:8px;color:#888;margin-bottom:1px;">
-              <span>EXP</span><span id="user-stat-exp-text">0/100</span>
+              <span>勤務</span><span id="user-stat-worktime-text">0/160h</span>
             </div>
-            <div style="background:#ddd;height:5px;border-radius:2px;overflow:hidden;border:1px solid #aaa;">
-              <div id="user-stat-exp-bar" style="background:linear-gradient(90deg,#3498db,#9b59b6);height:100%;width:0%;"></div>
+            <div style="display:flex;background:#ddd;height:6px;border-radius:2px;overflow:hidden;border:1px solid #aaa;">
+              <div id="user-stat-worktime-bar" style="background:linear-gradient(90deg,#3498db,#2980b9);height:100%;width:0%;"></div>
+              <div id="user-stat-ot-bar" style="background:linear-gradient(90deg,#e74c3c,#c0392b);height:100%;width:0%;flex-shrink:0;"></div>
             </div>
           </div>
         </div>
@@ -7577,8 +7578,21 @@
     document.getElementById('user-stat-overtime').innerHTML = `${staff.overtime}<span style="font-size:10px;color:#888;">h</span>`;
     // ゲームステータス
     document.getElementById('user-stat-level').textContent = staff.level;
-    document.getElementById('user-stat-exp-text').textContent = `${staff.exp}/${staff.expNext}`;
-    document.getElementById('user-stat-exp-bar').style.width = Math.min(100, (staff.exp / staff.expNext) * 100) + '%';
+    // 勤務時間バー：0〜160hを基準。160を超えた分は残業として赤で右に追加していく
+    const _stdH = 160;
+    const _workedH = Math.max(0, Number(staff.hours) || 0);
+    const _normalH = Math.min(_workedH, _stdH);          // 通常勤務（青）
+    const _otH     = Math.max(0, _workedH - _stdH);       // 残業＝160超過分（赤）
+    const _scaleH  = Math.max(_stdH, _workedH) || _stdH;  // 残業があるとバー全体に対する割合に正規化（0除算回避）
+    document.getElementById('user-stat-worktime-bar').style.width = (_normalH / _scaleH * 100) + '%';
+    const _otBar = document.getElementById('user-stat-ot-bar');
+    _otBar.style.width = (_otH / _scaleH * 100) + '%';
+    // 残業がごく僅かでも赤が見えるよう最小幅3pxと白い区切り線を付ける（160hの節目を明示）
+    if (_otH > 0) { _otBar.style.minWidth = '3px'; _otBar.style.borderLeft = '1px solid #fff'; }
+    else { _otBar.style.minWidth = '0'; _otBar.style.borderLeft = 'none'; }
+    document.getElementById('user-stat-worktime-text').innerHTML = (_otH > 0)
+      ? `<span style="color:#e74c3c;font-weight:bold;">${_workedH}</span>/${_stdH}h`
+      : `${_workedH}/${_stdH}h`;
     card.style.cursor = 'pointer';
     card.onclick = () => openStaffDetail(loginName);
     card.style.display = 'flex';
