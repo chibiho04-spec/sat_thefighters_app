@@ -13232,14 +13232,15 @@
   // ===== Excel書式に準拠した請求書・見積書HTML生成 =====
   function buildDocHTML(type) {
     const _T = {
-      invoice:  { title: '御　請　求　書', date: '御請求日', amt: '御請求金額' },
-      estimate: { title: '御　見　積　書', date: '御見積日', amt: '御見積金額' },
-      delivery: { title: '御　納　品　書', date: '納品日',   amt: '御納品金額' },
+      invoice:  { title: '御　請　求　書', date: '御請求日', amt: '御請求金額', lead: '下記の通りご請求申し上げます。' },
+      estimate: { title: '御　見　積　書', date: '御見積日', amt: '御見積金額', lead: '下記の通り御見積り申し上げます。' },
+      delivery: { title: '御　納　品　書', date: '納品日',   amt: '御納品金額', lead: '下記の通り御納品申し上げます。' },
     };
     const _L = _T[type] || _T.invoice;
     const docTitle   = _L.title;
     const dateLabel  = _L.date;
     const amtLabel   = _L.amt;
+    const leadText   = _L.lead;
 
     // 印刷用HTMLに流し込む文字は全てエスケープ（取引先名の「&」「<」等で印刷が崩れるのを防ぐ）
     const num      = escapeHtml(document.getElementById('inv-detail-num').textContent);
@@ -13292,8 +13293,9 @@
           <td style="${tdS}text-align:center;">${noteCell}</td>
         </tr>`;
     });
-    // 空行補充（最低15行）
-    for (let i = rowCount; i < 15; i++) {
+    // 空行補充：A4一枚に収まるよう最低限の枠だけ見せる（明細が多いときは空行を足さない）
+    const MIN_TABLE_ROWS = 10;
+    for (let i = rowCount; i < MIN_TABLE_ROWS; i++) {
       const bg = i % 2 === 0 ? '#f9f9f9' : 'white';
       linesHTML += `<tr style="background:${bg};">${`<td style="${tdS}">&nbsp;</td>`.repeat(6)}</tr>`;
     }
@@ -13360,7 +13362,7 @@
 
       <!-- 請求日・受注No・担当（タイトル直下右寄せ） -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2mm;">
-        <div style="font-size:8pt;color:#555;">下記の通りご請求申し上げます。</div>
+        <div style="font-size:8pt;color:#555;">${leadText}</div>
         <div style="text-align:right;font-size:8pt;">
           <div>${dateLabel}：<strong>${docDate}</strong></div>
           <div>担当：${staff}</div>
@@ -13423,7 +13425,8 @@
         <div style="white-space:pre-wrap;line-height:1.6;">${escapeHtml(memoTxt)}</div>
       </div>` : '';
       })()}
-      <!-- お振込先 -->
+      ${type === 'estimate' ? '' : `
+      <!-- お振込先（見積書には出さない） -->
       <div style="border-top:1px dashed #bbb;padding-top:3mm;font-size:8pt;color:#444;">
         <div style="font-weight:bold;margin-bottom:2mm;color:#222;">お振込先</div>
         <div style="display:flex;gap:10mm;">
@@ -13431,7 +13434,7 @@
           <div>沖縄銀行　　牧港支店　　（普）1571727</div>
           <div>沖縄海邦銀行　宜野湾支店　（普）0572453</div>
         </div>
-      </div>
+      </div>`}
 
     </div>`;
   }
@@ -14492,7 +14495,9 @@
     if (hasSavedDoc) {
       renderInvLines([], savedStatus.lines, false, savedStatus.discount);
       calcInvTotal();
-      setDocMode(savedStatus.docMode || _actionToMode(action));
+      // 押したボタン（請求書/見積書）どおりに開く。保存済みdocModeを優先すると
+      // 一度見積で保存した案件が請求書ボタンでも見積で開いてしまう（ユーザー報告 2026-06-15）
+      setDocMode(_actionToMode(action));
       document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
       syncCancelBtn(!!savedStatus.billed);
       return;
