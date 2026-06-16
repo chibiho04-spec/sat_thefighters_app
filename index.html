@@ -1488,18 +1488,8 @@
     color: #aaa;
     padding: 5px 0;
   }
-  /* ユーザースタッフカード：フォント拡大（インライン指定を !important で上書き） */
-  #user-staff-card                                  { font-size: 14px; }
-  #user-staff-card div[style*="font-size:15px"]     { font-size: 20px !important; }
-  #user-staff-card div[style*="font-size:13px"]     { font-size: 17px !important; }
-  #user-staff-card div[style*="font-size:12px"]     { font-size: 15px !important; }
-  #user-staff-card div[style*="font-size:11px"]     { font-size: 14px !important; }
-  #user-staff-card div[style*="font-size:10px"]      { font-size: 13px !important; }
-  #user-staff-card span[style*="font-size:10px"]     { font-size: 13px !important; }
-  #user-staff-card span[style*="font-size:9px"]     { font-size: 12px !important; }
-  #user-staff-card span[style*="font-size:8px"]     { font-size: 11px !important; }
-  #user-staff-card > div:first-child                { width: 110px !important; }
-  #user-staff-card #user-staff-avatar               { width: 80px !important; height: 80px !important; }
+  /* ユーザースタッフカード：基準フォント（各サイズは要素のインライン指定で決定。font_scaleで自動拡大される） */
+  #user-staff-card { font-size: 14px; }
 
   /* ホームカレンダーのみフォント拡大 */
   .home-sch-dow-row .sch-dow       { font-size: 17px; padding: 7px 0; }
@@ -3695,44 +3685,44 @@
     <!-- 新規案件作成ボタン（左：ユーザーカード／右：ボタン） -->
     <div class="home-new-project-wrap" style="padding:10px 15px 8px;display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;">
 
-      <!-- 右：ログインユーザーのスタッフ情報（order:2 で右に配置） -->
-      <div id="user-staff-card" style="order:2;flex:1 1 380px;background:white;border:2px solid #e8d5a0;border-radius:3px;padding:10px 12px;box-shadow:2px 2px 0 #e8d5a0;display:none;align-items:center;gap:10px;flex-wrap:wrap;">
-        <!-- ① アバター + 名前 + レベル -->
-        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;width:90px;">
-          <div id="user-staff-avatar" style="width:64px;height:64px;border-radius:50%;overflow:hidden;"></div>
-          <div id="user-staff-name" style="font-size:13px;font-weight:bold;text-align:center;line-height:1.2;"></div>
+      <!-- 右：ログインユーザーのスタッフ情報（order:2 で右に配置）。左ヒーロー＋右3カラータイル -->
+      <div id="user-staff-card" style="order:2;flex:1 1 380px;min-width:0;background:linear-gradient(180deg,#ffffff,#fff8e8);border:3px solid #e8d5a0;border-radius:6px;padding:11px 13px;box-shadow:3px 3px 0 #e8d5a0;display:none;align-items:stretch;gap:12px;flex-wrap:wrap;font-family:'DotGothic16',monospace;cursor:pointer;">
+
+        <!-- 左：アバター + 名前 + Lv + 勤務時間バー（縦に均等配置でカード高さを埋める） -->
+        <div style="flex-shrink:0;width:122px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:7px;padding:8px 5px;background:linear-gradient(180deg,#fffdf5,#f3e6c4);border:2px solid #e0cd95;border-radius:6px;box-shadow:inset 0 0 0 1px #fff;">
+          <div id="user-staff-avatar" style="width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid #fff;box-shadow:0 0 0 2px #c9a84c,1px 1px 0 #b7950b;background:#f6efd8;"></div>
+          <div id="user-staff-name" style="font-size:17px;font-weight:bold;text-align:center;line-height:1.15;color:#5d4037;"></div>
 
           <!-- レベル表示（ゲームスタイル） -->
-          <div style="background:linear-gradient(135deg,#f1c40f,#e67e22);color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:bold;text-shadow:1px 1px 0 #5d4037;border:1px solid #b7950b;box-shadow:1px 1px 0 #5d4037;display:flex;align-items:center;gap:3px;">
-            <span style="font-size:9px;">Lv.</span>
-            <span id="user-stat-level">1</span>
+          <div style="background:linear-gradient(135deg,#f1c40f,#e67e22);color:#fff;padding:3px 12px;border-radius:4px;font-weight:bold;text-shadow:1px 1px 0 #5d4037;border:2px solid #b7950b;box-shadow:2px 2px 0 #5d4037;display:flex;align-items:baseline;gap:3px;line-height:1;">
+            <span style="font-size:11px;">Lv.</span><span id="user-stat-level" style="font-size:20px;">1</span>
           </div>
 
           <!-- 勤務時間バー（0〜160h。160を超えた分は残業として赤で右に追加） -->
           <div style="width:100%;">
-            <div style="display:flex;justify-content:space-between;font-size:8px;color:#888;margin-bottom:1px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:#888;font-weight:bold;margin-bottom:2px;">
               <span>勤務</span><span id="user-stat-worktime-text">0/160h</span>
             </div>
-            <div style="display:flex;background:#ddd;height:6px;border-radius:2px;overflow:hidden;border:1px solid #aaa;">
+            <div style="display:flex;background:#ddd;height:9px;border-radius:3px;overflow:hidden;border:1px solid #aaa;">
               <div id="user-stat-worktime-bar" style="background:linear-gradient(90deg,#3498db,#2980b9);height:100%;width:0%;"></div>
               <div id="user-stat-ot-bar" style="background:linear-gradient(90deg,#e74c3c,#c0392b);height:100%;width:0%;flex-shrink:0;"></div>
             </div>
           </div>
         </div>
 
-        <!-- ③ 業務ステータス -->
-        <div style="flex:1 1 130px;display:flex;flex-direction:column;gap:5px;font-size:11px;white-space:nowrap;">
-          <div style="border-bottom:1px dashed #ddd;padding-bottom:4px;">
-            <div style="color:#888;font-size:10px;">🎬 進行中案件</div>
-            <div id="user-stat-projects" style="font-size:15px;font-weight:bold;color:#27ae60;">0 <span style="font-size:10px;color:#888;">件</span></div>
+        <!-- 右：業務ステータス3つ（縦積みカラータイル。各 flex:1 でカード高さを均等に埋める） -->
+        <div style="flex:1 1 150px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:8px;">
+          <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 13px;border-radius:6px;border-left:6px solid #27ae60;background:#eafaf1;box-shadow:inset 0 -2px 0 rgba(39,174,96,0.12);">
+            <div style="font-size:13px;color:#1e8449;font-weight:bold;line-height:1.15;">🎬 進行中案件</div>
+            <div id="user-stat-projects" style="font-size:22px;font-weight:bold;color:#27ae60;line-height:1;white-space:nowrap;text-shadow:1px 1px 0 #fff;">0 <span style="font-size:13px;color:#888;">件</span></div>
           </div>
-          <div style="border-bottom:1px dashed #ddd;padding-bottom:4px;">
-            <div style="color:#888;font-size:10px;">⏱ 月間勤務時間</div>
-            <div id="user-stat-hours" style="font-size:15px;font-weight:bold;color:#2980b9;">0<span style="font-size:10px;color:#888;">h</span></div>
+          <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 13px;border-radius:6px;border-left:6px solid #2980b9;background:#eaf3fb;box-shadow:inset 0 -2px 0 rgba(41,128,185,0.12);">
+            <div style="font-size:13px;color:#21618c;font-weight:bold;line-height:1.15;">⏱ 月間勤務時間</div>
+            <div id="user-stat-hours" style="font-size:22px;font-weight:bold;color:#2980b9;line-height:1;white-space:nowrap;text-shadow:1px 1px 0 #fff;">0<span style="font-size:13px;color:#888;">h</span></div>
           </div>
-          <div>
-            <div style="color:#888;font-size:10px;">🌙 残業時間</div>
-            <div id="user-stat-overtime" style="font-size:15px;font-weight:bold;color:#e67e22;">0<span style="font-size:10px;color:#888;">h</span></div>
+          <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 13px;border-radius:6px;border-left:6px solid #e67e22;background:#fdf2e6;box-shadow:inset 0 -2px 0 rgba(230,126,34,0.12);">
+            <div style="font-size:13px;color:#b9590e;font-weight:bold;line-height:1.15;">🌙 残業時間</div>
+            <div id="user-stat-overtime" style="font-size:22px;font-weight:bold;color:#e67e22;line-height:1;white-space:nowrap;text-shadow:1px 1px 0 #fff;">0<span style="font-size:13px;color:#888;">h</span></div>
           </div>
         </div>
       </div>
@@ -7573,9 +7563,9 @@
     }
     document.getElementById('user-staff-avatar').innerHTML = staff.avatar;
     document.getElementById('user-staff-name').textContent = staff.name;
-    document.getElementById('user-stat-projects').innerHTML = `${staff.projects} <span style="font-size:10px;color:#888;">件</span>`;
-    document.getElementById('user-stat-hours').innerHTML    = `${staff.hours}<span style="font-size:10px;color:#888;">h</span>`;
-    document.getElementById('user-stat-overtime').innerHTML = `${staff.overtime}<span style="font-size:10px;color:#888;">h</span>`;
+    document.getElementById('user-stat-projects').innerHTML = `${staff.projects} <span style="font-size:13px;color:#888;">件</span>`;
+    document.getElementById('user-stat-hours').innerHTML    = `${staff.hours}<span style="font-size:13px;color:#888;">h</span>`;
+    document.getElementById('user-stat-overtime').innerHTML = `${staff.overtime}<span style="font-size:13px;color:#888;">h</span>`;
     // ゲームステータス
     document.getElementById('user-stat-level').textContent = staff.level;
     // 勤務時間バー：0〜160hを基準。160を超えた分は残業として赤で右に追加していく
