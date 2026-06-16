@@ -3685,45 +3685,49 @@
     <!-- 新規案件作成ボタン（左：ユーザーカード／右：ボタン） -->
     <div class="home-new-project-wrap" style="padding:10px 15px 8px;display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;">
 
-      <!-- 右：ログインユーザーのスタッフ情報（order:2 で右に配置）。左ヒーロー＋右3カラータイル -->
-      <div id="user-staff-card" style="order:2;flex:1 1 240px;min-width:0;background:linear-gradient(180deg,#ffffff,#fff8e8);border:3px solid #e8d5a0;border-radius:6px;padding:11px 13px;box-shadow:3px 3px 0 #e8d5a0;display:none;align-items:stretch;gap:12px;flex-wrap:wrap;font-family:'DotGothic16',monospace;cursor:pointer;">
+      <!-- 右：ログインユーザーのステータスカード（order:2）。1枚に統合：顔／勤務バー／次の現場／今月の出動 -->
+      <div id="user-staff-card" style="order:2;flex:1 1 240px;min-width:0;background:linear-gradient(180deg,#fffdf6,#fbeecb);border:3px solid #e0cd95;border-radius:8px;padding:12px 13px;box-shadow:3px 3px 0 #cdb273;display:none;flex-direction:column;gap:9px;font-family:'DotGothic16',monospace;cursor:pointer;">
 
-        <!-- 左：アバター + 名前 + Lv（縦中央クラスタ） -->
-        <div style="flex-shrink:0;width:122px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:8px 5px;background:linear-gradient(180deg,#fffdf5,#f3e6c4);border:2px solid #e0cd95;border-radius:6px;box-shadow:inset 0 0 0 1px #fff;">
+        <!-- 顔：アバター + 名前 + Lv（枠なしでフラットに統合） -->
+        <div style="display:flex;align-items:center;gap:11px;min-width:0;">
           <div id="user-staff-avatar" style="width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid #fff;box-shadow:0 0 0 2px #c9a84c,1px 1px 0 #b7950b;background:#f6efd8;"></div>
-          <div id="user-staff-name" style="font-size:17px;font-weight:bold;text-align:center;line-height:1.15;color:#5d4037;"></div>
-
-          <!-- レベル表示（ゲームスタイル） -->
-          <div style="background:linear-gradient(135deg,#f1c40f,#e67e22);color:#fff;padding:3px 12px;border-radius:4px;font-weight:bold;text-shadow:1px 1px 0 #5d4037;border:2px solid #b7950b;box-shadow:2px 2px 0 #5d4037;display:flex;align-items:baseline;gap:3px;line-height:1;">
-            <span style="font-size:11px;">Lv.</span><span id="user-stat-level" style="font-size:20px;">1</span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;">
+            <div id="user-staff-name" style="font-size:18px;font-weight:bold;line-height:1.15;color:#5d4037;word-break:break-word;"></div>
+            <div style="align-self:flex-start;background:linear-gradient(135deg,#f1c40f,#e67e22);color:#fff;padding:2px 11px;border-radius:4px;font-weight:bold;text-shadow:1px 1px 0 #5d4037;border:2px solid #b7950b;box-shadow:2px 2px 0 #5d4037;display:flex;align-items:baseline;gap:3px;line-height:1;white-space:nowrap;">
+              <span style="font-size:11px;">Lv.</span><span id="user-stat-level" style="font-size:21px;">1</span>
+            </div>
           </div>
         </div>
 
-        <!-- 右：勤務時間バー ＋ 月間勤務時間 ＋ 残業時間（各 flex:1 でカード高さを均等に埋める） -->
-        <div style="flex:1 1 150px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:8px;">
+        <!-- 薄い点線区切り（強い内枠の代わりに一体感を出す） -->
+        <div style="height:2px;background:repeating-linear-gradient(90deg,#e0cd95 0,#e0cd95 6px,transparent 6px,transparent 11px);flex-shrink:0;"></div>
 
-          <!-- 勤務時間バー（旧・進行中案件の位置。0〜160h。160超過分は残業として赤で追加） -->
-          <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:7px 13px;border-radius:6px;border-left:6px solid #5d6d7e;background:#f2f4f6;box-shadow:inset 0 -2px 0 rgba(93,109,126,0.12);">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
-              <span style="font-size:13px;color:#566573;font-weight:bold;">⏱ 勤務時間</span>
-              <span id="user-stat-worktime-text" style="font-size:14px;color:#34495e;font-weight:bold;white-space:nowrap;">0/160h</span>
-            </div>
-            <div style="display:flex;background:#dde1e4;height:14px;border-radius:4px;overflow:hidden;border:1px solid #aaa;">
-              <div id="user-stat-worktime-bar" style="background:linear-gradient(90deg,#3498db,#2980b9);height:100%;width:0%;"></div>
-              <div id="user-stat-ot-bar" style="background:linear-gradient(90deg,#e74c3c,#c0392b);height:100%;width:0%;flex-shrink:0;"></div>
-            </div>
+        <!-- 勤務時間バー（⏱勤務時間 0/160h ＋ 青/赤バー） -->
+        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:13px;color:#566573;font-weight:bold;">⏱ 勤務時間</span>
+            <span id="user-stat-worktime-text" style="font-size:14px;color:#34495e;font-weight:bold;white-space:nowrap;">0/160h</span>
           </div>
-
-          <!-- 月間勤務時間 -->
-          <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 13px;border-radius:6px;border-left:6px solid #2980b9;background:#eaf3fb;box-shadow:inset 0 -2px 0 rgba(41,128,185,0.12);">
-            <div style="font-size:13px;color:#21618c;font-weight:bold;line-height:1.15;">📅 月間勤務時間</div>
-            <div id="user-stat-hours" style="font-size:22px;font-weight:bold;color:#2980b9;line-height:1;white-space:nowrap;text-shadow:1px 1px 0 #fff;">0<span style="font-size:13px;color:#888;">h</span></div>
+          <div style="display:flex;background:#dde1e4;height:14px;border-radius:4px;overflow:hidden;border:1px solid #aaa;">
+            <div id="user-stat-worktime-bar" style="background:linear-gradient(90deg,#3498db,#2980b9);height:100%;width:0%;"></div>
+            <div id="user-stat-ot-bar" style="background:linear-gradient(90deg,#e74c3c,#c0392b);height:100%;width:0%;flex-shrink:0;"></div>
           </div>
+        </div>
 
-          <!-- 残業時間 -->
-          <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 13px;border-radius:6px;border-left:6px solid #e67e22;background:#fdf2e6;box-shadow:inset 0 -2px 0 rgba(230,126,34,0.12);">
-            <div style="font-size:13px;color:#b9590e;font-weight:bold;line-height:1.15;">🌙 残業時間</div>
-            <div id="user-stat-overtime" style="font-size:22px;font-weight:bold;color:#e67e22;line-height:1;white-space:nowrap;text-shadow:1px 1px 0 #fff;">0<span style="font-size:13px;color:#888;">h</span></div>
+        <!-- 📷 次の現場（主役ヒーロー。flex:1 でカード高さの余白を埋める） -->
+        <div style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:7px;padding:10px 12px;border-radius:7px;background:linear-gradient(160deg,#2c3e50,#1b2a38);box-shadow:inset 0 0 0 2px #46627c,2px 2px 0 rgba(0,0,0,0.25);">
+          <span style="font-size:13px;color:#7fd1ff;font-weight:bold;letter-spacing:1px;">📷 次の現場</span>
+          <div id="user-stat-nextshoot" style="font-size:19px;font-weight:bold;color:#fff;line-height:1.25;word-break:break-word;text-shadow:1px 1px 0 #000;">予定なし</div>
+          <div style="display:flex;">
+            <span id="user-stat-nextshoot-days" style="font-size:16px;font-weight:bold;color:#1b2a38;background:linear-gradient(135deg,#ffe55c,#ffb938);padding:2px 12px;border-radius:5px;border:2px solid #b7950b;box-shadow:2px 2px 0 rgba(0,0,0,0.3);white-space:nowrap;line-height:1.2;"></span>
+          </div>
+        </div>
+
+        <!-- 🎬 今月の出動（大きな数字で誇らしげに） -->
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 13px;border-radius:7px;background:linear-gradient(180deg,#fff6da,#ffe9b0);box-shadow:inset 0 0 0 2px #f0d68a;">
+          <div style="font-size:13px;color:#9a6a12;font-weight:bold;line-height:1.2;">🎬 今月の<br>出動</div>
+          <div style="display:flex;align-items:baseline;gap:3px;white-space:nowrap;">
+            <span id="user-stat-casecount" style="font-size:30px;font-weight:bold;color:#e67e22;line-height:0.9;text-shadow:2px 2px 0 #fff,3px 3px 0 #f0d9b0;">0</span><span style="font-size:14px;color:#9a6a12;font-weight:bold;">件</span>
           </div>
         </div>
       </div>
@@ -7553,6 +7557,50 @@
     };
   }
 
+  // ===== 個人ステータスカード用：自分のクルー案件から「次の現場」「今月の出動数」を算出 =====
+  const _DOW_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
+
+  // 自分（ログインユーザー）がクルーに入っている案件のうち、当月に撮影日がある件数
+  function _myCasesThisMonth() {
+    // 起動時の自動ログインでは wsData 宣言前(TDZ)に呼ばれ得る。const の TDZ は typeof でも
+    // ReferenceError を投げるため try で安全に参照する（その場合は0。後で renderHomeCal が再計算）。
+    let _ws; try { _ws = wsData; } catch (e) { return 0; }
+    if (typeof _ws !== 'object' || !_ws) return 0;
+    const now = new Date();
+    const cy = now.getFullYear(), cm = now.getMonth() + 1; // m は 1始まり
+    const deleted = (typeof getDeletedWS === 'function') ? getDeletedWS() : [];
+    let count = 0;
+    Object.entries(_ws).forEach(([num, data]) => {
+      if (deleted.includes(num) || !data || !data.date) return;
+      if (typeof isUserInEvent !== 'function' || !isUserInEvent({ num, ...data })) return;
+      const dates = parseDateStr(data.date);
+      if (dates.some(d => d.y === cy && d.m === cm)) count++;
+    });
+    return count;
+  }
+
+  // 自分がクルーに入っている案件のうち、今日以降で最も近い撮影日を返す（無ければ null）
+  function _myNextShoot() {
+    let _ws; try { _ws = wsData; } catch (e) { return null; } // 起動時TDZ対策（_myCasesThisMonth 参照）
+    if (typeof _ws !== 'object' || !_ws) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const deleted = (typeof getDeletedWS === 'function') ? getDeletedWS() : [];
+    let best = null;
+    Object.entries(_ws).forEach(([num, data]) => {
+      if (deleted.includes(num) || !data || !data.date) return;
+      if (typeof isUserInEvent !== 'function' || !isUserInEvent({ num, ...data })) return;
+      parseDateStr(data.date).forEach(dt => {
+        const t = new Date(dt.y, dt.m - 1, dt.d).getTime();
+        if (t < today.getTime()) return; // 過去はスキップ
+        if (!best || t < best.t) best = { t, y: dt.y, m: dt.m, d: dt.d, title: data.title || num };
+      });
+    });
+    if (!best) return null;
+    const days = Math.round((best.t - today.getTime()) / 86400000);
+    const dow = new Date(best.y, best.m - 1, best.d).getDay();
+    return { y: best.y, m: best.m, d: best.d, dow, days, title: best.title };
+  }
+
   function renderUserStaffCard(loginName) {
     const card = document.getElementById('user-staff-card');
     if (!card) return;
@@ -7564,8 +7612,6 @@
     }
     document.getElementById('user-staff-avatar').innerHTML = staff.avatar;
     document.getElementById('user-staff-name').textContent = staff.name;
-    document.getElementById('user-stat-hours').innerHTML    = `${staff.hours}<span style="font-size:13px;color:#888;">h</span>`;
-    document.getElementById('user-stat-overtime').innerHTML = `${staff.overtime}<span style="font-size:13px;color:#888;">h</span>`;
     // ゲームステータス
     document.getElementById('user-stat-level').textContent = staff.level;
     // 勤務時間バー：0〜160hを基準。160を超えた分は残業として赤で右に追加していく
@@ -7583,6 +7629,24 @@
     document.getElementById('user-stat-worktime-text').innerHTML = (_otH > 0)
       ? `<span style="color:#e74c3c;font-weight:bold;">${_workedH}</span>/${_stdH}h`
       : `${_workedH}/${_stdH}h`;
+    // 📷 次の現場（自分のクルー案件の最短未来撮影日）と 🎬 今月の出動数
+    try {
+      const ns = (typeof _myNextShoot === 'function') ? _myNextShoot() : null;
+      const nsEl = document.getElementById('user-stat-nextshoot');
+      const nsDaysEl = document.getElementById('user-stat-nextshoot-days');
+      if (nsEl) {
+        if (ns) {
+          const t = String(ns.title || '無題');
+          nsEl.textContent = `${ns.m}/${ns.d}(${_DOW_SHORT[ns.dow]}) ${t.length > 9 ? t.slice(0, 9) + '…' : t}`;
+          if (nsDaysEl) nsDaysEl.textContent = (ns.days === 0) ? '今日！' : (ns.days === 1) ? '明日' : `あと${ns.days}日`;
+        } else {
+          nsEl.textContent = '予定なし';
+          if (nsDaysEl) nsDaysEl.textContent = '';
+        }
+      }
+      const ccEl = document.getElementById('user-stat-casecount');
+      if (ccEl) ccEl.textContent = (typeof _myCasesThisMonth === 'function') ? _myCasesThisMonth() : 0;
+    } catch (e) { console.warn('nextshoot/casecount', e); }
     card.style.cursor = 'pointer';
     card.onclick = () => openStaffDetail(loginName);
     card.style.display = 'flex';
@@ -8520,6 +8584,10 @@
       cell.innerHTML = `<div class="sch-day-num">${i}</div>`;
       grid.appendChild(cell);
     }
+    // 案件データが最新になったタイミングで個人カードの「次の現場／今月の出動」も更新。
+    // ★重要：自動ログイン時は wsData 初期化前にカード初回描画が走るため、ここでの再描画が
+    //   「次の現場／今月の出動」を正しい値で埋める復旧ポイント。この呼び出しは消さないこと。
+    try { const _ln = localStorage.getItem('last_login_name'); if (_ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(_ln); } catch (e) {}
   }
 
   function homeSchChangeMonth(delta) {
@@ -10696,7 +10764,7 @@
                                     { '更新日時': rec._updatedAt || new Date().toISOString(), '削除フラグ': rec._deleted ? '1' : '' }),
       fromRow: (row) => { const p = orderRowToProject(row); return { 受注No: String(row['受注No'] || ''), _project: p,
                                     _updatedAt: String(row['更新日時'] || ''), 削除フラグ: String(row['削除フラグ'] || '') }; },
-      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} }
+      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} try { const _ln = localStorage.getItem('last_login_name'); if (_ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(_ln); } catch (e) {} }
     },
     child: {
       keyField: '受注No', keyHeader: '受注No',
