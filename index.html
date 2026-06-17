@@ -7498,6 +7498,11 @@
     shin: '1aN6XxObGlWshQxrJVPvOAxrf_r0mGdX-jy-4Cr2yPlA' // 作業日報_城間 心_2026
   };
 
+  // 月間基本勤務時間（所定）。人によって異なる。未登録は160h。勤務時間バーの満タン基準＝この値。
+  const WORKLOG_STD_HOURS = {
+    shin: 139 // 城間さんのみ139h
+  };
+
   // 直近に取り込んだ勤務時間（localStorageキャッシュ）をカード用データへ反映する。
   function _applyCachedWorklog(loginName) {
     const staff = USER_STAFF[loginName];
@@ -7614,8 +7619,8 @@
     document.getElementById('user-staff-name').textContent = staff.name;
     // ゲームステータス
     document.getElementById('user-stat-level').textContent = staff.level;
-    // 勤務時間バー：0〜160hを基準。160を超えた分は残業として赤で右に追加していく
-    const _stdH = 160;
+    // 勤務時間バー：月間基本勤務時間(_stdH。人ごと。未登録は160h)を基準に、超えた分を残業として赤で追加
+    const _stdH = WORKLOG_STD_HOURS[loginName] || 160;
     const _workedH = Math.max(0, Number(staff.hours) || 0);
     const _normalH = Math.min(_workedH, _stdH);          // 通常勤務（青）
     const _otH     = Math.max(0, _workedH - _stdH);       // 残業＝160超過分（赤）
