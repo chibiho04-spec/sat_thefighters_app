@@ -3706,7 +3706,7 @@
         <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
           <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap;">
             <span style="font-size:13px;color:#566573;font-weight:bold;">⏱ 勤務時間</span>
-            <span id="user-stat-worktime-text" style="font-size:14px;color:#34495e;font-weight:bold;white-space:nowrap;">0/160h</span>
+            <span id="user-stat-worktime-text" style="font-size:13px;color:#5d6d7e;font-weight:bold;white-space:nowrap;line-height:1;">0/160h</span>
           </div>
           <div style="display:flex;background:#dde1e4;height:14px;border-radius:4px;overflow:hidden;border:1px solid #aaa;">
             <div id="user-stat-worktime-bar" style="background:linear-gradient(90deg,#3498db,#2980b9);height:100%;width:0%;"></div>
@@ -7626,9 +7626,9 @@
     // 残業がごく僅かでも赤が見えるよう最小幅3pxと白い区切り線を付ける（160hの節目を明示）
     if (_otH > 0) { _otBar.style.minWidth = '3px'; _otBar.style.borderLeft = '1px solid #fff'; }
     else { _otBar.style.minWidth = '0'; _otBar.style.borderLeft = 'none'; }
-    document.getElementById('user-stat-worktime-text').innerHTML = (_otH > 0)
-      ? `<span style="color:#e74c3c;font-weight:bold;">${_workedH}</span>/${_stdH}h`
-      : `${_workedH}/${_stdH}h`;
+    // 実働の数字を大きく目立たせる（/160h は控えめ）。残業時は赤。
+    document.getElementById('user-stat-worktime-text').innerHTML =
+      `<span style="font-size:23px;color:${_otH > 0 ? '#e74c3c' : '#1b2a38'};">${_workedH}</span>/${_stdH}h`;
     // 📷 次の現場（自分のクルー案件の最短未来撮影日）と 🎬 今月の出動数
     try {
       const ns = (typeof _myNextShoot === 'function') ? _myNextShoot() : null;
