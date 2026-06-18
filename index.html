@@ -5405,8 +5405,8 @@
         <div class="wsd-header-num" style="color:#fadbd8;">📊 売上表</div>
         <div class="wsd-header-title">請求書データから集計</div>
       </div>
-      <button id="sales-export-btn" onclick="exportSalesCSV()" title="CSVダウンロード"
-        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 CSV</button>
+      <button id="sales-export-btn" onclick="exportSalesCSV()" title="Excelダウンロード"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 Excel</button>
     </div>
 
     <!-- 期間フィルタ -->
@@ -13326,8 +13326,8 @@
               <span style="font-size:13px;opacity:0.85;">外注費 ${fmt(grpOut)}</span>
               <span style="background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:10px;font-size:16px;font-weight:bold;text-shadow:1px 1px 0 #641e16;">売上 ${fmt(grpNet)}</span>
               <button onclick="event.stopPropagation();exportSalesCSVForMonth('${key}')"
-                title="この月のCSVをダウンロード"
-                style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.5);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-shadow:none;">📥 CSV</button>
+                title="この月のExcelをダウンロード"
+                style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.5);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-shadow:none;">📥 Excel</button>
             </span>
           </div>
           <!-- 表（広い時=1段／狭い時=2段に折り返し）。overflow-x:文字拡大×狭い窓で万一収まらない時は重ならず横スクロール -->
