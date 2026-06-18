@@ -4858,6 +4858,7 @@
                   style="width:74px;font-family:'DotGothic16',monospace;font-size:12px;border:1px solid #aaa;border-radius:3px;padding:2px 6px;text-align:right;">
               </div>
               <span id="inv-order-readonly" style="display:none;font-family:'DotGothic16',monospace;font-size:12pt;color:#c0392b;font-weight:bold;"></span>
+              <button id="inv-order-edit-btn" type="button" onclick="startInvOrderEdit()" style="display:none;font-family:'DotGothic16',monospace;font-size:11px;background:#f1c40f;color:#5d4037;border:2px solid #b7950b;border-radius:3px;padding:2px 8px;cursor:pointer;white-space:nowrap;">✏️変更</button>
             </div>
           </div>
         </div>
@@ -8948,6 +8949,26 @@
       editWrap.style.display = 'none';
       ro.style.display = 'inline';
       ro.textContent = num || '';
+    }
+    // ✏️変更ボタン：単独請求書（inv_あり・ws_なし）かつ表示モードのときだけ出す
+    const editBtn = document.getElementById('inv-order-edit-btn');
+    if (editBtn) {
+      const standalone = !!(num && localStorage.getItem('inv_' + num) && !localStorage.getItem('ws_' + num));
+      editBtn.style.display = (!editable && standalone) ? 'inline-block' : 'none';
+    }
+  }
+
+  // 請求書編集画面：単独請求書の受注番号を変更する入口（✏️変更ボタン）
+  async function startInvOrderEdit() {
+    const cur = (document.getElementById('inv-detail-num') && document.getElementById('inv-detail-num').textContent || '').trim();
+    if (!cur) return;
+    const input = prompt('新しい受注番号を入力（接頭辞 T/E/P ＋ 数字。例 T26050）\n現在：' + cur, cur);
+    if (input == null) return;
+    const result = await _applyOrderRename(cur, input);
+    if (result) {
+      const idn = document.getElementById('inv-detail-num'); if (idn) idn.textContent = result;
+      _setInvOrderField(result, false);
+      alert('受注番号を「' + result + '」に変更しました。');
     }
   }
   // フィールドの接頭辞＋番号を inv-detail-num / inv-screen-num に反映
