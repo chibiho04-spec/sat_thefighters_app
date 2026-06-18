@@ -15572,6 +15572,9 @@
 
     // ws-detail-screenを表示（position:absolute overlay、アニメーションなし）
     const ws = document.getElementById('ws-detail-screen');
+    // 何らかの経路/旧キャッシュで transform:translateX(100%)（画面外）が残っていても確実に画面内に出す。
+    // （display:flex なのに画面外＝クリックしても無反応に見える不具合の防止）
+    ws.style.transform = 'translateX(0)';
     ws.style.display = 'flex';
   }
 
