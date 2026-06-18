@@ -8774,6 +8774,57 @@
     return /^([TEP]\d|INV-\d|0\d{3})/.test(String(num || ''));
   }
 
+  // 受注番号の入力ダイアログ（新規案件と同じ T/E/P ボタン＋番号＋プレビュー）。
+  // 確定した新番号（例 'T26046'）を返す。キャンセルは null。
+  function _orderNumInputDialog(currentNum) {
+    return new Promise(resolve => {
+      const cur = String(currentNum || '');
+      const m = cur.match(/^([TEP])(\d+)$/i);
+      let prefix = m ? m[1].toUpperCase() : 'T';
+      const digits0 = m ? m[2] : (cur.replace(/[^0-9]/g, ''));
+      const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
+      const ov = document.createElement('div');
+      ov.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'DotGothic16',monospace;";
+      ov.innerHTML =
+        '<div style="background:#fff;border:3px solid #8e44ad;border-radius:8px;max-width:380px;width:100%;padding:18px;box-shadow:4px 4px 0 rgba(0,0,0,0.3);">' +
+          '<div style="font-size:15px;font-weight:bold;color:#5b2c6f;margin-bottom:4px;">🔢 受注番号の変更</div>' +
+          '<div style="font-size:12px;color:#888;margin-bottom:14px;">現在：' + esc(cur) + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
+            '<span style="font-size:13px;color:#888;">受注番号</span>' +
+            '<div id="_oni-prefix" style="display:inline-flex;gap:3px;">' +
+              ['T','E','P'].map(p => '<button type="button" data-p="' + p + '" style="font-family:inherit;font-size:14px;font-weight:bold;padding:5px 13px;border-radius:3px;cursor:pointer;border:2px solid #27ae60;background:#fff;color:#27ae60;">' + p + '</button>').join('') +
+            '</div>' +
+            '<input id="_oni-num" type="text" inputmode="numeric" value="' + esc(digits0) + '" placeholder="26050" ' +
+              'style="width:96px;font-family:inherit;font-size:15px;border:1px solid #aaa;border-radius:3px;padding:5px 8px;text-align:right;">' +
+            '<span style="font-size:13px;color:#555;">→ <b id="_oni-preview" style="color:#8e44ad;font-size:16px;">—</b></span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）</div>' +
+          '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+            '<button id="_oni-cancel" type="button" style="font-family:inherit;font-size:13px;background:#eee;color:#555;border:2px solid #bbb;border-radius:5px;padding:8px 16px;cursor:pointer;">キャンセル</button>' +
+            '<button id="_oni-ok" type="button" style="font-family:inherit;font-size:14px;font-weight:bold;background:#8e44ad;color:#fff;border:2px solid #6c3483;border-radius:5px;padding:8px 20px;cursor:pointer;">変更する</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      const numEl  = ov.querySelector('#_oni-num');
+      const preview = ov.querySelector('#_oni-preview');
+      const pfxBtns = Array.prototype.slice.call(ov.querySelectorAll('#_oni-prefix button'));
+      const paint = () => {
+        pfxBtns.forEach(b => { const on = b.dataset.p === prefix; b.style.background = on ? '#27ae60' : '#fff'; b.style.color = on ? '#fff' : '#27ae60'; b.style.boxShadow = on ? '2px 2px 0 #1a7a40' : 'none'; });
+        const d = (numEl.value || '').replace(/[^0-9]/g, '');
+        preview.textContent = d ? (prefix + d) : '—';
+      };
+      pfxBtns.forEach(b => b.addEventListener('click', () => { prefix = b.dataset.p; paint(); }));
+      numEl.addEventListener('input', () => { numEl.value = (numEl.value || '').replace(/[^0-9]/g, ''); paint(); });
+      const close = (val) => { try { document.body.removeChild(ov); } catch (e) {} resolve(val); };
+      ov.querySelector('#_oni-cancel').addEventListener('click', () => close(null));
+      ov.querySelector('#_oni-ok').addEventListener('click', () => { const d = (numEl.value || '').replace(/[^0-9]/g, ''); if (!d) { numEl.focus(); return; } close(prefix + d); });
+      numEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const d = (numEl.value || '').replace(/[^0-9]/g, ''); if (d) close(prefix + d); } });
+      ov.addEventListener('click', e => { if (e.target === ov) close(null); });
+      paint();
+      setTimeout(() => { try { numEl.focus(); numEl.select(); } catch (e) {} }, 30);
+    });
+  }
+
   // 受注番号を oldNum→newNum にリネーム。newNum は呼び出し前に「空き」である前提（衝突解決は呼び出し側）。
   // ws_/inv_キー・projects_saved・wsData/invData・削除リスト・Googleスプレッドシート同期・画面表示を整合更新する。
   function renameOrderNum(oldNum, newNum, tsMs) {
@@ -8950,7 +9001,7 @@
   // ✏️変更：新番号を尋ねて _applyOrderRename を呼ぶ
   async function startOrderNumEdit(oldNum) {
     const cur = String(oldNum);
-    const input = prompt('新しい受注番号を入力（接頭辞 T/E/P ＋ 数字。例 T26050）\n現在：' + cur, cur);
+    const input = await _orderNumInputDialog(cur);
     if (input == null) return;
     const result = await _applyOrderRename(cur, input);
     if (result) { renderOrderNumEditList(); alert('受注番号を「' + result + '」に変更しました。'); }
@@ -9006,7 +9057,7 @@
   async function startInvOrderEdit() {
     const cur = (document.getElementById('inv-detail-num') && document.getElementById('inv-detail-num').textContent || '').trim();
     if (!cur) return;
-    const input = prompt('新しい受注番号を入力（接頭辞 T/E/P ＋ 数字。例 T26050）\n現在：' + cur, cur);
+    const input = await _orderNumInputDialog(cur);
     if (input == null) return;
     const result = await _applyOrderRename(cur, input);
     if (result) {
