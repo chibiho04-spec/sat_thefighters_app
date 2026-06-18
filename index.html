@@ -12496,7 +12496,23 @@
       return;
     }
 
-    list.innerHTML = items.map(it => {
+    // 月別グループ化：it.date の年月で区切る（日付なしは末尾）。月見出し（件数つき）を挿入。
+    const groupOf = (it) => {
+      const pd = (typeof _parseDateForSales === 'function') ? _parseDateForSales(it.date || '') : null;
+      return pd ? { num: pd.y * 100 + pd.m, key: pd.y + '年 ' + pd.m + '月' } : { num: -1, key: '日付なし' };
+    };
+    const enriched = items.map(it => ({ it, g: groupOf(it) }));
+    // 月で降順（新しい月が上）、同月内は受注No降順
+    enriched.sort((a, b) => (b.g.num - a.g.num) || String(b.it.num).localeCompare(String(a.it.num), 'ja'));
+    const counts = {};
+    enriched.forEach(e => { counts[e.g.key] = (counts[e.g.key] || 0) + 1; });
+
+    let html = '', lastKey = null;
+    enriched.forEach(({ it, g }) => {
+      if (g.key !== lastKey) {
+        lastKey = g.key;
+        html += `<div style="position:sticky;top:0;z-index:2;background:${accent};color:#fff;font-size:13px;font-weight:bold;padding:6px 12px;border-radius:4px;margin:10px 0 6px;box-shadow:1px 1px 0 ${accentBg};">📅 ${escapeHtml(g.key)} <span style="font-weight:normal;font-size:11px;opacity:0.85;">（${counts[g.key]}件）</span></div>`;
+      }
       const status = (typeof loadInvStatus === 'function') ? loadInvStatus(it.num) : {};
       let badge = '';
       if (isInvoice) {
@@ -12504,13 +12520,12 @@
         else if (status.billed) badge = '<span style="background:#f39c12;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">発行済</span>';
         else                    badge = '<span style="background:#bdc3c7;color:#555;font-size:10px;padding:2px 7px;border-radius:8px;">未作成</span>';
       } else if (_docListMode === 'delivery') {
-        // 納品書は請求のような状態（入金/発行）を持たないためステータスバッジなし
         badge = '';
       } else {
         if (status.estimated)   badge = '<span style="background:#e67e22;color:white;font-size:10px;padding:2px 7px;border-radius:8px;">発行済</span>';
         else                    badge = '<span style="background:#bdc3c7;color:#555;font-size:10px;padding:2px 7px;border-radius:8px;">未作成</span>';
       }
-      return `<div onclick="openDocFromList('${it.num}')"
+      html += `<div onclick="openDocFromList('${it.num}')"
         style="background:white;border:2px solid ${accentBg};border-left:5px solid ${accent};border-radius:4px;padding:10px 12px;margin-bottom:6px;cursor:pointer;box-shadow:2px 2px 0 ${accentBg};">
         <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
           <div style="font-size:12px;color:${accent};font-weight:bold;">${escapeHtml(it.num)}</div>
@@ -12520,7 +12535,8 @@
         <div style="font-size:11px;color:#666;margin-top:2px;">🏢 ${escapeHtml(it.company || '取引先未設定')}</div>
         ${it.date ? `<div style="font-size:11px;color:#888;margin-top:1px;">📅 ${escapeHtml(it.date)}</div>` : ''}
       </div>`;
-    }).join('');
+    });
+    list.innerHTML = html;
   }
 
   // ===== 売上表 =====
