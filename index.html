@@ -4837,7 +4837,11 @@
             <div class="invd-client" style="display:flex;align-items:baseline;gap:6px;">
               <input id="inv-screen-company" type="text" placeholder="会社名" oninput="_syncClientLine()"
                 style="flex:1;min-width:0;border:none;border-bottom:1.5px solid #555;background:transparent;font-size:14pt;font-weight:bold;padding:1px 2px;font-family:inherit;">
-              <span style="font-size:11pt;flex-shrink:0;">御中</span>
+              <select id="inv-screen-honorific" onchange="_syncClientLine()" title="御中（法人）／様（個人）を選択"
+                style="font-size:11pt;flex-shrink:0;border:none;border-bottom:1.5px solid #555;background:transparent;font-family:inherit;cursor:pointer;padding:1px 2px;">
+                <option value="御中">御中</option>
+                <option value="様">様</option>
+              </select>
             </div>
             <div style="margin-top:4px;display:flex;align-items:baseline;gap:4px;">
               <span style="font-size:10pt;color:#666;flex-shrink:0;">担当：</span>
@@ -9402,29 +9406,37 @@
     if (!hidden) return;
     const company = (c?.value || '').trim();
     const contact = (p?.value || '').trim();
+    const hon = document.getElementById('inv-screen-honorific')?.value || '御中'; // 敬称（御中/様）
     if (!company) { hidden.textContent = ''; return; }
-    hidden.textContent = company + ' 御中' + (contact ? `（担当：${contact} 様）` : '');
+    hidden.textContent = company + ' ' + hon + (contact ? `（担当：${contact} 様）` : '');
   }
-  // 「○○株式会社 御中（担当：xx 様）」のような文字列を 2入力欄に分解して設定
+  // 敬称プルダウンに値をセット（御中/様以外・空は御中にフォールバック）
+  function _setInvHonorific(hon) {
+    const sel = document.getElementById('inv-screen-honorific');
+    if (sel) sel.value = (hon === '様') ? '様' : '御中';
+  }
+  // 「○○株式会社 御中（担当：xx 様）」のような文字列を 2入力欄＋敬称に分解して設定
   function _setInvClientFromString(combined) {
     const c = document.getElementById('inv-screen-company');
     const p = document.getElementById('inv-screen-contact');
     if (!c || !p) return;
     const s = String(combined || '').trim();
     if (!s || s === '（取引先未設定）') {
-      c.value = ''; p.value = ''; _syncClientLine(); return;
+      c.value = ''; p.value = ''; _setInvHonorific('御中'); _syncClientLine(); return;
     }
-    const m = s.match(/^(.*?)\s*(?:御中)?\s*(?:（担当[:：]\s*(.+?)\s*様?）)?\s*$/);
+    const m = s.match(/^(.*?)\s*(御中|様)?\s*(?:（担当[:：]\s*(.+?)\s*様?）)?\s*$/);
     c.value = (m && m[1] || '').trim();
-    p.value = (m && m[2] || '').trim();
+    _setInvHonorific((m && m[2]) || '御中');
+    p.value = (m && m[3] || '').trim();
     _syncClientLine();
   }
-  // 会社名と担当者を別々に設定
-  function _setInvClientFields(company, contact) {
+  // 会社名・担当者・敬称を別々に設定（honorific 省略時は御中）
+  function _setInvClientFields(company, contact, honorific) {
     const c = document.getElementById('inv-screen-company');
     const p = document.getElementById('inv-screen-contact');
     if (c) c.value = company || '';
     if (p) p.value = contact || '';
+    _setInvHonorific(honorific || '御中');
     _syncClientLine();
   }
 
@@ -9490,6 +9502,7 @@
       workDate: document.getElementById('inv-screen-workdate').value || '',
       company:  (document.getElementById('inv-screen-company')?.value || '').trim(),
       contact:  (document.getElementById('inv-screen-contact')?.value || '').trim(),
+      honorific: document.getElementById('inv-screen-honorific')?.value || '御中',
       staff:    (document.getElementById('inv-screen-staff')?.value   || '').trim(),
       zip:      (document.getElementById('inv-screen-zip')?.textContent  || '').trim(),
       addr:     (document.getElementById('inv-screen-addr')?.textContent || '').trim(),
@@ -9503,7 +9516,7 @@
     document.getElementById('inv-screen-num').textContent  = newNum;
     document.getElementById('inv-detail-num').textContent  = newNum;
     _invIsNew = false; _setInvOrderField(newNum, false); // 納品書化：受注番号は表示のみ
-    _setInvClientFields(status.company, status.contact);
+    _setInvClientFields(status.company, status.contact, status.honorific);
     document.getElementById('inv-screen-zip').textContent  = status.zip;
     document.getElementById('inv-screen-addr').textContent = status.addr;
     document.getElementById('inv-screen-title').value      = status.title;
@@ -9636,6 +9649,7 @@
     status.workDate = document.getElementById('inv-screen-workdate').value || '';
     status.company  = (document.getElementById('inv-screen-company')?.value || '').trim();
     status.contact  = (document.getElementById('inv-screen-contact')?.value || '').trim();
+    status.honorific = document.getElementById('inv-screen-honorific')?.value || '御中'; // 宛名敬称（御中/様）
     status.staff    = (document.getElementById('inv-screen-staff')?.value   || '').trim();
     status.zip      = (document.getElementById('inv-screen-zip')?.textContent  || '').trim();
     status.addr     = (document.getElementById('inv-screen-addr')?.textContent || '').trim();
@@ -9746,7 +9760,7 @@
     // ヘッダー情報セット
     document.getElementById('inv-screen-num').textContent    = num;
     // 宛先：保存済み（status）→ master の順で復元
-    _setInvClientFields(status.company || master.client || '', status.contact || master.contact || '');
+    _setInvClientFields(status.company || master.client || '', status.contact || master.contact || '', status.honorific);
     document.getElementById('inv-screen-zip').textContent    = status.zip   || master.zip   || '';
     document.getElementById('inv-screen-addr').textContent   = status.addr  || master.addr  || '';
     document.getElementById('inv-screen-title').value        = status.title || master.title || '';
@@ -15414,7 +15428,7 @@ ${tableHTML}
 
     document.getElementById('inv-screen-num').textContent    = num;
     // 保存済み（status）があれば優先
-    _setInvClientFields(savedStatus.company || company, savedStatus.contact || contact);
+    _setInvClientFields(savedStatus.company || company, savedStatus.contact || contact, savedStatus.honorific);
     document.getElementById('inv-screen-zip').textContent    = savedStatus.zip   || '';
     document.getElementById('inv-screen-addr').textContent   = savedStatus.addr  || '';
     document.getElementById('inv-screen-title').value        = savedStatus.title    || title;
