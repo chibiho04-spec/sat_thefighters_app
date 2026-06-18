@@ -5984,6 +5984,16 @@
         <div id="gas-sync-status" style="margin-top:10px;font-size:12px;color:#666;min-height:14px;"></div>
       </div>
 
+      <!-- 受注番号の変更 -->
+      <div class="wsd-section-head" style="background:#8e44ad;color:white;">🔢 受注番号の変更</div>
+      <div style="padding:12px 14px;">
+        <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:10px;">
+          案件・単独請求書の受注番号を後から変更できます。案件を変えると、紐づく請求書も同じ番号になります。<br>
+          <span style="color:#c0392b;">⚠️ 既存の番号とぶつかると警告が出ます（負けた方は番号が 0000 になります）。</span>
+        </div>
+        <div id="ordernum-edit-list" style="border:1px solid #ddd;border-radius:4px;max-height:320px;overflow-y:auto;background:#fff;"></div>
+      </div>
+
       <!-- バックアップ -->
       <div class="wsd-section-head wsd-sec-blue">💾 データバックアップ</div>
       <div style="padding:12px 14px;">
@@ -8872,6 +8882,47 @@
     renameOrderNum(oldNum, newNum);
     return newNum;
   }
+
+  // データ管理：受注番号変更の一覧（案件＋単独請求書）を描画
+  function renderOrderNumEditList() {
+    const box = document.getElementById('ordernum-edit-list');
+    if (!box) return;
+    const delWs = (typeof getDeletedWS === 'function') ? getDeletedWS() : [];
+    let delInv = []; try { delInv = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch (e) {}
+    const rows = []; const seen = new Set();
+    // 案件（projects_saved）
+    try {
+      JSON.parse(localStorage.getItem('projects_saved') || '[]').forEach(p => {
+        const num = String(p.num || ''); if (!num || delWs.indexOf(num) >= 0 || seen.has(num)) return; seen.add(num);
+        rows.push({ num: num, title: p.title || '', sub: p.company || '' });
+      });
+    } catch (e) {}
+    // 単独請求書（projects に無い inv_）
+    Object.keys(localStorage).forEach(k => {
+      if (k.indexOf('inv_') !== 0) return; const num = k.slice(4);
+      if (seen.has(num) || delInv.indexOf(num) >= 0) return; seen.add(num);
+      let t = ''; try { const s = JSON.parse(localStorage.getItem(k) || '{}'); t = s.title || s.company || ''; } catch (e) {}
+      rows.push({ num: num, title: t, sub: '（単独請求書）' });
+    });
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
+    box.innerHTML = rows.map(r => {
+      const zero = /^0\d{3}$/.test(r.num);
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px dashed #ddd;">' +
+        '<span style="font-family:\'DotGothic16\',monospace;font-weight:bold;font-size:14px;color:' + (zero ? '#c0392b' : '#2c3e50') + ';min-width:84px;">' + esc(r.num) + (zero ? ' ⚠' : '') + '</span>' +
+        '<span style="flex:1;min-width:0;font-size:12px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(r.title) + ' <span style="color:#aaa;">' + esc(r.sub) + '</span></span>' +
+        '<button onclick="startOrderNumEdit(\'' + esc(r.num) + '\')" style="font-family:\'DotGothic16\',monospace;font-size:12px;background:#f1c40f;color:#5d4037;border:2px solid #b7950b;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap;">✏️変更</button>' +
+        '</div>';
+    }).join('') || '<div style="color:#999;font-size:12px;padding:10px;">対象がありません</div>';
+  }
+
+  // ✏️変更：新番号を尋ねて _applyOrderRename を呼ぶ
+  async function startOrderNumEdit(oldNum) {
+    const cur = String(oldNum);
+    const input = prompt('新しい受注番号を入力（接頭辞 T/E/P ＋ 数字。例 T26050）\n現在：' + cur, cur);
+    if (input == null) return;
+    const result = await _applyOrderRename(cur, input);
+    if (result) { renderOrderNumEditList(); alert('受注番号を「' + result + '」に変更しました。'); }
+  }
   function _highlightInvOrderPrefix() {
     document.querySelectorAll('#inv-order-prefix-group .inv-order-pfx-btn').forEach(b => {
       const on = b.dataset.prefix === _invOrderPrefix;
@@ -10251,6 +10302,7 @@
       tokenStatusEl.style.color = hasToken ? '#27ae60' : '#e67e22';
     }
     if (typeof updatePendingDisplay === 'function') updatePendingDisplay();
+    try { if (typeof renderOrderNumEditList === 'function') renderOrderNumEditList(); } catch (e) {}
     setGasStatus('');
   }
   function closeSettings() {
