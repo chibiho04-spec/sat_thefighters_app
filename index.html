@@ -2156,6 +2156,7 @@
     #new-driving-screen,
     #settings-screen,
     #worksheet-list-screen,
+    #order-note-screen,
     #inv-trash-screen,
     #new-project-screen {
       top:    54px !important; /* api-bar(54px)の直下から開始 */
@@ -2228,6 +2229,7 @@
     #new-driving-screen,
     #settings-screen,
     #worksheet-list-screen,
+    #order-note-screen,
     #inv-trash-screen,
     #new-project-screen {
       top:    54px !important; /* api-bar(54px)の直下から開始 */
@@ -2876,6 +2878,7 @@
   #new-driving-screen,
   #settings-screen,
   #worksheet-list-screen,
+  #order-note-screen,
   #inv-trash-screen,
   #new-project-screen {
     transition: none !important;
@@ -4001,6 +4004,11 @@
         </div>
         <div style="padding:8px 14px 6px;font-size:12px;color:#888;letter-spacing:1px;">— 書類作成 —</div>
         <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;">
+          <button onclick="openOrderNoteScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#34495e 0%,#2c3e50 100%);border:3px solid #1a252f;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #1a252f;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #1a252f;letter-spacing:2px;">
+            <span style="font-size:32px;line-height:1;">📒</span>
+            <span style="flex:1;"><span style="font-size:1.2em;">受</span>注ノート<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">案件を受注番号順に一覧（並び替え可）</div></span>
+            <span style="font-size:23px;">▶</span>
+          </button>
           <button onclick="openWorksheetList()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#e74c3c 0%,#c0392b 100%);border:3px solid #922b21;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #922b21;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #922b21;letter-spacing:2px;">
             <span style="font-size:32px;line-height:1;">📋</span>
             <span style="flex:1;">ワークシート<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">案件ワークシートの一覧・編集</div></span>
@@ -5322,6 +5330,29 @@
     <button onclick="openNewProject()" title="新規案件を作成"
       style="position:absolute;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;background:#27ae60;color:white;border:3px solid #1a7a40;font-size:28px;cursor:pointer;box-shadow:3px 4px 0 #1a7a40;font-family:'DotGothic16',monospace;line-height:1;">＋</button>
   </div><!-- /worksheet-list-screen -->
+
+  <!-- ========== 受注ノート一覧（会計室） ========== -->
+  <div id="order-note-screen" style="position:absolute; inset:0; z-index:171; background:var(--panel-bg); transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,0.2,1); display:flex; flex-direction:column; overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:10px;background:#34495e;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #1a252f;">
+      <button class="wsd-back" onclick="closeOrderNoteScreen()">◀ 戻る</button>
+      <div class="wsd-header-info">
+        <div class="wsd-header-num" style="color:#aeb6c0;">📒 受注ノート</div>
+        <div class="wsd-header-title"><span id="order-note-count">0 件</span></div>
+      </div>
+    </div>
+    <div style="padding:10px 12px;background:#f4f6f8;border-bottom:2px solid #d6dbe0;flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <input id="order-note-search" type="text" class="wsd-input" placeholder="🔍 受注No・件名・取引先・担当で検索…" oninput="renderOrderNoteList()" style="flex:1;min-width:140px;font-size:13px;padding:7px 9px;">
+      <select id="order-note-sort" class="wsd-input" onchange="renderOrderNoteList()" style="width:auto;font-size:13px;padding:7px 8px;">
+        <option value="tep">種別 T/E/P順</option>
+        <option value="num_desc">受注番号 新→古</option>
+        <option value="num_asc">受注番号 古→新</option>
+        <option value="received_desc">受付日 新→古</option>
+        <option value="shoot_desc">撮影日 新→古</option>
+        <option value="company">取引先 名前順</option>
+      </select>
+    </div>
+    <div id="order-note-list" class="wsd-scroll" style="padding:6px 8px 20px;"></div>
+  </div><!-- /order-note-screen -->
 
   <!-- ========== 見積書／請求書 一覧画面（スライドイン） ========== -->
   <div id="doc-list-screen" style="
@@ -8262,6 +8293,7 @@
     { id: 'doc-list-screen',         close: () => closeDocList() },
     { id: 'sales-screen',            close: () => closeSalesScreen() },
     { id: 'worksheet-list-screen',   close: () => closeWorksheetList() },
+    { id: 'order-note-screen',       close: () => closeOrderNoteScreen() },
     { id: 'settings-screen',         close: () => closeSettings() },
   ];
   const _NAV_EDIT_PANELS = [
@@ -14357,6 +14389,119 @@
 
   function closeWorksheetList() {
     document.getElementById('worksheet-list-screen').style.transform = 'translateX(100%)';
+  }
+
+  // ===== 受注ノート一覧（会計室・読み取り専用） =====
+  function openOrderNoteScreen() {
+    renderOrderNoteList();
+    const el = document.getElementById('order-note-screen');
+    if (el) el.style.transform = 'translateX(0)';
+  }
+  function closeOrderNoteScreen() {
+    const el = document.getElementById('order-note-screen');
+    if (el) el.style.transform = 'translateX(100%)';
+  }
+  // 受注番号の頭文字 → 色
+  function _onPrefixColor(num) {
+    const p = String(num || '').charAt(0).toUpperCase();
+    if (p === 'T') return '#2980b9';
+    if (p === 'E') return '#27ae60';
+    if (p === 'P') return '#8e44ad';
+    return '#7f8c8d';
+  }
+  // 1案件 → 表示用レコード（projects_saved + getWsDisplayData を流用）
+  function _orderNoteRow(p) {
+    const num = String((p && p.num) || '');
+    let d = {};
+    try { d = getWsDisplayData(num) || {}; } catch (e) { d = {}; }
+    return {
+      num,
+      title: d.title || p.title || '無題の案件',
+      company: d.company || p.company || '',
+      date: (d.date && d.date !== '日程未定') ? d.date : (p.date || ''),
+      type: d.type || p.type || '',
+      orderType: d.orderType || p.orderType || '',
+      staff: p.staff || '',
+      receivedAt: p.receivedAt || '',
+    };
+  }
+  // 撮影日程文字列 → 比較用の数値（最初の日付。無しは -1）
+  function _shootKey(dateStr) {
+    try {
+      const arr = parseDateStr(dateStr) || [];
+      if (!arr.length) return -1;
+      const a = arr[0];
+      return a.y * 10000 + a.m * 100 + a.d;
+    } catch (e) { return -1; }
+  }
+  function renderOrderNoteList() {
+    const listEl = document.getElementById('order-note-list');
+    if (!listEl) return;
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    // 収集：projects_saved から削除済みを除外
+    let deleted = [];
+    try { deleted = getDeletedWS() || []; } catch (e) { deleted = []; }
+    const delSet = new Set(deleted.map(String));
+    let projects = [];
+    try { projects = getSavedProjects() || []; } catch (e) { projects = []; }
+    let rows = projects
+      .filter(p => p && p.num != null && !delSet.has(String(p.num)))
+      .map(_orderNoteRow);
+    // 検索フィルタ
+    const q = (document.getElementById('order-note-search')?.value || '').trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(r =>
+        r.num.toLowerCase().includes(q) ||
+        r.title.toLowerCase().includes(q) ||
+        r.company.toLowerCase().includes(q) ||
+        r.staff.toLowerCase().includes(q)
+      );
+    }
+    // 並び替え
+    const sort = document.getElementById('order-note-sort')?.value || 'tep';
+    const prefRank = n => { const p = String(n).charAt(0).toUpperCase(); return p === 'T' ? 0 : p === 'E' ? 1 : p === 'P' ? 2 : 9; };
+    const cmpNum = (a, b) => String(a.num).localeCompare(String(b.num), 'ja', { numeric: true });
+    if (sort === 'tep') {
+      rows.sort((a, b) => (prefRank(a.num) - prefRank(b.num)) || cmpNum(a, b));
+    } else if (sort === 'num_asc') {
+      rows.sort(cmpNum);
+    } else if (sort === 'num_desc') {
+      rows.sort((a, b) => -cmpNum(a, b));
+    } else if (sort === 'received_desc') {
+      rows.sort((a, b) => String(b.receivedAt || '').localeCompare(String(a.receivedAt || '')) || -cmpNum(a, b));
+    } else if (sort === 'shoot_desc') {
+      rows.sort((a, b) => (_shootKey(b.date) - _shootKey(a.date)) || -cmpNum(a, b));
+    } else if (sort === 'company') {
+      rows.sort((a, b) => String(a.company || '').localeCompare(String(b.company || ''), 'ja') || cmpNum(a, b));
+    }
+    // 件数
+    const cntEl = document.getElementById('order-note-count');
+    if (cntEl) cntEl.textContent = rows.length + ' 件';
+    // 描画
+    if (!rows.length) {
+      listEl.innerHTML = '<div style="text-align:center;color:#95a5a6;padding:40px 10px;font-size:14px;">該当する案件がありません</div>';
+      return;
+    }
+    listEl.innerHTML = rows.map(r => {
+      const col = _onPrefixColor(r.num);
+      const numEsc = esc(r.num);
+      const numAttr = String(r.num).replace(/'/g, "\\'");
+      const metaParts = [];
+      if (r.company) metaParts.push('🏢 ' + esc(r.company));
+      if (r.date) metaParts.push('📅 ' + esc(r.date));
+      if (r.type && r.type !== '未定') metaParts.push('📺 ' + esc(r.type));        // 分類（作品分類）
+      if (r.orderType && r.orderType !== '未定') metaParts.push('🎯 ' + esc(r.orderType)); // 種別（受注分類）
+      if (r.staff) metaParts.push('👤 ' + esc(r.staff));
+      const meta = metaParts.join('　');
+      return `<div onclick="openWS('${numAttr}')" style="display:flex;align-items:center;gap:10px;background:white;border:2px solid #e0e4e8;border-left:6px solid ${col};border-radius:7px;padding:9px 11px;margin-bottom:7px;cursor:pointer;">
+        <span style="flex-shrink:0;font-weight:bold;color:${col};font-size:14px;min-width:74px;letter-spacing:1px;">${numEsc}</span>
+        <span style="flex:1;min-width:0;">
+          <span style="display:block;font-weight:bold;color:#2c3e50;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.title)}</span>
+          ${meta ? `<span style="display:block;color:#7f8c8d;font-size:11.5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${meta}</span>` : ''}
+        </span>
+        <span style="flex-shrink:0;color:#bdc3c7;font-size:16px;">▶</span>
+      </div>`;
+    }).join('');
   }
 
   function setWlFilter(btn, filter) {
