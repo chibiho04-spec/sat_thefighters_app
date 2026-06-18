@@ -6276,7 +6276,10 @@
     <div class="wsd-header">
       <button class="wsd-back" onclick="closeWSGuarded()">◀ 一覧</button>
       <div class="wsd-header-info">
-        <div class="wsd-header-num" id="ws-detail-num">Z26039</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <div class="wsd-header-num" id="ws-detail-num">Z26039</div>
+          <button onclick="startWsOrderEdit()" title="受注番号を変更" style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.6);color:#fff;padding:2px 7px;border-radius:3px;cursor:pointer;white-space:nowrap;">✏️変更</button>
+        </div>
         <div class="wsd-header-title" id="wsd-title">案件名</div>
       </div>
       <button id="wsd-refresh-btn" onclick="refreshCurrentWS()" style="font-family:'DotGothic16',monospace;font-size:11px;background:#27ae60;border:1px solid #1a7a40;color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;flex-shrink:0;box-shadow:2px 2px 0 #1a7a40;" title="機材マスタ等の最新内容を反映">🔄 更新</button>
@@ -9027,6 +9030,19 @@
   }
   function closeOrderNumEditScreen() {
     const s = document.getElementById('ordernum-edit-screen'); if (s) s.style.display = 'none';
+  }
+
+  // ワークシート詳細/編集画面のヘッダー「✏️変更」：受注番号を変更する
+  async function startWsOrderEdit() {
+    const cur = (document.getElementById('ws-detail-num') && document.getElementById('ws-detail-num').textContent || '').trim();
+    if (!cur) return;
+    const input = await _orderNumInputDialog(cur);
+    if (input == null) return;
+    const result = await _applyOrderRename(cur, input);
+    if (result) {
+      const el = document.getElementById('ws-detail-num'); if (el) el.textContent = result;
+      alert('受注番号を「' + result + '」に変更しました。');
+    }
   }
   function _highlightInvOrderPrefix() {
     document.querySelectorAll('#inv-order-prefix-group .inv-order-pfx-btn').forEach(b => {
