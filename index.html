@@ -8736,6 +8736,142 @@
     try { if (getSavedProjects().some(p => String(p.num) === String(num))) return true; } catch (e) {}
     return false;
   }
+
+  // ===== 受注番号(主キー)の後変更（リネーム） =====
+  // 0000 から空いている退避用番号を返す（0000,0001,...）。衝突相手を逃がす先。
+  function _freeZeroNum() {
+    for (let i = 0; i < 10000; i++) {
+      const cand = String(i).padStart(4, '0');
+      if (!_orderNumExists(cand)) return cand;
+    }
+    return '0000';
+  }
+
+  // 受注番号を oldNum→newNum にリネーム。newNum は呼び出し前に「空き」である前提（衝突解決は呼び出し側）。
+  // ws_/inv_キー・projects_saved・wsData/invData・削除リスト・Googleスプレッドシート同期・画面表示を整合更新する。
+  function renameOrderNum(oldNum, newNum) {
+    oldNum = String(oldNum); newNum = String(newNum);
+    if (!newNum || oldNum === newNum) return false;
+    const nowIso = new Date().toISOString();
+    const syncOn = (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function');
+
+    // 1. ws_ キー移行
+    let wsContent = null;
+    const wsRaw = localStorage.getItem('ws_' + oldNum);
+    if (wsRaw !== null) {
+      localStorage.setItem('ws_' + newNum, wsRaw);
+      localStorage.removeItem('ws_' + oldNum);
+      try { wsContent = JSON.parse(wsRaw); } catch (e) { wsContent = {}; }
+    }
+
+    // 2. inv_ キー移行（saveInvStatus が inv_newNum 書込＋invoice同期(new)を実施）
+    let invContent = null;
+    const invRaw = localStorage.getItem('inv_' + oldNum);
+    if (invRaw !== null) {
+      try { invContent = JSON.parse(invRaw) || {}; } catch (e) { invContent = {}; }
+      localStorage.removeItem('inv_' + oldNum);
+      if (typeof saveInvStatus === 'function') saveInvStatus(newNum, invContent);
+      else localStorage.setItem('inv_' + newNum, invRaw);
+    }
+
+    // 3. projects_saved
+    try {
+      const list = JSON.parse(localStorage.getItem('projects_saved') || '[]');
+      const i = list.findIndex(p => String(p.num) === oldNum);
+      if (i >= 0) { list[i].num = newNum; list[i]._updatedAt = nowIso; localStorage.setItem('projects_saved', JSON.stringify(list)); }
+    } catch (e) { console.warn('projects rename', e); }
+
+    // 4. メモリ wsData / invData
+    try { if (typeof wsData === 'object' && wsData[oldNum]) { wsData[newNum] = wsData[oldNum]; if (wsData[newNum] && typeof wsData[newNum] === 'object') wsData[newNum].num = newNum; delete wsData[oldNum]; } } catch (e) {}
+    try { if (typeof invData === 'object' && invData && invData[oldNum]) { invData[newNum] = invData[oldNum]; delete invData[oldNum]; } } catch (e) {}
+
+    // 5. 削除リスト（通常は無いが防御）
+    ['deleted_ws', 'deleted_inv'].forEach(k => {
+      try { let a = JSON.parse(localStorage.getItem(k) || '[]'); if (a.indexOf(oldNum) >= 0) { a = a.map(x => x === oldNum ? newNum : x); localStorage.setItem(k, JSON.stringify(a)); } } catch (e) {}
+    });
+
+    // 6. 同期：旧番号を削除フラグ、新番号を作成（二重行防止）
+    if (syncOn) {
+      try {
+        pushKind('order', [{ '受注No': oldNum, _project: {}, _updatedAt: nowIso, _deleted: true }]).catch(() => {});
+        pushKind('child', [{ '受注No': oldNum, _updatedAt: nowIso, _deleted: true }]).catch(() => {});
+        if (invContent) pushKind('invoice', [{ '受注No': oldNum, _deleted: true, _updatedAt: nowIso }]).catch(() => {});
+        if (wsContent !== null) {
+          const wsNew = (typeof wsData === 'object' && wsData[newNum]) ? wsData[newNum] : (wsContent || {});
+          pushKind('order', [{ '受注No': newNum, _project: wsNew, _updatedAt: nowIso }]).catch(() => { try { pendingAdd('order', newNum); } catch (_) {} });
+          pushKind('child', [Object.assign({}, wsContent, { '受注No': newNum, _updatedAt: nowIso })]).catch(() => { try { pendingAdd('child', newNum); } catch (_) {} });
+        }
+      } catch (e) { console.warn('rename sync', e); }
+    }
+
+    // 7. 画面反映
+    try { const wd = document.getElementById('ws-detail-num'); if (wd && wd.textContent === oldNum) wd.textContent = newNum; } catch (e) {}
+    try { const idn = document.getElementById('inv-detail-num'); if (idn && idn.textContent === oldNum) idn.textContent = newNum; } catch (e) {}
+    try { if (typeof renderHomeCal === 'function') renderHomeCal(); } catch (e) {}
+    try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
+    return true;
+  }
+
+  // 衝突時の3択モーダル。'a'(こちら優先)/'b'(相手優先)/'cancel' を解決する。
+  function _orderConflictDialog(newNum, bNum, bTitle) {
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'DotGothic16',monospace;";
+      const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
+      ov.innerHTML =
+        '<div style="background:#fff;border:3px solid #e0cd95;border-radius:8px;max-width:360px;width:100%;padding:16px;box-shadow:4px 4px 0 #cdb273;">' +
+          '<div style="font-size:15px;font-weight:bold;color:#c0392b;margin-bottom:8px;">⚠️ 番号が重複しています</div>' +
+          '<div style="font-size:13px;color:#444;line-height:1.5;margin-bottom:14px;">' +
+            '「<b>' + esc(newNum) + '</b>」は別の案件<br><b>' + esc(bTitle || bNum) + '</b>（' + esc(bNum) + '）が既に使っています。<br>どちらに「' + esc(newNum) + '」を付けますか？<br><span style="color:#888;font-size:11px;">※負けた方は番号が「0000」になります</span>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<button data-c="a" style="font-family:inherit;font-size:14px;font-weight:bold;background:#27ae60;color:#fff;border:2px solid #1a7a40;border-radius:5px;padding:10px;cursor:pointer;">こちらを優先（相手を0000に）</button>' +
+            '<button data-c="b" style="font-family:inherit;font-size:14px;font-weight:bold;background:#2980b9;color:#fff;border:2px solid #1c5980;border-radius:5px;padding:10px;cursor:pointer;">相手を優先（こちらを0000に）</button>' +
+            '<button data-c="cancel" style="font-family:inherit;font-size:13px;background:#eee;color:#555;border:2px solid #bbb;border-radius:5px;padding:8px;cursor:pointer;">キャンセル</button>' +
+          '</div>' +
+        '</div>';
+      ov.addEventListener('click', e => {
+        const b = e.target.closest('button[data-c]');
+        if (b) { document.body.removeChild(ov); resolve(b.dataset.c); }
+        else if (e.target === ov) { document.body.removeChild(ov); resolve('cancel'); }
+      });
+      document.body.appendChild(ov);
+    });
+  }
+
+  // 受注番号変更の入口。oldNum を newNumRaw に変更。確定後の番号を返す（未実行は null）。
+  async function _applyOrderRename(oldNum, newNumRaw) {
+    oldNum = String(oldNum);
+    let newNum = String(newNumRaw || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
+    if (!newNum) { alert('番号を入力してください。'); return null; }
+    if (newNum === oldNum) return null;
+
+    // 請求済み/入金済み確認
+    try {
+      const st = (typeof loadInvStatus === 'function') ? loadInvStatus(oldNum) : {};
+      if (st && (st.billed || st.paid)) {
+        if (!confirm('この案件は請求済み／入金済みです。\n客に出した受注番号が変わります。本当に変更しますか？')) return null;
+      }
+    } catch (e) {}
+
+    // 衝突チェック
+    if (_orderNumExists(newNum)) {
+      let bTitle = '';
+      try {
+        const p = JSON.parse(localStorage.getItem('projects_saved') || '[]').find(x => String(x.num) === newNum);
+        if (p) bTitle = p.title || '';
+        if (!bTitle) { const inv = (typeof loadInvStatus === 'function') ? loadInvStatus(newNum) : {}; bTitle = (inv && inv.title) || ''; }
+      } catch (e) {}
+      const choice = await _orderConflictDialog(newNum, newNum, bTitle);
+      if (choice === 'cancel') return null;
+      if (choice === 'a') { renameOrderNum(newNum, _freeZeroNum()); renameOrderNum(oldNum, newNum); return newNum; }
+      if (choice === 'b') { const z = _freeZeroNum(); renameOrderNum(oldNum, z); return z; }
+      return null;
+    }
+
+    renameOrderNum(oldNum, newNum);
+    return newNum;
+  }
   function _highlightInvOrderPrefix() {
     document.querySelectorAll('#inv-order-prefix-group .inv-order-pfx-btn').forEach(b => {
       const on = b.dataset.prefix === _invOrderPrefix;
