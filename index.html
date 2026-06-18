@@ -12771,6 +12771,36 @@
       </div>`;
   }
 
+  // 外注費の明細行＋合計を返す（売上表Excel出力用・計算式は既存 _calcCaseSales と完全一致）。
+  // 返り値 items: [{name, cost, isTax?}]（課税アイテムは税抜額・非課税はそのまま・末尾に消費税行）。
+  //         cost: Math.round(課税税抜合計×1.1) + 非課税合計（＝既存 outsourceCost と同値）。
+  function _collectOutsourceItems(num, lines, status) {
+    const rows = [];
+    let base = 0, exempt = 0;
+    const add = (name, cost, taxable) => {
+      cost = Number(cost) || 0; if (!cost) return;
+      rows.push({ name: name || '外注', cost });
+      if (taxable) base += cost; else exempt += cost;
+    };
+    try {
+      const saved = (typeof loadWS === 'function') ? loadWS(num) : {};
+      ((typeof loadOutsourceItems === 'function') ? loadOutsourceItems(saved) : [])
+        .forEach(o => add(o.name, o.cost, o.taxable !== false)); // WS外注：旧データ(taxable無)=課税
+      add('機材（リース）', String(saved['wsd-rental-cost'] || '').replace(/[^\d]/g, ''), true); // レンタル=課税
+    } catch (e) {}
+    (lines || []).forEach(l => {
+      if (l && l.outsource) add(l.name, (Number(l.qty)||0) * (Number(l.price)||0), l.taxable !== false);
+    });
+    if (status && Array.isArray(status.outsourceExtraList)) {
+      status.outsourceExtraList.forEach(o => add(o.name || '外注費', o.cost, o.taxable === true)); // 外注費リスト：true のみ課税
+    } else if (status && Number(status.outsourceExtra)) {
+      add('外注費', status.outsourceExtra, false); // 旧・単一値=非課税
+    }
+    const tax = Math.round(base * 1.1) - base;
+    if (tax > 0) rows.push({ name: '消費税', cost: tax, isTax: true });
+    return { items: rows, cost: Math.round(base * 1.1) + exempt };
+  }
+
   // 案件1件ぶんの売上情報を集計（明細行＋ステータス＋外注費）
   function _calcCaseSales(num, master) {
     const status = (typeof loadInvStatus === 'function') ? (loadInvStatus(num) || {}) : {};
@@ -12785,28 +12815,10 @@
     const tax      = Math.floor(taxBase * 0.1);
     const total    = (subtotal - discount) + tax;
 
-    // 外注費：実際に支払う税込額で売上から控除（ユーザー決定 2026-06-12 / 課税・非課税の選択 2026-06-16）。
-    // 課税は税抜入力前提なので×1.1、非課税はそのまま加算。
-    //   osTaxableBase … ×1.1する税抜合計 ／ osExemptSum … そのまま加算（非課税・税込）
-    let osTaxableBase = 0, osExemptSum = 0;
-    try {
-      const saved = (typeof loadWS === 'function') ? loadWS(num) : {};
-      const items = (typeof loadOutsourceItems === 'function') ? loadOutsourceItems(saved) : [];
-      // WS外注リスト：フラグ無し（旧データ）は課税扱い（従来どおり×1.1）
-      items.forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) osExemptSum += c; else osTaxableBase += c; });
-      // レンタルは課税扱い
-      osTaxableBase += Number(String(saved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
-    } catch(e) { console.warn(e); }
-    // 請求書明細で「外注」チェックの行（行自体の課税/非課税に従う）
-    osTaxableBase += lines.reduce((s, l) => (l && l.outsource && l.taxable !== false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
-    osExemptSum   += lines.reduce((s, l) => (l && l.outsource && l.taxable === false) ? s + (Number(l.qty)||0) * (Number(l.price)||0) : s, 0);
-    // 請求書の「外注費（売上計算用）」リスト：課税(taxable===true)は×1.1、それ以外（非課税・旧データ）はそのまま
-    if (Array.isArray(status.outsourceExtraList)) {
-      status.outsourceExtraList.forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === true) osTaxableBase += c; else osExemptSum += c; });
-    } else {
-      osExemptSum += Number(status.outsourceExtra) || 0; // 旧・単一値はそのまま
-    }
-    const outsourceCost = Math.round(osTaxableBase * 1.1) + osExemptSum;
+    // 外注費：明細リスト＋合計をヘルパーで取得（計算式は従来どおり）。
+    const _os = _collectOutsourceItems(num, lines, status);
+    const outsourceCost = _os.cost;
+    const outsourceItems = _os.items;
     // 社内流放 = 受注総額 − 外注費（≒ 会社の取り分）
     const netInhouse = total - outsourceCost;
 
@@ -12817,6 +12829,7 @@
       date:     status.invDate || master.date || '',
       subtotal, tax, total,
       outsourceCost,
+      outsourceItems,
       netInhouse,
       billed:   !!status.billed,
       paid:     !!status.paid,
@@ -12857,14 +12870,14 @@
         if (!status.lines || !status.lines.length) {
           // 明細が無い案件：外注費はWSから、請求額はWSの受注金額をフォールバックで使用
           let outsourceCost = 0;
+          let outsourceItems = [];
           let subtotal = 0, tax = 0, total = 0;
           try {
             const wsSaved = loadWS(p.num);
-            // 外注：課税は×1.1、非課税はそのまま（_calcCaseSales と同じ扱い）
-            let base = 0, exempt = 0;
-            loadOutsourceItems(wsSaved).forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) exempt += c; else base += c; });
-            base += Number(String(wsSaved['wsd-rental-cost'] || '').replace(/[^\d]/g, '')) || 0;
-            outsourceCost = Math.round(base * 1.1) + exempt;
+            // 外注：明細＋合計をヘルパーで取得（フォールバックは従来どおりWSのみ＝lines/status無し）
+            const _os = _collectOutsourceItems(p.num, [], {});
+            outsourceCost = _os.cost;
+            outsourceItems = _os.items;
             // 受注金額は税別（本体）→ 売上表では税込換算（請求済案件＝税込と揃える）
             const oa = Number(String(wsSaved['wsd-order-amount'] || '').replace(/[^\d]/g, '')) || 0;
             subtotal = oa;
@@ -12874,7 +12887,7 @@
           items.push({
             num: p.num, title: p.title || '', client: p.company || '', date: status.invDate || p.date || '',
             subtotal, tax, total,
-            outsourceCost, netInhouse: total - outsourceCost,
+            outsourceCost, outsourceItems, netInhouse: total - outsourceCost,
             billed: !!status.billed, paid: !!status.paid, outsourcePaid: !!status.outsourcePaid
           });
           return;
