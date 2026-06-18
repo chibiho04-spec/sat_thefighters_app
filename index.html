@@ -11237,11 +11237,19 @@
     return out;
   }
   function _saveAllInvoices(recList) {
+    const keep = new Set();
     for (const rec of recList) {
       const num = String((rec && rec['受注No']) || ''); if (!num) continue;
+      keep.add(num);
       const copy = Object.assign({}, rec); delete copy['受注No']; // 受注No はキー（行内には戻さない）
       localStorage.setItem('inv_' + num, JSON.stringify(copy));
     }
+    // 取り込みで削除フラグが勝った（merged に残らなかった）inv_ を除去。
+    // ※これが無いと、他端末で削除した請求書がこの端末のローカルに残り、売上に計上され続けて金額が合わなくなる。
+    // ※ローカル専用の未送信請求書は merged に残るので消えない（空取り込みでも安全）。
+    Object.keys(localStorage).filter(k => k.indexOf('inv_') === 0).forEach(k => {
+      const num = k.slice(4); if (num && !keep.has(num)) localStorage.removeItem(k);
+    });
   }
 
   // ---- client/product/media アダプタ（{at, rows:[...]} キャッシュ。rows のキーがシート列）----
