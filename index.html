@@ -8830,6 +8830,9 @@
   function renameOrderNum(oldNum, newNum, tsMs) {
     oldNum = String(oldNum); newNum = String(newNum);
     if (!newNum || oldNum === newNum) return false;
+    // ★再発防止ガード：変更先に既に中身のある別案件/請求書がある場合は絶対に上書きしない（データ消失防止）。
+    //   正規の衝突解決(_applyOrderRename)は先に相手を0000へ退避して空けてから呼ぶので、ここは通常空。
+    if (_orderNumExists(newNum)) { console.warn('renameOrderNum: 変更先 ' + newNum + ' は使用中のため上書きを中止しました'); return false; }
     const nowIso = new Date((typeof tsMs === 'number') ? tsMs : Date.now()).toISOString();
     const syncOn = (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function');
 
@@ -8930,6 +8933,8 @@
     let newNum = String(newNumRaw || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
     if (!newNum) { alert('番号を入力してください。'); return null; }
     if (newNum === oldNum) return null;
+    // 形式チェック：受注番号は接頭辞(T/E/P)＋数字のみ許可（「1」等の不正番号を防止）
+    if (!/^[TEP]\d+$/.test(newNum)) { alert('受注番号は T/E/P ＋ 数字の形式にしてください（例 T26050）。'); return null; }
 
     // 請求済み/入金済み確認
     try {
@@ -8938,6 +8943,12 @@
         if (!confirm('この案件は請求済み／入金済みです。\n客に出した受注番号が変わります。本当に変更しますか？')) return null;
       }
     } catch (e) {}
+
+    // ★端末をまたいだ重複を見逃さないよう、変更前にスプレッドシート最新を取り込む（オフライン時はローカルのみで判定）。
+    //   これにより、他端末が同じ番号を既に使っていても衝突として検知でき、ガリガリくんのような上書き消失を防ぐ。
+    if (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pullKind === 'function') {
+      try { await pullKind('order'); await pullKind('child'); await pullKind('invoice'); } catch (e) { console.warn('rename pre-pull 失敗（ローカルのみで判定）', e); }
+    }
 
     // 衝突チェック
     if (_orderNumExists(newNum)) {
