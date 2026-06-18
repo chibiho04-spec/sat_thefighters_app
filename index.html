@@ -5399,7 +5399,28 @@
     <div id="sales-body" class="wsd-scroll" style="padding:6px 8px 20px;">
       <!-- JSで動的生成 -->
     </div>
+
+    <!-- 売上表の下：受注番号の変更ボタン -->
+    <div style="flex-shrink:0;padding:10px 12px;border-top:2px solid #d2b4de;background:#faf5fc;">
+      <button onclick="openOrderNumEditScreen()"
+        style="width:100%;font-family:'DotGothic16',monospace;font-size:14px;background:#8e44ad;color:#fff;border:3px solid #6c3483;border-radius:6px;padding:12px;cursor:pointer;box-shadow:3px 3px 0 #6c3483;">🔢 受注番号の変更</button>
+    </div>
   </div><!-- /sales-screen -->
+
+  <!-- ========== 受注番号の変更（売上表の下のボタンから開く中央モーダル） ========== -->
+  <div id="ordernum-edit-screen" style="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;padding:16px;font-family:'DotGothic16',monospace;">
+    <div style="background:var(--panel-bg,#fff);border:3px solid #8e44ad;border-radius:8px;max-width:480px;width:100%;max-height:84vh;display:flex;flex-direction:column;box-shadow:4px 4px 0 rgba(0,0,0,0.3);overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:8px;background:#8e44ad;color:#fff;padding:10px 12px;flex-shrink:0;">
+        <span style="font-size:15px;font-weight:bold;flex:1;">🔢 受注番号の変更</span>
+        <button onclick="closeOrderNumEditScreen()" style="font-family:inherit;font-size:13px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:4px 10px;border-radius:3px;cursor:pointer;">✕ 閉じる</button>
+      </div>
+      <div style="padding:10px 12px;flex-shrink:0;font-size:12px;color:#666;line-height:1.5;">
+        案件・請求書の受注番号を後から変更できます。案件と請求書は同じ番号で連動します。<br>
+        <span style="color:#c0392b;">⚠️ 既存の番号とぶつかると警告が出ます（負けた方は番号が 0000 に）。</span>
+      </div>
+      <div id="ordernum-edit-list" style="flex:1;overflow-y:auto;border-top:1px solid #ddd;background:#fff;"></div>
+    </div>
+  </div><!-- /ordernum-edit-screen -->
 
   <!-- ========== 商品マスタ画面（スライドイン） ========== -->
   <div id="product-master-screen" style="
@@ -5983,16 +6004,6 @@
         </div>
         <div id="seed-status" style="margin-top:8px;font-size:12px;color:#666;min-height:14px;"></div>
         <div id="gas-sync-status" style="margin-top:10px;font-size:12px;color:#666;min-height:14px;"></div>
-      </div>
-
-      <!-- 受注番号の変更 -->
-      <div class="wsd-section-head" style="background:#8e44ad;color:white;">🔢 受注番号の変更</div>
-      <div style="padding:12px 14px;">
-        <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:10px;">
-          案件・単独請求書の受注番号を後から変更できます。案件を変えると、紐づく請求書も同じ番号になります。<br>
-          <span style="color:#c0392b;">⚠️ 既存の番号とぶつかると警告が出ます（負けた方は番号が 0000 になります）。</span>
-        </div>
-        <div id="ordernum-edit-list" style="border:1px solid #ddd;border-radius:4px;max-height:320px;overflow-y:auto;background:#fff;"></div>
       </div>
 
       <!-- バックアップ -->
@@ -8945,6 +8956,17 @@
     const result = await _applyOrderRename(cur, input);
     if (result) { renderOrderNumEditList(); alert('受注番号を「' + result + '」に変更しました。'); }
   }
+
+  // 会計室（売上表の下のボタン）から開く「受注番号の変更」モーダル
+  function openOrderNumEditScreen() {
+    const s = document.getElementById('ordernum-edit-screen'); if (!s) return;
+    s.style.display = 'flex';
+    s.onclick = (e) => { if (e.target === s) closeOrderNumEditScreen(); }; // 背景タップで閉じる
+    try { renderOrderNumEditList(); } catch (e) {}
+  }
+  function closeOrderNumEditScreen() {
+    const s = document.getElementById('ordernum-edit-screen'); if (s) s.style.display = 'none';
+  }
   function _highlightInvOrderPrefix() {
     document.querySelectorAll('#inv-order-prefix-group .inv-order-pfx-btn').forEach(b => {
       const on = b.dataset.prefix === _invOrderPrefix;
@@ -8974,8 +8996,10 @@
     // ✏️変更ボタン：単独請求書（inv_あり・ws_なし）かつ表示モードのときだけ出す
     const editBtn = document.getElementById('inv-order-edit-btn');
     if (editBtn) {
-      const standalone = !!(num && localStorage.getItem('inv_' + num) && !localStorage.getItem('ws_' + num));
-      editBtn.style.display = (!editable && standalone && _isRenumberable(num)) ? 'inline-block' : 'none';
+      // 保存済みの請求書/案件（inv_ または ws_ がある）かつ変更対象の番号なら表示。
+      // ワークシート有りの請求書でも変更可（renameOrderNum が ws_/inv_ を双方向に連動更新）。
+      const saved = !!(num && (localStorage.getItem('inv_' + num) || localStorage.getItem('ws_' + num)));
+      editBtn.style.display = (!editable && saved && _isRenumberable(num)) ? 'inline-block' : 'none';
     }
   }
 
@@ -10344,7 +10368,6 @@
       tokenStatusEl.style.color = hasToken ? '#27ae60' : '#e67e22';
     }
     if (typeof updatePendingDisplay === 'function') updatePendingDisplay();
-    try { if (typeof renderOrderNumEditList === 'function') renderOrderNumEditList(); } catch (e) {}
     setGasStatus('');
   }
   function closeSettings() {
