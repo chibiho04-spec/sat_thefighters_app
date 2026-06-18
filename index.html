@@ -13480,7 +13480,7 @@
     showToast(`📋 ${num} のワークシートを作成しました`);
   }
 
-  // 月別CSV出力（月の見出しの「📥 CSV」ボタンから呼ばれる）
+  // 月別Excel出力（月の見出しの「📥 Excel」ボタンから呼ばれる）
   // monthKey 形式: "YYYY-MM"（または "日付未設定"）
   function exportSalesCSVForMonth(monthKey) {
     const items = _collectSalesItems();
@@ -13514,9 +13514,18 @@
     const numCell = (v, attrs) => `<td class="num"${attrs || ''}>${Number(v) || 0}</td>`;
     const txtCell = (v, attrs, cls) => `<td${cls ? ' class="' + cls + '"' : ''}${attrs || ''}>${esc(v == null ? '' : v)}</td>`;
 
+    // 行構造（rowspan）：1案件は外注明細数 n（最低1）ぶんの <tr> になる。
+    //  - i===0 の行：案件列7個（受注No〜合計, rowspan=n）＋ 外注先/外注費2個 ＋ 売り上げ/ステータス2個(rowspan=n) ＝ 計11セル。
+    //  - i>0 の行：外注先/外注費の2セルのみ（他列は i===0 の rowspan が占有）。
+    //  列の追加・順序変更時は rowspan を付ける列（先頭7列＋末尾2列）を必ず合わせること。
     const bodyRows = [];
     filtered.forEach(it => {
-      const osItems = (it.outsourceItems && it.outsourceItems.length) ? it.outsourceItems : [{ name:'', cost:0, _blank:true }];
+      let osItems = (it.outsourceItems && it.outsourceItems.length) ? it.outsourceItems : [{ name:'', cost:0, _blank:true }];
+      // 防御（CLAUDE.md「金額計算の正」）：明細合計が外注費合計とズレたら「外注費」1行に統一し、表示金額を絶対にずらさない。
+      const osSum = osItems.reduce((s, r) => s + (Number(r.cost) || 0), 0);
+      if (osSum !== (it.outsourceCost || 0)) {
+        osItems = (it.outsourceCost > 0) ? [{ name:'外注費', cost: it.outsourceCost }] : [{ name:'', cost:0, _blank:true }];
+      }
       const n = osItems.length;
       const span = n > 1 ? ` rowspan="${n}"` : '';
       const statusTxt = it.paid ? '入金済' : (it.billed ? '請求済' : '未請求');
@@ -13568,7 +13577,7 @@
     URL.revokeObjectURL(url);
   }
 
-  // 売上表をCSVダウンロード（ヘッダー右上の📥CSVボタンから・現在のフィルタ条件で出力）
+  // 売上表をExcelダウンロード（ヘッダー右上の📥Excelボタンから・現在のフィルタ条件で出力）
   function exportSalesCSV() {
     const items = _collectSalesItems();
     const period       = document.getElementById('sales-period').value;
