@@ -4025,6 +4025,11 @@
             <span style="flex:1;"><span style="font-size:1.2em;">売</span>上表<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">請求書データから売上集計</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
+          <button onclick="openOrderNumEditScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#8e44ad 0%,#6c3483 100%);border:3px solid #5b2c6f;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #5b2c6f;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #5b2c6f;letter-spacing:2px;">
+            <span style="font-size:32px;line-height:1;">🔢</span>
+            <span style="flex:1;"><span style="font-size:1.2em;">受</span>注番号の変更<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">案件・請求書の番号を後から変更</div></span>
+            <span style="font-size:23px;">▶</span>
+          </button>
         </div>
 
       </div>
@@ -5398,12 +5403,6 @@
     <!-- 月別合計 + 案件別明細 -->
     <div id="sales-body" class="wsd-scroll" style="padding:6px 8px 20px;">
       <!-- JSで動的生成 -->
-    </div>
-
-    <!-- 売上表の下：受注番号の変更ボタン -->
-    <div style="flex-shrink:0;padding:10px 12px;border-top:2px solid #d2b4de;background:#faf5fc;">
-      <button onclick="openOrderNumEditScreen()"
-        style="width:100%;font-family:'DotGothic16',monospace;font-size:14px;background:#8e44ad;color:#fff;border:3px solid #6c3483;border-radius:6px;padding:12px;cursor:pointer;box-shadow:3px 3px 0 #6c3483;">🔢 受注番号の変更</button>
     </div>
   </div><!-- /sales-screen -->
 
