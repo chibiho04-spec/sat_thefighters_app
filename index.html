@@ -5405,8 +5405,8 @@
         <div class="wsd-header-num" style="color:#fadbd8;">📊 売上表</div>
         <div class="wsd-header-title">請求書データから集計</div>
       </div>
-      <button id="sales-export-btn" onclick="exportSalesCSV()" title="Excelダウンロード"
-        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 Excel</button>
+      <button id="sales-export-btn" onclick="exportSalesPDF()" title="PDFダウンロード（表をPDFで保存）"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 PDF</button>
     </div>
 
     <!-- 期間フィルタ -->
@@ -13325,9 +13325,9 @@
               <span style="font-size:13px;">請求額 ${fmt(grpSum)}</span>
               <span style="font-size:13px;opacity:0.85;">外注費 ${fmt(grpOut)}</span>
               <span style="background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:10px;font-size:16px;font-weight:bold;text-shadow:1px 1px 0 #641e16;">売上 ${fmt(grpNet)}</span>
-              <button onclick="event.stopPropagation();exportSalesCSVForMonth('${key}')"
-                title="この月のExcelをダウンロード"
-                style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.5);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-shadow:none;">📥 Excel</button>
+              <button onclick="event.stopPropagation();exportSalesPDFForMonth('${key}')"
+                title="この月の表をPDFでダウンロード"
+                style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.5);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-shadow:none;">📥 PDF</button>
             </span>
           </div>
           <!-- 表（広い時=1段／狭い時=2段に折り返し）。overflow-x:文字拡大×狭い窓で万一収まらない時は重ならず横スクロール -->
@@ -13480,9 +13480,9 @@
     showToast(`📋 ${num} のワークシートを作成しました`);
   }
 
-  // 月別Excel出力（月の見出しの「📥 Excel」ボタンから呼ばれる）
+  // 月別PDF出力（月の見出しの「📥 PDF」ボタンから呼ばれる）
   // monthKey 形式: "YYYY-MM"（または "日付未設定"）
-  function exportSalesCSVForMonth(monthKey) {
+  function exportSalesPDFForMonth(monthKey) {
     const items = _collectSalesItems();
     let filtered;
     if (monthKey === '日付未設定') {
@@ -13496,28 +13496,27 @@
     } else {
       filtered = items;
     }
-    _writeSalesExcel(filtered, monthKey);
+    _openSalesPrint(filtered, monthKey);
   }
 
-  // 売上表を Excel整形ファイル(.xls/HTML表) として書き出す共通処理。
-  // exportSalesCSV（現フィルタ）/ exportSalesCSVForMonth（月別）両方から使う。
+  // 売上表を PDF として印刷する共通処理（exportSalesPDF / exportSalesPDFForMonth から使う）。
   // 外注費は外注先ごとに行展開（末尾に消費税行）。案件情報は rowspan で縦結合。
-  // Excel: 罫線・列幅・￥書式（mso-number-format）／ Numbers: 数値表示。読み取り専用（保存・同期なし）。
-  function _writeSalesExcel(filtered, fileSuffix) {
+  // 新しい印刷ウィンドウに表＋A4横向きCSSを書き出し、印刷ダイアログから「PDFとして保存」できる。
+  // 読み取り専用（保存・同期なし）。請求書PDF(executePrint)と同じ方式。
+  function _openSalesPrint(filtered, fileLabel) {
     const esc = (typeof escapeHtml === 'function') ? escapeHtml
       : (s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
+    const yen = v => '¥' + (Number(v) || 0).toLocaleString('ja-JP');
     const cols = [
-      { h:'受注No', w:62 }, { h:'日付', w:78 }, { h:'取引先', w:130 }, { h:'件名', w:200 },
-      { h:'税抜額', w:78 }, { h:'消費税', w:66 }, { h:'合計', w:88 }, { h:'外注先', w:150 },
-      { h:'外注費', w:78 }, { h:'売り上げ', w:88 }, { h:'ステータス', w:70 },
+      { h:'受注No', w:64 }, { h:'日付', w:62 }, { h:'取引先', w:120 }, { h:'件名', w:190 },
+      { h:'税抜額', w:66 }, { h:'消費税', w:58 }, { h:'合計', w:74 }, { h:'外注先', w:130 },
+      { h:'外注費', w:66 }, { h:'売り上げ', w:74 }, { h:'ステータス', w:60 },
     ];
-    const numCell = (v, attrs) => `<td class="num"${attrs || ''}>${Number(v) || 0}</td>`;
+    const numCell = (v, attrs) => `<td class="num"${attrs || ''}>${yen(v)}</td>`;
     const txtCell = (v, attrs, cls) => `<td${cls ? ' class="' + cls + '"' : ''}${attrs || ''}>${esc(v == null ? '' : v)}</td>`;
 
-    // 行構造（rowspan）：1案件は外注明細数 n（最低1）ぶんの <tr> になる。
-    //  - i===0 の行：案件列7個（受注No〜合計, rowspan=n）＋ 外注先/外注費2個 ＋ 売り上げ/ステータス2個(rowspan=n) ＝ 計11セル。
-    //  - i>0 の行：外注先/外注費の2セルのみ（他列は i===0 の rowspan が占有）。
-    //  列の追加・順序変更時は rowspan を付ける列（先頭7列＋末尾2列）を必ず合わせること。
+    // 行構造（rowspan）：1案件は外注明細数 n（最低1）ぶんの行。先頭行に案件列＋外注1件目、続く行は外注先/外注費のみ。
+    // 案件列(受注No〜合計・売り上げ・ステータス)は rowspan=n で縦結合。
     const bodyRows = [];
     filtered.forEach(it => {
       let osItems = (it.outsourceItems && it.outsourceItems.length) ? it.outsourceItems : [{ name:'', cost:0, _blank:true }];
@@ -13536,8 +13535,8 @@
           tds += txtCell(it.num, span, 'b') + txtCell(it.date, span) + txtCell(it.client, span) + txtCell(it.title, span);
           tds += numCell(it.subtotal, span) + numCell(it.tax, span) + numCell(it.total, span);
         }
-        if (os._blank) { tds += txtCell('') + numCell(0); }
-        else { tds += txtCell(os.name, '', os.isTax ? 'tax' : '') + `<td class="num${os.isTax ? ' tax' : ''}">${Number(os.cost) || 0}</td>`; }
+        if (os._blank) { tds += txtCell('') + '<td class="num"></td>'; }
+        else { tds += txtCell(os.name, '', os.isTax ? 'tax' : '') + `<td class="num${os.isTax ? ' tax' : ''}">${yen(os.cost)}</td>`; }
         if (i === 0) { tds += numCell(net, span) + txtCell(statusTxt, span); }
         bodyRows.push(`<tr>${tds}</tr>`);
       });
@@ -13548,37 +13547,43 @@
     const sumNet       = sumTotal - sumOutsource;
     const sumRow = '<tr class="sum">'
       + '<td colspan="6">合計（請求金額 − 外注費 ＝ 売上）</td>'
-      + `<td class="num">${sumTotal}</td><td></td><td class="num">${sumOutsource}</td>`
-      + `<td class="num">${sumNet}</td><td></td></tr>`;
+      + `<td class="num">${yen(sumTotal)}</td><td></td><td class="num">${yen(sumOutsource)}</td>`
+      + `<td class="num">${yen(sumNet)}</td><td></td></tr>`;
 
     const headRow = '<tr>' + cols.map(c => `<th style="width:${c.w}px;">${esc(c.h)}</th>`).join('') + '</tr>';
-    const html =
-      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'
-      + '<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">'
-      + '<style>'
-      + 'table{border-collapse:collapse;}'
-      + "td,th{border:0.5pt solid #888888;padding:3px 6px;font-size:11pt;font-family:'游ゴシック','Yu Gothic',sans-serif;vertical-align:top;mso-data-placement:same-cell;}"
-      + 'th{background:#dfe7ef;font-weight:bold;text-align:center;}'
-      + 'td.b{font-weight:bold;}'
-      + 'td.tax{color:#666666;font-style:italic;}'
-      + 'tr.sum td{background:#eef2f6;font-weight:bold;}'
-      + '.num{text-align:right;mso-number-format:"\\¥#\\,##0;\\-\\¥#\\,##0";}'
-      + '</style></head><body>'
-      + '<table>' + headRow + bodyRows.join('') + sumRow + '</table>'
-      + '</body></html>';
+    const today = new Date().toLocaleDateString('ja-JP');
+    const tableHTML = '<table><thead>' + headRow + '</thead><tbody>' + bodyRows.join('') + sumRow + '</tbody></table>';
 
-    const bom = '﻿';
-    const blob = new Blob([bom + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `売上表_${fileSuffix}_${new Date().toISOString().slice(0,10)}.xls`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const win = window.open('', '_blank', 'width=1100,height=800');
+    if (!win) { alert('ポップアップがブロックされました。ポップアップを許可してから、もう一度お試しください。'); return; }
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>売上表 ${esc(fileLabel)}</title>
+<style>
+  @page { size: A4 landscape; margin: 8mm; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { margin:0; font-family:'Noto Sans JP','ＭＳ ゴシック',sans-serif; color:#000; }
+  h1 { font-size:13pt; margin:0 0 6px; }
+  h1 .meta { font-size:9pt; font-weight:normal; color:#666; margin-left:8px; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { border:0.4pt solid #555; padding:3px 5px; font-size:8.5pt; vertical-align:top; }
+  th { background:#dfe7ef; font-weight:bold; text-align:center; }
+  td.num { text-align:right; white-space:nowrap; }
+  td.b { font-weight:bold; }
+  td.tax { color:#666; }
+  tr.sum td { background:#eef2f6; font-weight:bold; }
+  tr { page-break-inside:avoid; break-inside:avoid; }
+  thead { display:table-header-group; }
+</style></head><body>
+<h1>売上表<span class="meta">${esc(fileLabel)}　${filtered.length}件　${today}</span></h1>
+${tableHTML}
+</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 400);
   }
 
-  // 売上表をExcelダウンロード（ヘッダー右上の📥Excelボタンから・現在のフィルタ条件で出力）
-  function exportSalesCSV() {
+  // 売上表をPDFダウンロード（ヘッダー右上の📥PDFボタンから・現在のフィルタ条件で出力）
+  function exportSalesPDF() {
     const items = _collectSalesItems();
     const period       = document.getElementById('sales-period').value;
     const statusFilter = document.getElementById('sales-status-filter').value;
@@ -13590,7 +13595,11 @@
     if (statusFilter === 'billed')   filtered = filtered.filter(it => it.billed && !it.paid);
     if (statusFilter === 'paid')     filtered = filtered.filter(it => it.paid);
     if (statusFilter === 'unbilled') filtered = filtered.filter(it => !it.billed);
-    _writeSalesExcel(filtered, period);
+    let label = (period === 'all') ? '全期間' : (period + '年');
+    if (statusFilter === 'billed')   label += '・請求済';
+    else if (statusFilter === 'paid')     label += '・入金済';
+    else if (statusFilter === 'unbilled') label += '・未請求';
+    _openSalesPrint(filtered, label);
   }
 
   // 一覧からクリックされた時、その案件で見積書/請求書の編集画面を開く
