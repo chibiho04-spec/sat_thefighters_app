@@ -14341,30 +14341,52 @@
       if (!dates.length) return null;
       return new Date(dates[0].y, dates[0].m - 1, dates[0].d).getTime();
     };
+    // 月の判定（撮影日の年月。日付なしは末尾）
+    const _wlMonthOf = (num) => {
+      const t = getFirstDate(num);
+      if (t == null) return { ord: -1, key: '日付なし' };
+      const d = new Date(t);
+      return { ord: d.getFullYear() * 100 + (d.getMonth() + 1), key: d.getFullYear() + '年 ' + (d.getMonth() + 1) + '月' };
+    };
+    const _wlMonthAsc = (sortMode === 'date_asc'); // 月の並び：date_asc のみ昇順、他は降順
     nums.sort((a, b) => {
+      const ma = _wlMonthOf(a), mb = _wlMonthOf(b);
+      if (ma.ord === -1 && mb.ord !== -1) return 1;   // 日付なしは最後
+      if (mb.ord === -1 && ma.ord !== -1) return -1;
+      if (ma.ord !== mb.ord) return _wlMonthAsc ? (ma.ord - mb.ord) : (mb.ord - ma.ord);
+      // 同月内は選択中の並び順
       if (sortMode.startsWith('date')) {
         const da = getFirstDate(a), db = getFirstDate(b);
         if (da == null && db == null) return 0;
         if (da == null) return 1;
         if (db == null) return -1;
         return sortMode === 'date_desc' ? (db - da) : (da - db);
-      } else {
-        return sortMode === 'num_desc' ? b.localeCompare(a) : a.localeCompare(b);
       }
+      return sortMode === 'num_desc' ? b.localeCompare(a) : a.localeCompare(b);
     });
 
     // 件数表示
     const countEl = document.getElementById('wl-count');
     if (countEl) countEl.textContent = `${nums.length} 件`;
 
-    // レンダリング
+    // レンダリング（月見出しで区切る）
     container.innerHTML = '';
     if (nums.length === 0) {
       container.innerHTML = '<div style="padding:30px 12px;text-align:center;color:#999;font-size:13px;line-height:1.8;">該当するワークシートがありません<br>検索ワードを消すか、ホームの<br>「新規案件を作成」から作成できます</div>';
       return;
     }
-
+    const _wlCounts = {};
+    nums.forEach(n => { const k = _wlMonthOf(n).key; _wlCounts[k] = (_wlCounts[k] || 0) + 1; });
+    let _wlLastKey = null;
     nums.forEach(num => {
+      const mk = _wlMonthOf(num).key;
+      if (mk !== _wlLastKey) {
+        _wlLastKey = mk;
+        const head = document.createElement('div');
+        head.style.cssText = 'position:sticky;top:0;z-index:2;background:#6c3483;color:#fff;font-size:13px;font-weight:bold;padding:6px 12px;border-radius:4px;margin:10px 0 6px;box-shadow:1px 1px 0 #4a235a;';
+        head.innerHTML = '📅 ' + escapeHtml(mk) + ' <span style="font-weight:normal;font-size:11px;opacity:0.85;">（' + _wlCounts[mk] + '件）</span>';
+        container.appendChild(head);
+      }
       const card = document.createElement('div');
       card.style.marginBottom = '8px';
       renderWsCard(card, num);
