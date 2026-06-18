@@ -4035,6 +4035,11 @@
             <span style="flex:1;"><span style="font-size:1.2em;">受</span>注番号の変更<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">案件・請求書の番号を後から変更</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
+          <button onclick="openDupCleanupScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#e67e22 0%,#b3650f 100%);border:3px solid #7e4906;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #7e4906;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #7e4906;letter-spacing:2px;">
+            <span style="font-size:32px;line-height:1;">🔁</span>
+            <span style="flex:1;"><span style="font-size:1.2em;">重</span>複の整理<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">同じ内容が二重計上されていないか確認・整理</div></span>
+            <span style="font-size:23px;">▶</span>
+          </button>
         </div>
 
       </div>
@@ -5420,6 +5425,17 @@
       <div id="ordernum-edit-list" style="flex:1;overflow-y:auto;border-top:1px solid #ddd;background:#fff;"></div>
     </div>
   </div><!-- /ordernum-edit-screen -->
+
+  <!-- ========== 重複の整理（会計室のボタンから開く中央モーダル） ========== -->
+  <div id="dup-cleanup-screen" style="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;padding:16px;font-family:'DotGothic16',monospace;">
+    <div style="background:var(--panel-bg,#fff);border:3px solid #c0392b;border-radius:8px;max-width:520px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:4px 4px 0 rgba(0,0,0,0.3);overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:8px;background:#c0392b;color:#fff;padding:10px 12px;flex-shrink:0;">
+        <span style="font-size:15px;font-weight:bold;flex:1;">🔁 重複の整理</span>
+        <button onclick="closeDupCleanupScreen()" style="font-family:inherit;font-size:13px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:4px 10px;border-radius:3px;cursor:pointer;">✕ 閉じる</button>
+      </div>
+      <div id="dup-cleanup-list" style="flex:1;overflow-y:auto;background:#fff;"></div>
+    </div>
+  </div><!-- /dup-cleanup-screen -->
 
   <!-- ========== 商品マスタ画面（スライドイン） ========== -->
   <div id="product-master-screen" style="
@@ -9030,6 +9046,96 @@
   }
   function closeOrderNumEditScreen() {
     const s = document.getElementById('ordernum-edit-screen'); if (s) s.style.display = 'none';
+  }
+
+  // ===== 重複の整理（同じ内容が別番号で二重計上されている案件の検出・削除） =====
+  // 同一内容（件名＋取引先＋合計）が複数の受注番号で計上されているグループを返す
+  function _collectDuplicateGroups() {
+    const items = (typeof _collectSalesItems === 'function') ? _collectSalesItems() : [];
+    const groups = {};
+    items.forEach(it => {
+      const title = String(it.title || '').trim();
+      if (!title) return; // 無題は対象外（誤検出防止）
+      const sig = title + '|' + String(it.client || '').trim() + '|' + (Math.round(Number(it.total) || 0));
+      (groups[sig] = groups[sig] || []).push(it);
+    });
+    const out = [];
+    Object.keys(groups).forEach(sig => {
+      const arr = groups[sig];
+      if (arr.length < 2) return;
+      out.push({
+        title: arr[0].title, client: arr[0].client, total: arr[0].total,
+        members: arr.map(it => ({ num: it.num, hasWs: !!localStorage.getItem('ws_' + it.num), billed: !!it.billed, date: it.date || '' }))
+      });
+    });
+    return out;
+  }
+
+  function renderDupCleanupList() {
+    const box = document.getElementById('dup-cleanup-list');
+    if (!box) return;
+    const groups = _collectDuplicateGroups();
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
+    const fmt = n => '¥' + (Math.round(Number(n) || 0)).toLocaleString();
+    if (!groups.length) {
+      box.innerHTML = '<div style="padding:24px 14px;text-align:center;color:#27ae60;font-size:14px;font-weight:bold;">✅ 重複はありません</div>';
+      return;
+    }
+    box.innerHTML =
+      '<div style="padding:10px 12px;font-size:12px;color:#666;line-height:1.6;">同じ内容（件名・取引先・金額）が複数の番号で計上されています（<b style="color:#c0392b;">' + groups.length + '組</b>）。<br>残す番号はそのまま、<b>不要な番号だけ「🗑」</b>で削除してください（ゴミ箱に入り後で復元可）。</div>' +
+      groups.map(g =>
+        '<div style="border:2px solid #e0cd95;border-radius:6px;margin:8px 10px;padding:8px 10px;background:#fffdf6;">' +
+          '<div style="font-size:13px;font-weight:bold;color:#5d4037;margin-bottom:4px;">' + esc(g.title) + '</div>' +
+          '<div style="font-size:11px;color:#888;margin-bottom:6px;">' + esc(g.client || '取引先未設定') + ' ／ ' + fmt(g.total) + '</div>' +
+          g.members.map(m =>
+            '<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px dashed #ddd;">' +
+              '<span style="font-family:\'DotGothic16\',monospace;font-weight:bold;font-size:13px;color:#2c3e50;min-width:96px;">' + esc(m.num) + '</span>' +
+              '<span style="flex:1;min-width:0;font-size:11px;color:#666;">' + (m.hasWs ? '📋ワークシート有' : '📄請求書のみ') + (m.billed ? ' ・<span style="color:#e67e22;font-weight:bold;">請求済</span>' : '') + (m.date ? ' ・' + esc(m.date) : '') + '</span>' +
+              '<button onclick="_dupDelete(\'' + esc(m.num) + '\')" style="font-family:\'DotGothic16\',monospace;font-size:12px;background:#c0392b;color:#fff;border:2px solid #7b241c;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🗑 削除</button>' +
+            '</div>'
+          ).join('') +
+        '</div>'
+      ).join('');
+  }
+
+  // 指定番号をゴミ箱へ（ws_/inv_/projects を論理削除＋シートに削除フラグ。後で復元可能）
+  function _dupDelete(num) {
+    num = String(num);
+    if (!confirm('受注番号「' + num + '」をゴミ箱へ移動します。よろしいですか？\n（後でゴミ箱から復元できます）')) return;
+    const nowIso = new Date().toISOString();
+    const syncOn = (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function');
+    const hadWs  = !!localStorage.getItem('ws_' + num);
+    const hadInv = !!localStorage.getItem('inv_' + num);
+    let inProj = false; try { inProj = JSON.parse(localStorage.getItem('projects_saved') || '[]').some(p => String(p.num) === num); } catch (e) {}
+    const addDel = (key) => { try { const d = JSON.parse(localStorage.getItem(key) || '[]'); d.push(num); localStorage.setItem(key, JSON.stringify([...new Set(d)])); } catch (e) {} };
+    if (hadWs || inProj) addDel('deleted_ws');
+    if (hadInv) addDel('deleted_inv');
+    localStorage.removeItem('ws_' + num);
+    localStorage.removeItem('inv_' + num);
+    try { localStorage.setItem('projects_saved', JSON.stringify(JSON.parse(localStorage.getItem('projects_saved') || '[]').filter(p => String(p.num) !== num))); } catch (e) {}
+    try { if (typeof wsData === 'object') delete wsData[num]; } catch (e) {}
+    try { if (typeof invData === 'object' && invData) delete invData[num]; } catch (e) {}
+    if (syncOn) {
+      if (hadWs || inProj) {
+        pushKind('order', [{ '受注No': num, _project: {}, _updatedAt: nowIso, _deleted: true }]).catch(() => { try { pendingAdd('order', num); } catch (_) {} });
+        pushKind('child', [{ '受注No': num, _updatedAt: nowIso, _deleted: true }]).catch(() => { try { pendingAdd('child', num); } catch (_) {} });
+      }
+      if (hadInv) pushKind('invoice', [{ '受注No': num, _deleted: true, _updatedAt: nowIso }]).catch(() => { try { pendingAdd('invoice', num); } catch (_) {} });
+    }
+    try { renderDupCleanupList(); } catch (e) {}
+    try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
+    try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
+    try { if (typeof showToast === 'function') showToast('🗑 ' + num + ' をゴミ箱へ移動しました'); } catch (e) {}
+  }
+
+  function openDupCleanupScreen() {
+    const s = document.getElementById('dup-cleanup-screen'); if (!s) return;
+    s.style.display = 'flex';
+    s.onclick = (e) => { if (e.target === s) closeDupCleanupScreen(); };
+    try { renderDupCleanupList(); } catch (e) {}
+  }
+  function closeDupCleanupScreen() {
+    const s = document.getElementById('dup-cleanup-screen'); if (s) s.style.display = 'none';
   }
 
   // ワークシート詳細/編集画面のヘッダー「✏️変更」：受注番号を変更する
