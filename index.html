@@ -6132,6 +6132,10 @@
             <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）　※番号は年ごとに自動でリセット
           </div>
         </div>
+        <div class="wsd-field-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px;">
+          <label class="wsd-label" style="white-space:nowrap;">📋 受注日</label>
+          <input id="np-recdate" class="wsd-input" type="date" style="max-width:190px;">
+        </div>
       </div>
 
       <!-- 取引先・担当 -->
@@ -15199,6 +15203,8 @@ ${tableHTML}
     // テキスト系リセット
     ['np-company','np-title','np-date','np-staff','np-type','np-order','np-memo']
       .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    // 受注日は今日を初期値（編集可）
+    { const _r = document.getElementById('np-recdate'); if (_r) _r.value = new Date().toISOString().slice(0, 10); }
 
     // セレクトを初期化・リセット
     initCrewSelects();
@@ -15300,7 +15306,7 @@ ${tableHTML}
       type: type||'未定', orderType: order||'未定', staff,
       crewC, crewA, crewA2, crewProducer, crewD, crewPm1, crewPm2, crewSound, crewEdit, memo,
       clientCode,
-      receivedAt: new Date().toISOString().slice(0,10),
+      receivedAt: ((document.getElementById('np-recdate')?.value || '').replace(/\//g, '-')) || new Date().toISOString().slice(0,10),
       _updatedAt: new Date().toISOString() };
     wsData[num] = newProject;
     saveProject(num, newProject);
