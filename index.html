@@ -5350,7 +5350,7 @@
         <option value="tep">種別 T/E/P順</option>
         <option value="num_desc">受注番号 新→古</option>
         <option value="num_asc">受注番号 古→新</option>
-        <option value="received_desc">受付日 新→古</option>
+        <option value="received_desc">受注日 新→古</option>
         <option value="shoot_desc">撮影日 新→古</option>
         <option value="company">取引先 名前順</option>
       </select>
@@ -6524,8 +6524,8 @@
           </div>
         </div>
         <div class="wsd-field-row" style="margin-top:6px;">
-          <label class="wsd-label">📋 受付日</label>
-          <span id="wsd-recdate" class="wsd-readonly">受注ノートから自動入力</span>
+          <label class="wsd-label">📋 受注日</label>
+          <input id="wsd-recdate" class="wsd-input" type="date" style="max-width:190px;">
         </div>
         <div class="wsd-field-row" style="margin-top:6px;">
           <label class="wsd-label">💴 受注金額（税別・円）</label>
@@ -14549,7 +14549,9 @@ ${tableHTML}
     } else if (sort === 'num_desc') {
       rows.sort((a, b) => -cmpNum(a, b));
     } else if (sort === 'received_desc') {
-      rows.sort((a, b) => String(b.receivedAt || '').localeCompare(String(a.receivedAt || '')) || -cmpNum(a, b));
+      // receivedAt は YYYY-MM-DD と YYYY/MM/DD が混在し得るので、区切りを - に正規化してから比較
+      const _rd = v => String(v || '').replace(/\//g, '-');
+      rows.sort((a, b) => _rd(b.receivedAt).localeCompare(_rd(a.receivedAt)) || -cmpNum(a, b));
     } else if (sort === 'shoot_desc') {
       rows.sort((a, b) => (_shootKey(b.date) - _shootKey(a.date)) || -cmpNum(a, b));
     } else if (sort === 'company') {
@@ -14568,6 +14570,7 @@ ${tableHTML}
       const numEsc = esc(r.num);
       const numAttr = String(r.num).replace(/'/g, "\\'");
       const metaParts = [];
+      if (r.receivedAt) metaParts.push('🗓️ 受注 ' + esc(String(r.receivedAt).slice(0, 10)));
       if (r.company) metaParts.push('🏢 ' + esc(r.company));
       if (r.date) metaParts.push('📅 ' + esc(r.date));
       if (r.type && r.type !== '未定') metaParts.push('📺 ' + esc(r.type));        // 分類（作品分類）
@@ -15829,6 +15832,16 @@ ${tableHTML}
       if (el && saved[id] !== undefined) el.value = saved[id];
     });
 
+    // 受注日（projects_saved の receivedAt が単一の源）。type=date 用に YYYY-MM-DD へ整形。
+    {
+      const recEl = document.getElementById('wsd-recdate');
+      if (recEl) {
+        let _p = null; try { _p = getSavedProjects().find(pp => String(pp.num) === String(num)); } catch (e) {}
+        const _rv = (_p && _p.receivedAt) || (wsData[num] && wsData[num].receivedAt) || '';
+        recEl.value = String(_rv).slice(0, 10).replace(/\//g, '-');
+      }
+    }
+
     // レンタル機材・外注リスト復元（複数行）
     renderRentalRows(loadRentalItems(saved));
     renderOutsourceRows(loadOutsourceItems(saved));
@@ -16163,6 +16176,21 @@ ${tableHTML}
 
     // 進捗を自動判定（日程ベース）
     data['_progress'] = calcWsProgress(num);
+
+    // 受注日（編集画面の入力）を wsData に反映 → 下の projects_saved 再構築で永続化＆同期(order)に乗る
+    {
+      const recEl = document.getElementById('wsd-recdate');
+      if (recEl) {
+        // wsData[num2] が未seed（売上表経由など）なら projects_saved から復元してから入れる
+        // （最小オブジェクトのまま再構築すると件名・取引先などの親メタを失うため）
+        if (!wsData[num2]) {
+          let _found = null;
+          try { _found = getSavedProjects().find(pp => String(pp.num) === String(num2)); } catch (e) {}
+          wsData[num2] = _found ? Object.assign({}, _found) : {};
+        }
+        wsData[num2].receivedAt = (recEl.value || '').replace(/\//g, '-'); // YYYY-MM-DD に統一
+      }
+    }
 
     // 端末間 LWW 用の更新時刻を付与（親メタデータ＝projects_saved と 子＝ws_ の両方）
     const _now = new Date().toISOString();
