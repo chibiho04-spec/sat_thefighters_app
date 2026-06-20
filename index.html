@@ -3541,15 +3541,23 @@
   .dash-day-more { font-size: 11px; color: #7f93ab; margin-top: 2px; }
   /* 下部：カード（領域を埋めるよう大きく・幅いっぱいに伸びる） */
   .dash-ws-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  .dash-ws-box { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); grid-auto-rows: min-content; gap: 18px; align-content: start; }
-  .dash-ws-tile { background: #fff; color: #222; border-radius: 12px; border-top: 8px solid #2980b9; padding: 18px 22px; cursor: pointer; }
-  .dash-ws-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; }
-  .dash-ws-prog { color: #fff; font-size: 15px; padding: 3px 14px; border-radius: 11px; }
-  .dash-ws-date { font-size: 34px; font-weight: bold; color: #6c3483; margin: 5px 0; }
-  .dash-ws-title { font-size: 24px; font-weight: bold; line-height: 1.3; }
-  .dash-ws-company { font-size: 17px; color: #666; margin-bottom: 10px; }
-  .dash-ws-sec { background: #6c3483; color: #fff; font-size: 13px; padding: 3px 11px; border-radius: 3px; margin-top: 9px; display: inline-block; }
-  .dash-ws-val { font-size: 18px; color: #333; line-height: 1.55; margin-top: 4px; }
+  .dash-ws-box { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); grid-auto-rows: min-content; gap: 18px; align-content: start; }
+  .dash-ws-tile { cursor: pointer; border-radius: 12px; }
+  /* ワークシート印刷プレビュー風（白い書類） */
+  .wp-paper { background: #fff; color: #000; border-radius: 12px; padding: 16px 22px 18px; font-family: 'Noto Sans JP','ＭＳ ゴシック',sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+  .wp-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #6c3483; padding-bottom: 5px; margin-bottom: 8px; }
+  .wp-date { font-size: 21px; font-weight: bold; color: #6c3483; }
+  .wp-num { font-size: 15px; color: #888; white-space: nowrap; }
+  .wp-prog { color: #fff; font-size: 13px; font-weight: bold; padding: 2px 11px; border-radius: 10px; margin-right: 4px; }
+  .wp-title { font-size: 24px; font-weight: bold; line-height: 1.3; margin-bottom: 8px; color: #1a1a1a; }
+  .wp-sec { background: #6c3483; color: #fff; font-size: 14px; font-weight: bold; padding: 4px 11px; margin: 11px 0 5px; letter-spacing: 1px; border-radius: 2px; }
+  .wp-info { width: 100%; border-collapse: collapse; font-size: 16px; }
+  .wp-info th { width: 20%; text-align: left; padding: 6px 9px; background: #f5f0ff; font-weight: bold; font-size: 14px; border: 1px solid #e0d0f0; white-space: nowrap; color: #4a2d6b; }
+  .wp-info td { padding: 6px 9px; border: 1px solid #e0d0f0; }
+  .wp-crew { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 5px 6px; font-size: 17px; }
+  .wp-crew span { white-space: nowrap; }
+  .wp-equip { padding: 5px 8px; font-size: 16px; line-height: 1.6; columns: 2; column-gap: 22px; }
+  .wp-equip div { break-inside: avoid; }
   .dash-ws-more, .dash-empty { grid-column: 1 / -1; color: #9fb3cc; font-size: 15px; padding: 12px; text-align: center; }
 </style>
 </head>
@@ -14575,28 +14583,52 @@ ${tableHTML}
     return html;
   }
 
-  function renderDashWorksheets(cases) {
-    if (!cases.length) return '<div class="dash-empty">これからの現場はありません</div>';
+  // 1案件をワークシート印刷プレビュー風（白い書類レイアウト）で組み立てる（データ駆動・openWorksheetPrintのミニ版）
+  function buildWsPreviewHTML(num) {
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    const saved = (typeof loadWS === 'function') ? loadWS(num) : {};
+    let d = {}; try { d = getWsDisplayData(num) || {}; } catch (e) {}
+    const title   = d.title || '無題の案件';
+    const date    = (d.date && d.date !== '日程未定') ? d.date : '未定';
+    const company = d.company || '—';
+    const type    = (d.type && d.type !== '未定') ? d.type : '';
+    const order   = (d.orderType && d.orderType !== '未定') ? d.orderType : '';
+    const tslash  = [type, order].filter(Boolean).join(' / ') || '—';
+    const creator = saved['creator'] || '—';
+    let received = ''; try { const p = getSavedProjects().find(x => String(x.num) === String(num)); received = p ? String(p.receivedAt || '').slice(0, 10).replace(/\//g, '-') : ''; } catch (e) {}
+    let crew = []; try { crew = getWsCrewList(num) || []; } catch (e) {}
+    let equip = []; try { equip = getWsEquipNames(num) || []; } catch (e) {}
+    let prog = 0; try { prog = calcWsProgress(num) || 0; } catch (e) {}
+    prog = Math.min(Math.max(prog, 0), 3);
     const PROG = ['受付', '準備中', '撮影中', '請求書作成中'];
     const PROGC = ['#7f8c8d', '#f39c12', '#2980b9', '#16a085'];
+    const col = (typeof _onPrefixColor === 'function') ? _onPrefixColor(num) : '#6c3483';
+    const sec = (label) => `<div class="wp-sec">${label}</div>`;
+    const crewHtml  = crew.length  ? sec('担当クルー') + `<div class="wp-crew">${crew.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : '';
+    const equipHtml = equip.length ? sec('使用機材')   + `<div class="wp-equip">${equip.map(x => `<div>${esc(x)}</div>`).join('')}</div>` : '';
+    return `<div class="wp-paper" style="border-top:8px solid ${col};">
+      <div class="wp-head">
+        <span class="wp-date">撮影日程：${esc(date)}</span>
+        <span class="wp-num"><span class="wp-prog" style="background:${PROGC[prog]};">${PROG[prog]}</span> ${esc(num)}</span>
+      </div>
+      <div class="wp-title">${esc(title)}</div>
+      ${sec('基本情報')}
+      <table class="wp-info"><tbody>
+        <tr><th>取引先</th><td colspan="3">${esc(company)}</td></tr>
+        <tr><th>分類 / 種別</th><td>${esc(tslash)}</td><th>案件担当者</th><td>${esc(creator)}</td></tr>
+        <tr><th>受注日</th><td colspan="3">${esc(received || '—')}</td></tr>
+      </tbody></table>
+      ${crewHtml}
+      ${equipHtml}
+    </div>`;
+  }
+
+  function renderDashWorksheets(cases) {
+    if (!cases.length) return '<div class="dash-empty">これからの現場はありません</div>';
     const MAX = 12;
     const tiles = cases.slice(0, MAX).map(c => {
-      let prog = 0; try { prog = calcWsProgress(c.num) || 0; } catch (e) {}
-      prog = Math.min(Math.max(prog, 0), 3);
-      let crew = []; try { crew = getWsCrewList(c.num) || []; } catch (e) {}
-      let equip = []; try { equip = getWsEquipNames(c.num) || []; } catch (e) {}
-      const crewTxt = crew.length ? escapeHtml(crew.join('　')) : '—';
-      const equipTxt = equip.length ? escapeHtml(equip.slice(0, 6).join('／') + (equip.length > 6 ? ` ほか${equip.length - 6}` : '')) : '—';
-      const col = (typeof _onPrefixColor === 'function') ? _onPrefixColor(c.num) : '#2980b9';
       const numA = String(c.num).replace(/'/g, "\\'");
-      return `<div class="dash-ws-tile" style="border-top-color:${col};" onclick="dashOpenWS('${numA}')">
-        <div class="dash-ws-top"><span style="color:${col};font-weight:bold;">${escapeHtml(c.num)}</span><span class="dash-ws-prog" style="background:${PROGC[prog]};">${PROG[prog]}</span></div>
-        <div class="dash-ws-date">📅 ${escapeHtml(c.dateStr)}</div>
-        <div class="dash-ws-title">${escapeHtml(c.title)}</div>
-        <div class="dash-ws-company">${escapeHtml(c.company)}</div>
-        <div class="dash-ws-sec">クルー</div><div class="dash-ws-val">${crewTxt}</div>
-        <div class="dash-ws-sec">機材</div><div class="dash-ws-val dash-ws-equip">${equipTxt}</div>
-      </div>`;
+      return `<div class="dash-ws-tile" onclick="dashOpenWS('${numA}')">${buildWsPreviewHTML(c.num)}</div>`;
     }).join('');
     const more = cases.length > MAX ? `<div class="dash-ws-more">ほか ${cases.length - MAX} 件</div>` : '';
     return tiles + more;
