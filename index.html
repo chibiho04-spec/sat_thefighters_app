@@ -14529,7 +14529,8 @@ ${tableHTML}
       let days = []; try { days = parseDateStr(dateStr) || []; } catch (e) {}
       if (!days.length) return; // 撮影日程なしは除外
       const first = days.reduce((mn, x) => { const v = x.y * 10000 + x.m * 100 + x.d; return v < mn ? v : mn; }, Infinity);
-      if (!(first > todayNum)) return; // 撮影日がまだ来ていない（未来）のみ
+      const last  = days.reduce((mx, x) => { const v = x.y * 10000 + x.m * 100 + x.d; return v > mx ? v : mx; }, 0);
+      if (!(last >= todayNum)) return; // 撮影がまだ終わっていない（最終日が今日以降＝これから＋進行中の現場）
       let billed = false; try { billed = !!((loadInvStatus(num) || {}).billed); } catch (e) {}
       if (billed) return; // 未請求のみ
       out.push({ num, title: d.title || p.title || '無題の案件', company: d.company || p.company || '',
