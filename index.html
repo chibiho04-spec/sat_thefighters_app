@@ -3522,31 +3522,32 @@
   .dash-date { font-size: 14px; color: #9fb3cc; }
   .dash-clock { font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
   .dash-close { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; font-size: 14px; padding: 3px 10px; cursor: pointer; }
-  .dash-body { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; }
-  .dash-cal-col { flex: 0 0 38%; display: flex; flex-direction: column; min-height: 0; background: #16243a; border-radius: 10px; padding: 10px 12px; }
-  .dash-ws-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .dash-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; }
   .dash-col-head { font-size: 16px; color: #cfe0f2; margin-bottom: 8px; flex: 0 0 auto; }
   .dash-col-sub { font-size: 12px; color: #7f93ab; margin-left: 10px; }
-  .dash-cal-box { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .dash-cal-dow { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; font-size: 11px; color: #7f93ab; text-align: center; margin-bottom: 3px; }
-  .dash-cal-dow .dow-sun { color: #e57373; } .dash-cal-dow .dow-sat { color: #64b5f6; }
-  .dash-cal-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7,1fr); grid-auto-rows: 1fr; gap: 3px; }
-  .dash-cal-cell { background: #0f1b2d; border-radius: 4px; padding: 3px; font-size: 11px; color: #aab; overflow: hidden; }
-  .dash-cal-empty { background: transparent; }
-  .dash-cal-today { border: 2px solid #f1c40f; }
-  .dash-cal-num { font-size: 11px; color: #8aa0bb; }
-  .dash-cal-chip { background: #2980b9; color: #fff; border-radius: 3px; font-size: 10px; padding: 1px 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-  .dash-cal-more { font-size: 9px; color: #7f93ab; margin-top: 1px; }
-  .dash-ws-box { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); grid-auto-rows: min-content; gap: 10px; align-content: start; }
-  .dash-ws-tile { background: #fff; color: #222; border-radius: 8px; border-top: 4px solid #2980b9; padding: 9px 11px; cursor: pointer; }
-  .dash-ws-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
-  .dash-ws-prog { color: #fff; font-size: 10px; padding: 1px 8px; border-radius: 8px; }
-  .dash-ws-date { font-size: 18px; font-weight: bold; color: #6c3483; margin: 2px 0; }
-  .dash-ws-title { font-size: 14px; font-weight: bold; line-height: 1.25; }
-  .dash-ws-company { font-size: 11px; color: #666; margin-bottom: 5px; }
-  .dash-ws-sec { background: #6c3483; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 2px; margin-top: 4px; display: inline-block; }
-  .dash-ws-val { font-size: 11.5px; color: #333; line-height: 1.4; margin-top: 2px; }
-  .dash-ws-more, .dash-empty { grid-column: 1 / -1; color: #9fb3cc; font-size: 13px; padding: 8px; text-align: center; }
+  /* 上部：これからの30日（15日×2行の横ストリップ） */
+  .dash-cal-strip-wrap { flex: 0 0 auto; background: #16243a; border-radius: 10px; padding: 10px 12px; }
+  .dash-cal-strip { display: flex; flex-direction: column; gap: 5px; }
+  .dash-cal-row { display: grid; grid-template-columns: repeat(15, 1fr); gap: 5px; }
+  .dash-day { background: #0f1b2d; border-radius: 6px; padding: 4px 5px; min-height: 58px; overflow: hidden; }
+  .dash-day-today { border: 2px solid #f1c40f; padding: 2px 3px; }
+  .dash-day-num { font-size: 13px; color: #8aa0bb; font-weight: bold; }
+  .dash-day-num.dow-sun { color: #e57373; } .dash-day-num.dow-sat { color: #64b5f6; }
+  .dash-day-wd { font-size: 10px; color: #7f93ab; margin-left: 3px; font-weight: normal; opacity: 0.85; }
+  .dash-day-chip { background: #2980b9; color: #fff; border-radius: 3px; font-size: 11px; padding: 2px 4px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .dash-day-more { font-size: 10px; color: #7f93ab; margin-top: 2px; }
+  /* 下部：カード（大きく） */
+  .dash-ws-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .dash-ws-box { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); grid-auto-rows: min-content; gap: 14px; align-content: start; }
+  .dash-ws-tile { background: #fff; color: #222; border-radius: 10px; border-top: 6px solid #2980b9; padding: 13px 16px; cursor: pointer; }
+  .dash-ws-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
+  .dash-ws-prog { color: #fff; font-size: 13px; padding: 2px 12px; border-radius: 10px; }
+  .dash-ws-date { font-size: 26px; font-weight: bold; color: #6c3483; margin: 3px 0; }
+  .dash-ws-title { font-size: 19px; font-weight: bold; line-height: 1.3; }
+  .dash-ws-company { font-size: 14px; color: #666; margin-bottom: 8px; }
+  .dash-ws-sec { background: #6c3483; color: #fff; font-size: 11px; padding: 2px 9px; border-radius: 3px; margin-top: 7px; display: inline-block; }
+  .dash-ws-val { font-size: 15px; color: #333; line-height: 1.5; margin-top: 3px; }
+  .dash-ws-more, .dash-empty { grid-column: 1 / -1; color: #9fb3cc; font-size: 14px; padding: 10px; text-align: center; }
 </style>
 </head>
 <body>
@@ -14535,41 +14536,48 @@ ${tableHTML}
     e.textContent = [n.getHours(), n.getMinutes(), n.getSeconds()].map(x => String(x).padStart(2, '0')).join(':');
   }
 
+  // 今日から30日（15日×2行）の横ストリップ。撮影日に案件チップを置く。
   function renderDashCalendar(cases) {
-    const now = new Date();
-    const y = now.getFullYear(), m = now.getMonth(), todayD = now.getDate();
-    const startDow = new Date(y, m, 1).getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const byDay = {};
+    const base = new Date(); base.setHours(0, 0, 0, 0);
+    const todayKey = base.getFullYear() * 10000 + (base.getMonth() + 1) * 100 + base.getDate();
+    const byKey = {};
     cases.forEach(c => {
       let days = []; try { days = parseDateStr(c.dateStr) || []; } catch (e) {}
-      days.forEach(dd => { if (dd.y === y && (dd.m - 1) === m) (byDay[dd.d] = byDay[dd.d] || []).push(c); });
+      days.forEach(d => { const k = d.y * 10000 + d.m * 100 + d.d; (byKey[k] = byKey[k] || []).push(c); });
     });
-    let cells = '';
-    for (let i = 0; i < startDow; i++) cells += '<div class="dash-cal-cell dash-cal-empty"></div>';
-    for (let d = 1; d <= daysInMonth; d++) {
-      const cs = byDay[d] || [];
-      const chips = cs.slice(0, 3).map(c =>
-        `<div class="dash-cal-chip" onclick="dashOpenWS('${String(c.num).replace(/'/g, "\\'")}')" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>`).join('');
-      const more = cs.length > 3 ? `<div class="dash-cal-more">+${cs.length - 3}</div>` : '';
-      cells += `<div class="dash-cal-cell${d === todayD ? ' dash-cal-today' : ''}"><div class="dash-cal-num">${d}</div>${chips}${more}</div>`;
+    const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+    let html = '';
+    for (let row = 0; row < 2; row++) {
+      let cells = '';
+      for (let i = 0; i < 15; i++) {
+        const dt = new Date(base); dt.setDate(base.getDate() + row * 15 + i);
+        const k = dt.getFullYear() * 10000 + (dt.getMonth() + 1) * 100 + dt.getDate();
+        const cs = byKey[k] || [];
+        const wd = dt.getDay();
+        const wcls = wd === 0 ? 'dow-sun' : wd === 6 ? 'dow-sat' : '';
+        const label = (dt.getDate() === 1 || (row === 0 && i === 0)) ? (dt.getMonth() + 1) + '/' + dt.getDate() : String(dt.getDate());
+        const chips = cs.slice(0, 2).map(c =>
+          `<div class="dash-day-chip" onclick="dashOpenWS('${String(c.num).replace(/'/g, "\\'")}')" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>`).join('');
+        const more = cs.length > 2 ? `<div class="dash-day-more">+${cs.length - 2}</div>` : '';
+        cells += `<div class="dash-day${k === todayKey ? ' dash-day-today' : ''}"><div class="dash-day-num ${wcls}">${label}<span class="dash-day-wd">${DOW[wd]}</span></div>${chips}${more}</div>`;
+      }
+      html += `<div class="dash-cal-row">${cells}</div>`;
     }
-    return '<div class="dash-cal-dow"><span class="dow-sun">日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="dow-sat">土</span></div>'
-      + `<div class="dash-cal-grid">${cells}</div>`;
+    return html;
   }
 
   function renderDashWorksheets(cases) {
     if (!cases.length) return '<div class="dash-empty">これからの現場はありません</div>';
     const PROG = ['受付', '準備中', '撮影中', '請求書作成中'];
     const PROGC = ['#7f8c8d', '#f39c12', '#2980b9', '#16a085'];
-    const MAX = 9;
+    const MAX = 12;
     const tiles = cases.slice(0, MAX).map(c => {
       let prog = 0; try { prog = calcWsProgress(c.num) || 0; } catch (e) {}
       prog = Math.min(Math.max(prog, 0), 3);
       let crew = []; try { crew = getWsCrewList(c.num) || []; } catch (e) {}
       let equip = []; try { equip = getWsEquipNames(c.num) || []; } catch (e) {}
       const crewTxt = crew.length ? escapeHtml(crew.join('　')) : '—';
-      const equipTxt = equip.length ? escapeHtml(equip.slice(0, 4).join('／') + (equip.length > 4 ? ` ほか${equip.length - 4}` : '')) : '—';
+      const equipTxt = equip.length ? escapeHtml(equip.slice(0, 6).join('／') + (equip.length > 6 ? ` ほか${equip.length - 6}` : '')) : '—';
       const col = (typeof _onPrefixColor === 'function') ? _onPrefixColor(c.num) : '#2980b9';
       const numA = String(c.num).replace(/'/g, "\\'");
       return `<div class="dash-ws-tile" style="border-top-color:${col};" onclick="dashOpenWS('${numA}')">
@@ -14596,7 +14604,7 @@ ${tableHTML}
     set('dash-count-total', cases.length + '件');
     set('dash-count-week', weekCount + '件');
     set('dash-date', `${now.getMonth() + 1}/${now.getDate()}(${'日月火水木金土'[now.getDay()]})`);
-    set('dash-cal-title', `${now.getFullYear()}年 ${now.getMonth() + 1}月`);
+    { const e = document.getElementById('dash-cal-title'); if (e) { const e2 = new Date(now); e2.setDate(now.getDate() + 29); e.textContent = `📅 これからの30日（${now.getMonth() + 1}/${now.getDate()}〜${e2.getMonth() + 1}/${e2.getDate()}）`; } }
     const cal = document.getElementById('dash-cal'); if (cal) cal.innerHTML = renderDashCalendar(cases);
     const ws = document.getElementById('dash-ws'); if (ws) ws.innerHTML = renderDashWorksheets(cases);
   }
@@ -17005,9 +17013,9 @@ ${tableHTML}
         </div>
       </div>
       <div class="dash-body">
-        <div class="dash-cal-col">
-          <div class="dash-col-head" id="dash-cal-title">2026年 6月</div>
-          <div class="dash-cal-box" id="dash-cal"></div>
+        <div class="dash-cal-strip-wrap">
+          <div class="dash-col-head" id="dash-cal-title">📅 これからの30日</div>
+          <div class="dash-cal-strip" id="dash-cal"></div>
         </div>
         <div class="dash-ws-col">
           <div class="dash-col-head">📋 これからの現場（撮影日が近い順）<span class="dash-col-sub">クリックで編集へ</span></div>
