@@ -2721,7 +2721,7 @@
     .sales-row .row-bottom {
       display: grid;
       /* minmax(0,1fr): 文字拡大(180%)時に長い金額がグリッドを押し広げてカードからはみ出すのを防ぐ */
-      /* 2列+売り上げ全幅: 6桁以上の金額が桁の途中で折り返されて読み誤るのを防ぐ */
+      /* 2列+粗利全幅: 6桁以上の金額が桁の途中で折り返されて読み誤るのを防ぐ */
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       align-items: stretch;
@@ -2768,7 +2768,7 @@
     border-radius: 6px;
     padding: 12px 14px;
   }
-  /* 上部：売り上げ大見出し */
+  /* 上部：粗利大見出し */
   .sales-bar-headline {
     display: flex;
     justify-content: space-between;
@@ -12772,8 +12772,8 @@
     const pct = v => Math.max(0, (v / base) * 100);
     box.innerHTML = `
       <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin-bottom:8px;">
-        <span style="font-size:13px;color:#6c3483;font-weight:bold;">🏢 部門別売上 <span style="color:#999;font-weight:normal;font-size:11px;">（編集・撮影・プロデュース）</span></span>
-        <span style="font-size:12px;color:#666;">もとになる売上：<b style="font-size:15px;color:#6c3483;">${fmt(grand)}</b> <span style="color:#aaa;font-size:11px;">＝各部門の合計</span></span>
+        <span style="font-size:13px;color:#6c3483;font-weight:bold;">🏢 部門別粗利 <span style="color:#999;font-weight:normal;font-size:11px;">（編集・撮影・プロデュース）</span></span>
+        <span style="font-size:12px;color:#666;">もとになる粗利：<b style="font-size:15px;color:#6c3483;">${fmt(grand)}</b> <span style="color:#aaa;font-size:11px;">＝各部門の合計</span></span>
       </div>
       <div style="display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid #d2b4de;">
         ${DEPTS.map(d => `<div title="${d.label}" style="width:${pct(totals[d.key]).toFixed(2)}%;background:${d.color};"></div>`).join('')}
@@ -13070,7 +13070,7 @@
     summary.style.overflowX = '';
     const base = sumTotal || 1; // 0除算防止
     const pct  = v => Math.max(0, Math.min(100, (v / base * 100))).toFixed(2);
-    // セグメント：売り上げ（緑）＋ 外注費（紫）で 請求合計 を埋める
+    // セグメント：粗利（緑）＋ 外注費（紫）で 請求合計 を埋める
     const pctInhouse    = pct(sumInhouse);
     const pctOutsource  = pct(sumOutsource);
     summary.innerHTML = `
@@ -13078,10 +13078,10 @@
 
         <!-- macOS風セグメントバーセクション -->
         <div class="sales-bar-section">
-          <!-- 大見出し：売り上げ -->
+          <!-- 大見出し：粗利（請求合計 − 外注費） -->
           <div class="sales-bar-headline">
             <div>
-              <span class="sales-bar-hl-label">🏢 売り上げ　</span>
+              <span class="sales-bar-hl-label">🏢 粗利　</span>
               <span class="sales-bar-hl-val">${fmt(sumInhouse)}</span>
             </div>
             <span class="sales-bar-hl-sub">請求合計 ${fmt(sumTotal)}（計上 ${countedItems.length}件）− 外注費 ${fmt(sumOutsource)}</span>
@@ -13095,7 +13095,7 @@
           <div class="sales-seg-legend">
             <div class="sales-seg-leg-item">
               <div class="sales-seg-dot" style="background:#27ae60;"></div>
-              <span>売り上げ</span>
+              <span>粗利</span>
               <span class="sales-seg-leg-val" style="color:#1e8449;">${fmt(sumInhouse)}</span>
             </div>
             <div class="sales-seg-leg-item">
@@ -13157,9 +13157,9 @@
       return `<span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:10px;padding:2px 7px;border-radius:8px;white-space:nowrap;">🚧 ${label}・未請求</span>`;
     };
 
-    // ===== 月別売り上げ推移グラフ（棒グラフ + 損益分岐ライン） =====
+    // ===== 月別粗利推移グラフ（棒グラフ + 損益分岐ライン） =====
     const BREAK_EVEN = 5000000; // 損益分岐：500万円（暫定）
-    const TARGET_SALES = 6000000; // 目標売上：600万円（毎月）
+    const TARGET_SALES = 6000000; // 目標粗利：600万円（毎月・請求額−外注費ベース）
     const chartKeys = Object.keys(byMonth).sort(); // 古い順
     const chartData = chartKeys.map(k => {
       const grp = byMonth[k];
@@ -13207,12 +13207,12 @@
     const chartHTML = `
       <div style="background:white;border:2px solid #f4ccc8;border-radius:3px;padding:12px 14px;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-          <div style="font-size:14px;font-weight:bold;color:#c0392b;">📈 月別 売り上げ推移</div>
+          <div style="font-size:14px;font-weight:bold;color:#c0392b;">📈 月別 粗利推移</div>
           <div style="font-size:11px;color:#666;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;vertical-align:middle;margin-right:3px;"></span>黒字</span>
             <span><span style="display:inline-block;width:10px;height:10px;background:#c0392b;vertical-align:middle;margin-right:3px;"></span>赤字</span>
             <span><span style="display:inline-block;width:14px;border-top:2px dashed #e67e22;vertical-align:middle;margin-right:3px;"></span>損益分岐 ¥${(BREAK_EVEN/10000).toLocaleString()}万円</span>
-            <span><span style="display:inline-block;width:14px;border-top:2px solid #2980b9;vertical-align:middle;margin-right:3px;"></span>目標売上 ¥${(TARGET_SALES/10000).toLocaleString()}万円</span>
+            <span><span style="display:inline-block;width:14px;border-top:2px solid #2980b9;vertical-align:middle;margin-right:3px;"></span>目標粗利 ¥${(TARGET_SALES/10000).toLocaleString()}万円</span>
           </div>
         </div>
         <div style="overflow-x:auto;">
@@ -13325,7 +13325,7 @@
                 ${out > 0 ? `<div style="margin-top:6px;">${chkBtn(paidOut, '支払済', '支払待ち', `toggleSalesPaidOut('${it.num}', event)`, '#8e44ad')}</div>` : ''}
               </div>
               <div class="col-net" style="color:${counted ? '#0e6655' : '#9aa6ae'};">
-                <div class="col-label" style="color:${counted ? '#0e6655' : '#9aa6ae'};">🏢 売り上げ</div>
+                <div class="col-label" style="color:${counted ? '#0e6655' : '#9aa6ae'};">🏢 粗利</div>
                 <div style="font-size:20px;font-weight:bold;line-height:1.1;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(14,102,85,0.12);">${fmt(net)}</div>
                 ${!counted
                   ? '<div style="margin-top:6px;"><span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;">未計上</span></div>'
@@ -13342,7 +13342,7 @@
             <span style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-left:auto;justify-content:flex-end;">
               <span style="font-size:13px;">請求額 ${fmt(grpSum)}</span>
               <span style="font-size:13px;opacity:0.85;">外注費 ${fmt(grpOut)}</span>
-              <span style="background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:10px;font-size:16px;font-weight:bold;text-shadow:1px 1px 0 #641e16;">売上 ${fmt(grpNet)}</span>
+              <span style="background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:10px;font-size:16px;font-weight:bold;text-shadow:1px 1px 0 #641e16;">粗利 ${fmt(grpNet)}</span>
               <button onclick="event.stopPropagation();exportSalesPDFForMonth('${key}')"
                 title="この月の表をPDFでダウンロード"
                 style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.5);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-shadow:none;">📥 PDF</button>
@@ -13358,7 +13358,7 @@
               <div class="row-bottom">
                 <div class="col-total">請求額</div>
                 <div class="col-out">外注費</div>
-                <div class="col-net">売り上げ</div>
+                <div class="col-net">粗利</div>
               </div>
             </div>
             ${rows}
@@ -13528,13 +13528,13 @@
     const cols = [
       { h:'受注No', w:64 }, { h:'日付', w:62 }, { h:'取引先', w:120 }, { h:'件名', w:190 },
       { h:'税抜額', w:66 }, { h:'消費税', w:58 }, { h:'合計', w:74 }, { h:'外注先', w:130 },
-      { h:'外注費', w:66 }, { h:'売り上げ', w:74 }, { h:'ステータス', w:60 },
+      { h:'外注費', w:66 }, { h:'粗利', w:74 }, { h:'ステータス', w:60 },
     ];
     const numCell = (v, attrs) => `<td class="num"${attrs || ''}>${yen(v)}</td>`;
     const txtCell = (v, attrs, cls) => `<td${cls ? ' class="' + cls + '"' : ''}${attrs || ''}>${esc(v == null ? '' : v)}</td>`;
 
     // 行構造（rowspan）：1案件は外注明細数 n（最低1）ぶんの行。先頭行に案件列＋外注1件目、続く行は外注先/外注費のみ。
-    // 案件列(受注No〜合計・売り上げ・ステータス)は rowspan=n で縦結合。
+    // 案件列(受注No〜合計・粗利・ステータス)は rowspan=n で縦結合。
     const bodyRows = [];
     filtered.forEach(it => {
       let osItems = (it.outsourceItems && it.outsourceItems.length) ? it.outsourceItems : [{ name:'', cost:0, _blank:true }];
@@ -13564,7 +13564,7 @@
     const sumOutsource = filtered.reduce((s, it) => s + (it.outsourceCost || 0), 0);
     const sumNet       = sumTotal - sumOutsource;
     const sumRow = '<tr class="sum">'
-      + '<td colspan="6">合計（請求金額 − 外注費 ＝ 売上）</td>'
+      + '<td colspan="6">合計（請求金額 − 外注費 ＝ 粗利）</td>'
       + `<td class="num">${yen(sumTotal)}</td><td></td><td class="num">${yen(sumOutsource)}</td>`
       + `<td class="num">${yen(sumNet)}</td><td></td></tr>`;
 
