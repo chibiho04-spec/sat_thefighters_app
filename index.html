@@ -3560,6 +3560,8 @@
   .wp-crew { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 5px 6px; font-size: 17px; }
   .wp-crew span { white-space: nowrap; }
   .wp-equip { padding: 5px 8px; font-size: 16px; line-height: 1.6; columns: 2; column-gap: 22px; }
+  .wp-equip-conflict { color: #c0392b; font-weight: bold; }
+  .dash-conflict { margin-left: 14px; background: #e74c3c; color: #fff; font-size: 13px; font-weight: bold; padding: 3px 12px; border-radius: 11px; }
   .wp-equip div { break-inside: avoid; }
   .dash-ws-more, .dash-empty { grid-column: 1 / -1; color: #9fb3cc; font-size: 15px; padding: 12px; text-align: center; }
 </style>
@@ -6462,6 +6464,7 @@
       <!-- 機材リスト -->
       <div class="wsv-section">
         <div class="wsv-section-title">🎥 使用機材</div>
+        <div id="wsd-equip-warning" style="display:none;"></div>
         <div id="wsv-equip-list">
           <div class="wsv-empty">機材未選択</div>
         </div>
@@ -14587,8 +14590,92 @@ ${tableHTML}
     return html;
   }
 
+  // ===== 機材の重複（ダブルブッキング）検出 =====
+  // 撮影日程が入っている全案件で「日ごと×機材ごと」に使用数を合計し、所有数(マスタqty)を
+  // 2案件以上で超えた機材を重複として返す。返り値：{ caseItems:{num:[id...]}, conflicts:[{id,name,owned,maxUsed,days,cases}] }
+  function getEquipConflicts() {
+    const empty = { caseItems: {}, conflicts: [] };
+    try {
+      let deleted = []; try { deleted = getDeletedWS() || []; } catch (e) {}
+      const delSet = new Set(deleted.map(String));
+      const master = (typeof loadEquipMaster === 'function') ? loadEquipMaster() : [];
+      const owned = {}, mname = {};
+      master.forEach(m => { owned[m.id] = Number(m.qty) || 1; mname[m.id] = m.name; });
+      let projs = []; try { projs = getSavedProjects() || []; } catch (e) {}
+      const _now = new Date();
+      const todayNum = _now.getFullYear() * 10000 + (_now.getMonth() + 1) * 100 + _now.getDate();
+      const usage = {}; // dayKey -> { itemId -> [{num, qty}] }
+      projs.forEach(p => {
+        if (!p || p.num == null || delSet.has(String(p.num))) return;
+        const num = String(p.num);
+        let dateStr = ''; try { const d = getWsDisplayData(num) || {}; dateStr = (d.date && d.date !== '日程未定') ? d.date : (p.date || ''); } catch (e) {}
+        let days = []; try { days = parseDateStr(dateStr) || []; } catch (e) {}
+        if (!days.length) return;
+        const lastDay = days.reduce((mx, x) => { const v = x.y * 10000 + x.m * 100 + x.d; return v > mx ? v : mx; }, 0);
+        if (lastDay < todayNum) return; // 過去に終わった現場は対象外（これから/進行中の重複だけ警告）
+        let saved = {}; try { saved = loadWS(num) || {}; } catch (e) {}
+        const equip = saved.equip || {};
+        const items = [];
+        Object.keys(equip).forEach(id => {
+          const sv = equip[id];
+          if (sv && sv.checked) { const q = (sv.qty !== undefined ? Number(sv.qty) : owned[id]) || 1; items.push({ id, qty: q }); }
+        });
+        if (!items.length) return;
+        days.forEach(d => {
+          const k = d.y * 10000 + d.m * 100 + d.d;
+          usage[k] = usage[k] || {};
+          items.forEach(it => { (usage[k][it.id] = usage[k][it.id] || []).push({ num, qty: it.qty }); });
+        });
+      });
+      const caseItems = {}, byItem = {};
+      Object.keys(usage).forEach(k => {
+        const items = usage[k];
+        Object.keys(items).forEach(id => {
+          const arr = items[id];
+          if (arr.length < 2) return; // 2案件以上が同日に使う場合のみ
+          const sum = arr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+          const own = (owned[id] !== undefined) ? owned[id] : 1;
+          if (sum > own) {
+            arr.forEach(x => { (caseItems[x.num] = caseItems[x.num] || new Set()).add(id); });
+            const b = byItem[id] = byItem[id] || { owned: own, maxUsed: 0, days: new Set(), cases: new Set(), name: mname[id] || id };
+            b.maxUsed = Math.max(b.maxUsed, sum);
+            b.days.add(Number(k));
+            arr.forEach(x => b.cases.add(x.num));
+          }
+        });
+      });
+      const conflicts = Object.keys(byItem).map(id => {
+        const b = byItem[id];
+        return { id, name: b.name, owned: b.owned, maxUsed: b.maxUsed, days: [...b.days].sort((a, c) => a - c), cases: [...b.cases] };
+      });
+      const caseItemsObj = {}; Object.keys(caseItems).forEach(n => caseItemsObj[n] = [...caseItems[n]]);
+      return { caseItems: caseItemsObj, conflicts };
+    } catch (e) { console.warn('getEquipConflicts', e); return empty; }
+  }
+  // yyyymmdd → "M/D"
+  function _fmtDayKey(k) { k = Number(k); const m = Math.floor(k / 100) % 100, d = k % 100; return m + '/' + d; }
+
+  // 開いている案件の機材重複警告を #wsd-equip-warning に描画
+  function renderWsEquipConflict(num) {
+    const el = document.getElementById('wsd-equip-warning'); if (!el) return;
+    let info = { caseItems: {}, conflicts: [] };
+    try { info = getEquipConflicts(); } catch (e) {}
+    const ids = new Set(info.caseItems[String(num)] || []);
+    if (!ids.size) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    const lines = info.conflicts.filter(c => ids.has(c.id)).map(c => {
+      const others = c.cases.filter(n => String(n) !== String(num));
+      const dayTxt = c.days.slice(0, 4).map(_fmtDayKey).join('・') + (c.days.length > 4 ? ` ほか${c.days.length - 4}日` : '');
+      return `<div style="margin-top:3px;">・<b>${esc(c.name)}</b>（使用${c.maxUsed}/所有${c.owned}・${esc(dayTxt)}${others.length ? ' / 他: ' + esc(others.join('、')) : ''}）</div>`;
+    }).join('');
+    el.style.display = 'block';
+    el.innerHTML = `<div style="background:#fdecea;border:2px solid #e74c3c;border-radius:6px;padding:8px 10px;margin-bottom:8px;color:#922b21;font-size:13px;line-height:1.5;">
+      <b>⚠️ 他の現場と日程が重なる機材があります</b>${lines}</div>`;
+  }
+
   // 1案件をワークシート印刷プレビュー風（白い書類レイアウト）で組み立てる（データ駆動・openWorksheetPrintのミニ版）
-  function buildWsPreviewHTML(num) {
+  // conflictIds: 重複している機材idのSet（あれば赤くハイライト）
+  function buildWsPreviewHTML(num, conflictIds) {
     const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
     const saved = (typeof loadWS === 'function') ? loadWS(num) : {};
     let d = {}; try { d = getWsDisplayData(num) || {}; } catch (e) {}
@@ -14601,7 +14688,17 @@ ${tableHTML}
     const creator = saved['creator'] || '—';
     let received = ''; try { const p = getSavedProjects().find(x => String(x.num) === String(num)); received = p ? String(p.receivedAt || '').slice(0, 10).replace(/\//g, '-') : ''; } catch (e) {}
     let crew = []; try { crew = getWsCrewList(num) || []; } catch (e) {}
-    let equip = []; try { equip = getWsEquipNames(num) || []; } catch (e) {}
+    // 機材を id 付きで取得（重複ハイライト用）
+    let equipEntries = [];
+    try {
+      const eq = saved.equip || {};
+      const master = (typeof loadEquipMaster === 'function') ? loadEquipMaster() : [];
+      equipEntries = master.filter(m => eq[m.id] && eq[m.id].checked).map(m => {
+        const q = (eq[m.id].qty !== undefined ? Number(eq[m.id].qty) : m.qty) || 1;
+        return { id: m.id, label: m.name + (q > 1 ? ' ×' + q : '') };
+      });
+    } catch (e) {}
+    const cset = conflictIds || new Set();
     let prog = 0; try { prog = calcWsProgress(num) || 0; } catch (e) {}
     prog = Math.min(Math.max(prog, 0), 3);
     const PROG = ['受付', '準備中', '撮影中', '請求書作成中'];
@@ -14609,7 +14706,7 @@ ${tableHTML}
     const col = (typeof _onPrefixColor === 'function') ? _onPrefixColor(num) : '#6c3483';
     const sec = (label) => `<div class="wp-sec">${label}</div>`;
     const crewHtml  = crew.length  ? sec('担当クルー') + `<div class="wp-crew">${crew.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : '';
-    const equipHtml = equip.length ? sec('使用機材')   + `<div class="wp-equip">${equip.map(x => `<div>${esc(x)}</div>`).join('')}</div>` : '';
+    const equipHtml = equipEntries.length ? sec('使用機材') + `<div class="wp-equip">${equipEntries.map(x => `<div${cset.has(x.id) ? ' class="wp-equip-conflict"' : ''}>${cset.has(x.id) ? '⚠️ ' : ''}${esc(x.label)}</div>`).join('')}</div>` : '';
     return `<div class="wp-paper" style="border-top:8px solid ${col};">
       <div class="wp-head">
         <span class="wp-date">撮影日程：${esc(date)}</span>
@@ -14629,13 +14726,28 @@ ${tableHTML}
 
   function renderDashWorksheets(cases) {
     if (!cases.length) return '<div class="dash-empty">これからの現場はありません</div>';
+    let conflictInfo = { caseItems: {}, conflicts: [] };
+    try { conflictInfo = getEquipConflicts(); } catch (e) {}
     const MAX = 12;
     const tiles = cases.slice(0, MAX).map(c => {
       const numA = String(c.num).replace(/'/g, "\\'");
-      return `<div class="dash-ws-tile" onclick="dashOpenWS('${numA}')">${buildWsPreviewHTML(c.num)}</div>`;
+      const cset = new Set(conflictInfo.caseItems[String(c.num)] || []);
+      return `<div class="dash-ws-tile" onclick="dashOpenWS('${numA}')">${buildWsPreviewHTML(c.num, cset)}</div>`;
     }).join('');
     const more = cases.length > MAX ? `<div class="dash-ws-more">ほか ${cases.length - MAX} 件</div>` : '';
     return tiles + more;
+  }
+
+  // ダッシュボードに表示中の案件に関わる機材重複バナー文言（無ければ空）
+  function _dashConflictBanner(cases) {
+    let info = { caseItems: {}, conflicts: [] };
+    try { info = getEquipConflicts(); } catch (e) {}
+    const shownNums = new Set(cases.map(c => String(c.num)));
+    const rel = info.conflicts.filter(c => c.cases.some(n => shownNums.has(String(n))));
+    if (!rel.length) return '';
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    const names = rel.map(c => esc(c.name)).join('／');
+    return `⚠️ 機材の重複 ${rel.length}件：${names}`;
   }
 
   function renderDashboard() {
@@ -14652,6 +14764,8 @@ ${tableHTML}
     { const e = document.getElementById('dash-cal-title'); if (e) { const e2 = new Date(now); e2.setDate(now.getDate() + 29); e.textContent = `📅 これからの30日（${now.getMonth() + 1}/${now.getDate()}〜${e2.getMonth() + 1}/${e2.getDate()}）`; } }
     const cal = document.getElementById('dash-cal'); if (cal) cal.innerHTML = renderDashCalendar(cases);
     const ws = document.getElementById('dash-ws-grid'); if (ws) ws.innerHTML = renderDashWorksheets(cases);
+    // 機材重複バナー
+    { const cb = document.getElementById('dash-conflict'); if (cb) { const t = _dashConflictBanner(cases); cb.textContent = t; cb.style.display = t ? 'inline-block' : 'none'; } }
     // レイアウト確定後にカードを縮小フィット（スクロールせず全部入るように）
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fitDashCards);
     else fitDashCards();
@@ -16247,6 +16361,7 @@ ${tableHTML}
 
     // 閲覧モードで開く
     renderWsView(num, saved);
+    try { renderWsEquipConflict(num); } catch (e) {} // 機材の重複警告
     toggleWsEdit(false);
 
     // ws-detail-screenを表示（position:absolute overlay、アニメーションなし）
@@ -17124,7 +17239,7 @@ ${tableHTML}
           <div class="dash-cal-strip" id="dash-cal"></div>
         </div>
         <div class="dash-ws-col">
-          <div class="dash-col-head">📋 これからの現場（撮影日が近い順）<span class="dash-col-sub">クリックで編集へ</span></div>
+          <div class="dash-col-head">📋 これからの現場（撮影日が近い順）<span class="dash-col-sub">クリックで編集へ</span><span id="dash-conflict" class="dash-conflict" style="display:none;"></span></div>
           <div class="dash-ws-box" id="dash-ws"><div id="dash-ws-grid"></div></div>
         </div>
       </div>
