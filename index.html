@@ -3522,6 +3522,8 @@
   .dash-date { font-size: 14px; color: #9fb3cc; }
   .dash-clock { font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
   .dash-close { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; font-size: 14px; padding: 3px 10px; cursor: pointer; }
+  .dash-home-btn { background: #2980b9; color: #fff; border: 1px solid #1f6391; border-radius: 6px; font-size: 15px; font-weight: bold; padding: 6px 16px; cursor: pointer; white-space: nowrap; }
+  .dash-home-btn:hover { background: #2471a3; }
   .dash-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; }
   .dash-col-head { font-size: 16px; color: #cfe0f2; margin-bottom: 8px; flex: 0 0 auto; }
   .dash-col-sub { font-size: 12px; color: #7f93ab; margin-left: 10px; }
@@ -14665,6 +14667,18 @@ ${tableHTML}
     if (location.hash === '#dashboard') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; } }
   }
 
+  // ダッシュボードを閉じてホームへ戻る（左上ボタン）
+  function dashGoHome() {
+    const loggedIn = (typeof _isSessionValid === 'function') ? _isSessionValid() : !!localStorage.getItem('last_login_name');
+    closeDashboard();
+    if (loggedIn) {
+      try { if (typeof setTab === 'function') setTab(0); } catch (e) {}
+    } else {
+      // #dashboard で未ログイン起動していた場合は通常起動（ログイン画面）へ
+      try { location.href = location.pathname + location.search; } catch (e) { location.hash = ''; location.reload(); }
+    }
+  }
+
   // タイル/チップから編集へ：ダッシュボードを隠して openWS、closeWS で復帰
   function dashOpenWS(num) {
     const el = document.getElementById('dashboard-screen');
@@ -17044,7 +17058,10 @@ ${tableHTML}
     <div class="dash-narrow">🖥 このダッシュボードはPC／モニター用です。<br>横長の画面でご覧ください。</div>
     <div class="dash-wrap">
       <div class="dash-topbar">
-        <div class="dash-title">✊ サット 進行中ボード</div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <button class="dash-home-btn" onclick="dashGoHome()" title="ホームに戻る">◀ ホーム</button>
+          <div class="dash-title">✊ サット 進行中ボード</div>
+        </div>
         <div class="dash-top-right">
           <span class="dash-chip dash-chip-g">進行中 <span id="dash-count-total">0件</span></span>
           <span class="dash-chip dash-chip-o">今週の現場 <span id="dash-count-week">0件</span></span>
