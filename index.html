@@ -3541,10 +3541,10 @@
   .dash-day-more { font-size: 11px; color: #7f93ab; margin-top: 2px; }
   /* 下部：カード（領域を埋めるよう大きく・幅いっぱいに伸びる） */
   .dash-ws-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  .dash-ws-box { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); grid-auto-rows: min-content; gap: 18px; align-content: start; }
+  .dash-ws-box { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); grid-auto-rows: auto; gap: 18px; align-content: start; }
   .dash-ws-tile { cursor: pointer; border-radius: 12px; }
-  /* ワークシート印刷プレビュー風（白い書類） */
-  .wp-paper { background: #fff; color: #000; border-radius: 12px; padding: 16px 22px 18px; font-family: 'Noto Sans JP','ＭＳ ゴシック',sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+  /* ワークシート印刷プレビュー風（白い書類）。縦幅をそろえるためセルいっぱいに伸ばす */
+  .wp-paper { height: 100%; box-sizing: border-box; background: #fff; color: #000; border-radius: 12px; padding: 16px 22px 18px; font-family: 'Noto Sans JP','ＭＳ ゴシック',sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
   .wp-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #6c3483; padding-bottom: 5px; margin-bottom: 8px; }
   .wp-date { font-size: 21px; font-weight: bold; color: #6c3483; }
   .wp-num { font-size: 15px; color: #888; white-space: nowrap; }
