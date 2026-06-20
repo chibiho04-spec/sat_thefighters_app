@@ -3529,7 +3529,7 @@
   .dash-cal-strip-wrap { flex: 0 0 auto; background: #16243a; border-radius: 10px; padding: 12px 14px; }
   .dash-cal-strip { display: flex; flex-direction: column; gap: 7px; }
   .dash-cal-row { display: grid; grid-template-columns: repeat(15, 1fr); gap: 6px; }
-  .dash-day { background: #0f1b2d; border-radius: 7px; padding: 6px 7px; min-height: 82px; overflow: hidden; }
+  .dash-day { background: #0f1b2d; border-radius: 7px; padding: 6px 7px; min-height: 118px; overflow: hidden; }
   .dash-day-today { border: 2px solid #f1c40f; padding: 5px 6px; }
   .dash-day-alt { background: #1b2c46; }                       /* 翌月の日は背景を変えて月の区切りを明確に */
   .dash-day-1st { border-left: 4px solid #e67e22; padding-left: 5px; }  /* 1日は橙アクセント */
@@ -14572,9 +14572,9 @@ ${tableHTML}
         const numInner = isFirst
           ? `<span class="dash-day-monthbadge">${dt.getMonth() + 1}月</span>1<span class="dash-day-wd">${DOW[wd]}</span>`
           : `${dt.getDate()}<span class="dash-day-wd">${DOW[wd]}</span>`;
-        const chips = cs.slice(0, 2).map(c =>
+        const chips = cs.slice(0, 3).map(c =>
           `<div class="dash-day-chip" onclick="dashOpenWS('${String(c.num).replace(/'/g, "\\'")}')" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>`).join('');
-        const more = cs.length > 2 ? `<div class="dash-day-more">+${cs.length - 2}</div>` : '';
+        const more = cs.length > 3 ? `<div class="dash-day-more">+${cs.length - 3}</div>` : '';
         const cls = 'dash-day' + (k === todayKey ? ' dash-day-today' : '') + (isAlt ? ' dash-day-alt' : '') + (isFirst ? ' dash-day-1st' : '');
         cells += `<div class="${cls}"><div class="dash-day-num ${wcls}">${numInner}</div>${chips}${more}</div>`;
       }
