@@ -3683,8 +3683,8 @@
     </div>
   </div>
   <div class="api-bar">
-    <div class="api-dot"></div>
-    <div class="api-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">Google Sheets API: <span>接続済み</span></div>
+    <div class="api-dot" id="api-dot"></div>
+    <div class="api-label" id="api-label" onclick="openSettings()" title="同期の状態（クリックでデータ管理）" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;cursor:pointer;">Google Sheets API: <span id="api-status-text">接続済み</span></div>
     <div style="display:inline-flex;align-items:center;gap:2px;margin-right:8px;border:1px solid rgba(255,255,255,0.3);border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.10);">
       <button onclick="changeFontScale(-0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:26px;padding:6px 14px;cursor:pointer;font-weight:bold;" title="文字を小さく">A−</button>
       <span id="font-scale-label" style="color:#ffe;font-family:'DotGothic16',monospace;font-size:20px;padding:0 6px;min-width:56px;text-align:center;">100%</span>
@@ -6988,7 +6988,11 @@
       // スタッフ：まずローカルの内容をカードへ反映（取り込み前でも見えるように）
       if (typeof applyStaffToCards === 'function') applyStaffToCards();
       if (_gasUrlOne()) {
-        for (const k of SYNC_ENABLED) { pullKind(k).catch(e => console.warn('boot pull', k, e)); }
+        // 起動取り込み。結果を集めて同期状態（上部バー）に反映（合言葉エラー等を即表示）
+        Promise.allSettled(SYNC_ENABLED.map(k => pullKind(k))).then(results => {
+          const errs = results.filter(r => r.status === 'rejected').map(r => String((r.reason && r.reason.message) || r.reason));
+          try { _noteSyncResult(errs); } catch (e) {}
+        });
         // 作業日報から月間勤務時間・残業時間を取り込む（ログイン中ユーザーのみ）
         const _ln = localStorage.getItem('last_login_name');
         if (_ln && typeof fetchWorklog === 'function') fetchWorklog(_ln).catch(e => console.warn('boot worklog', e));
@@ -10735,7 +10739,14 @@
       return;
     }
     localStorage.setItem('gas_token', token);
-    set('✅ 合言葉を保存しました（この端末のみ）', '#27ae60');
+    set('✅ 合言葉を保存しました。同期を確認中…', '#27ae60');
+    // 保存した合言葉で実際に同期できるか即検証し、上部バーの警告も更新する
+    if (typeof syncAll === 'function' && _gasUrlOne()) {
+      syncAll().then(r => {
+        if (r && r.ok) set('✅ 合言葉OK・同期できました（取得' + (r.pulled || 0) + '）', '#27ae60');
+        else set('⚠️ 合言葉が違うかもしれません（同期に失敗）', '#c0392b');
+      }).catch(() => set('⚠️ 同期に失敗しました（合言葉/URLを確認）', '#c0392b'));
+    }
   }
   function getGasToken()      { return (localStorage.getItem('gas_token')       || '').trim(); }
 
@@ -10774,7 +10785,7 @@
     const list = getSyncPending();
     if (!list.length) { if (showStatus) setGasStatus('再送する保留はありません', '#888'); return { ok: 0, fail: 0 }; }
     _retryingPending = true;
-    let ok = 0, fail = 0;
+    let ok = 0, fail = 0; const errs = [];
     try {
       for (const item of list) {
         try {
@@ -10792,10 +10803,11 @@
           }
           if (res && res.ok) { pendingClear(item.kind, item.num); ok++; }
           else { fail++; }
-        } catch (e) { console.warn('retrySyncPending item failed', item, e); fail++; }
+        } catch (e) { console.warn('retrySyncPending item failed', item, e); fail++; errs.push(String(e && e.message || e)); }
       }
     } finally { _retryingPending = false; }
     updatePendingDisplay();
+    try { if (fail > 0) _noteSyncResult(errs); else if (ok > 0) _setSyncStatus('ok'); } catch (e) {}
     if (showStatus) setGasStatus(`🔁 再送：成功 ${ok}件 / 失敗 ${fail}件`, fail ? '#e67e22' : '#27ae60');
     // 自動再送（裏で実行）の場合も、全件さばけたらトーストで知らせる（同期失敗の見落とし対策）
     if (!showStatus && ok > 0 && getSyncPending().length === 0) {
@@ -11472,15 +11484,43 @@
 
   async function syncAll() {
     const url = _gasUrlOne();
-    if (!url) return { ok: false, reason: 'no-url' };
-    let pulled = 0, pushed = 0;
-    for (const kind of SYNC_ENABLED) { try { const r = await pullKind(kind); pulled += (r.pulled || 0); } catch (e) { console.warn('pull', kind, e); } }
-    for (const kind of SYNC_ENABLED) { try { const r = await pushKind(kind); pushed += (r.updated || 0) + (r.added || 0); } catch (e) { console.warn('push', kind, e); } }
+    if (!url) { _setSyncStatus('fail', '同期URL未設定'); return { ok: false, reason: 'no-url' }; }
+    let pulled = 0, pushed = 0; const errs = [];
+    for (const kind of SYNC_ENABLED) { try { const r = await pullKind(kind); pulled += (r.pulled || 0); } catch (e) { errs.push(String(e && e.message || e)); console.warn('pull', kind, e); } }
+    for (const kind of SYNC_ENABLED) { try { const r = await pushKind(kind); pushed += (r.updated || 0) + (r.added || 0); } catch (e) { errs.push(String(e && e.message || e)); console.warn('push', kind, e); } }
+    _noteSyncResult(errs);
     // ダッシュボードが開いていれば最新データで再描画
     try { const _d = document.getElementById('dashboard-screen'); if (_d && _d.classList.contains('dash-show')) renderDashboard(); } catch (e) {}
-    return { ok: true, pulled, pushed };
+    return { ok: errs.length === 0, pulled, pushed };
   }
   window._syncDebug = { pullKind, pushKind, syncAll, SYNC_KINDS };
+
+  // ===== 同期状態の見える化（上部バー） =====
+  // 失敗（特に合言葉エラー）を画面に出して気づけるようにする
+  function _setSyncStatus(state, msg) {
+    const dot = document.getElementById('api-dot');
+    const txt = document.getElementById('api-status-text');
+    const bar = document.getElementById('api-label');
+    if (state === 'fail') {
+      if (txt) { txt.textContent = msg || '⚠️ 同期に失敗'; txt.style.color = '#ffd2cc'; }
+      if (dot) dot.style.background = '#e74c3c';
+      if (bar) { bar.style.color = '#ffd2cc'; bar.style.fontWeight = 'bold'; bar.title = 'クリックしてデータ管理（合言葉）を確認'; }
+    } else {
+      if (txt) { txt.textContent = '接続済み'; txt.style.color = ''; }
+      if (dot) dot.style.background = '';
+      if (bar) { bar.style.color = ''; bar.style.fontWeight = ''; bar.title = '同期の状態（クリックでデータ管理）'; }
+    }
+  }
+  // 同期結果（エラー配列）から上部バーの表示を更新
+  function _noteSyncResult(errs) {
+    errs = errs || [];
+    if (!errs.length) { _setSyncStatus('ok'); return; }
+    const unauth = errs.some(m => /unauthorized/i.test(m));
+    const busy = errs.some(m => /busy/i.test(m));
+    if (unauth)      _setSyncStatus('fail', '⚠️ 同期失敗：合言葉を確認（タップ）');
+    else if (busy)   _setSyncStatus('fail', '⚠️ 同期が混雑中（時間をおいて再試行）');
+    else             _setSyncStatus('fail', '⚠️ 同期に失敗（タップで確認）');
+  }
 
   // アプリの案件データ（wsData[num]）→ 親シート「案件マスタ」1行ぶんの JSON へ変換
   // ※新親シート（Sat案件マスタ_2026）のヘッダー名にキーを合わせる
