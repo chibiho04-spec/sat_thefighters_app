@@ -3561,6 +3561,15 @@
   .wp-crew span { white-space: nowrap; }
   .wp-equip { padding: 5px 8px; font-size: 16px; line-height: 1.6; columns: 2; column-gap: 22px; }
   .wp-equip-conflict { color: #c0392b; font-weight: bold; }
+  /* スタッフ絞り込みバー */
+  .dash-staffbar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .dash-staff-label { font-size: 14px; color: #cfe0f2; margin-right: 4px; }
+  .dash-staff-btn { font-family: 'DotGothic16',sans-serif; font-size: 15px; border: 2px solid #34495e; border-radius: 8px; padding: 5px 13px; cursor: pointer; }
+  .dash-staff-clear { font-family: 'DotGothic16',sans-serif; font-size: 13px; border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.1); color: #fff; border-radius: 8px; padding: 5px 12px; cursor: pointer; margin-left: 6px; }
+  .wp-dim { opacity: 0.28; }
+  .wp-staffchips { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 6px; }
+  .wp-staffchips span { color: #fff; font-size: 14px; font-weight: bold; padding: 2px 11px; border-radius: 11px; }
+  .dash-chip-dim { opacity: 0.32; }
   .dash-conflict { margin-left: 14px; background: #e74c3c; color: #fff; font-size: 13px; font-weight: bold; padding: 3px 12px; border-radius: 11px; }
   .wp-equip div { break-inside: avoid; }
   .dash-ws-more, .dash-empty { grid-column: 1 / -1; color: #9fb3cc; font-size: 15px; padding: 12px; text-align: center; }
@@ -14620,8 +14629,19 @@ ${tableHTML}
         const numInner = isFirst
           ? `<span class="dash-day-monthbadge">${dt.getMonth() + 1}月</span>1<span class="dash-day-wd">${DOW[wd]}</span>`
           : `${dt.getDate()}<span class="dash-day-wd">${DOW[wd]}</span>`;
-        const chips = cs.slice(0, 3).map(c =>
-          `<div class="dash-day-chip" onclick="dashOpenWS('${String(c.num).replace(/'/g, "\\'")}')" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>`).join('');
+        const _staffFilter = (typeof _dashStaffSel !== 'undefined') && _dashStaffSel.size > 0;
+        const chips = cs.slice(0, 3).map(c => {
+          let style = '', cls = 'dash-day-chip';
+          if (_staffFilter) {
+            const sel = (typeof _selectedStaffOnCase === 'function') ? _selectedStaffOnCase(c.num) : [];
+            if (sel.length) {
+              // 選択スタッフ色で塗る（複数なら縦ストライプ）
+              if (sel.length === 1) style = `background:${_dashStaffColor(sel[0])};`;
+              else { const seg = 100 / sel.length; const stops = sel.map((n, i) => `${_dashStaffColor(n)} ${i * seg}%, ${_dashStaffColor(n)} ${(i + 1) * seg}%`).join(', '); style = `background:linear-gradient(90deg, ${stops});`; }
+            } else { cls += ' dash-chip-dim'; }
+          }
+          return `<div class="${cls}" style="${style}" onclick="dashOpenWS('${String(c.num).replace(/'/g, "\\'")}')" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>`;
+        }).join('');
         const more = cs.length > 3 ? `<div class="dash-day-more">+${cs.length - 3}</div>` : '';
         const cls = 'dash-day' + (k === todayKey ? ' dash-day-today' : '') + (isAlt ? ' dash-day-alt' : '') + (isFirst ? ' dash-day-1st' : '');
         cells += `<div class="${cls}"><div class="dash-day-num ${wcls}">${numInner}</div>${chips}${more}</div>`;
@@ -14629,6 +14649,49 @@ ${tableHTML}
       html += `<div class="dash-cal-row">${cells}</div>`;
     }
     return html;
+  }
+
+  // ===== ダッシュボード：スタッフ絞り込み（誰がどの案件か色分け） =====
+  const _dashStaffPalette = ['#e74c3c', '#3498db', '#27ae60', '#e67e22', '#8e44ad', '#16a085', '#d4a017', '#2c3e50', '#e84393', '#0e8a6e'];
+  let _dashStaffSel = new Set();   // 選択中スタッフ名
+  function _dashStaffList() { return (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS.map(f => f.name) : []; }
+  function _dashStaffColor(name) { const i = _dashStaffList().indexOf(name); return i >= 0 ? _dashStaffPalette[i % _dashStaffPalette.length] : '#7f8c8d'; }
+  // 案件に出ているスタッフ名（クルー値のうち10名に一致するもの）
+  function _caseStaffNames(num) {
+    let d = {}; try { d = getWsDisplayData(num) || {}; } catch (e) {}
+    const vals = [d.crewProducer, d.crewD, d.crewPm1, d.crewPm2, d.crewC, d.crewA, d.crewA2, d.crewSound, d.crewEdit];
+    const staff = _dashStaffList();
+    const out = [];
+    vals.forEach(v => {
+      const s = String(v || '').trim(); if (!s) return;
+      staff.forEach(name => { if (name && s.indexOf(name) >= 0 && out.indexOf(name) < 0) out.push(name); });
+    });
+    return out;
+  }
+  // この案件に居る「選択中スタッフ」の名前配列（描画順は STAFF 順）
+  function _selectedStaffOnCase(num) {
+    if (!_dashStaffSel.size) return [];
+    const on = new Set(_caseStaffNames(num));
+    return _dashStaffList().filter(n => _dashStaffSel.has(n) && on.has(n));
+  }
+  function toggleDashStaff(name) {
+    if (_dashStaffSel.has(name)) _dashStaffSel.delete(name); else _dashStaffSel.add(name);
+    try { renderDashboard(); } catch (e) {}
+  }
+  function clearDashStaff() { _dashStaffSel.clear(); try { renderDashboard(); } catch (e) {} }
+  function renderDashStaffBar() {
+    const bar = document.getElementById('dash-staffbar'); if (!bar) return;
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    const btns = _dashStaffList().map(name => {
+      const on = _dashStaffSel.has(name);
+      const col = _dashStaffColor(name);
+      const style = on
+        ? `background:${col};color:#fff;border-color:${col};font-weight:bold;`
+        : `background:#1f2f47;color:#cfe0f2;border-color:#34495e;`;
+      return `<button class="dash-staff-btn" style="${style}" onclick="toggleDashStaff('${esc(name)}')">${esc(name)}</button>`;
+    }).join('');
+    const clr = _dashStaffSel.size ? `<button class="dash-staff-clear" onclick="clearDashStaff()">クリア</button>` : '';
+    bar.innerHTML = `<span class="dash-staff-label">👤 スタッフで色分け：</span>${btns}${clr}`;
   }
 
   // ===== 機材の重複（ダブルブッキング）検出 =====
@@ -14748,11 +14811,17 @@ ${tableHTML}
     const sec = (label) => `<div class="wp-sec">${label}</div>`;
     const crewHtml  = crew.length  ? sec('担当クルー') + `<div class="wp-crew">${crew.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : '';
     const equipHtml = equipEntries.length ? sec('使用機材') + `<div class="wp-equip">${equipEntries.map(x => `<div${cset.has(x.id) ? ' class="wp-equip-conflict"' : ''}>${cset.has(x.id) ? '⚠️ ' : ''}${esc(x.label)}</div>`).join('')}</div>` : '';
-    return `<div class="wp-paper" style="border-top:8px solid ${col};">
+    // スタッフ絞り込み：この案件に居る選択スタッフを色チップで表示。フィルタ中で該当0なら薄く。
+    const selOn = (typeof _selectedStaffOnCase === 'function') ? _selectedStaffOnCase(num) : [];
+    const filterActive = (typeof _dashStaffSel !== 'undefined') && _dashStaffSel.size > 0;
+    const dimCls = (filterActive && !selOn.length) ? ' wp-dim' : '';
+    const staffChips = selOn.length ? `<div class="wp-staffchips">${selOn.map(n => `<span style="background:${_dashStaffColor(n)};">${esc(n)}</span>`).join('')}</div>` : '';
+    return `<div class="wp-paper${dimCls}" style="border-top:8px solid ${col};">
       <div class="wp-head">
         <span class="wp-date">撮影日程：${esc(date)}</span>
         <span class="wp-num"><span class="wp-prog" style="background:${PROGC[prog]};">${PROG[prog]}</span> ${esc(num)}</span>
       </div>
+      ${staffChips}
       <div class="wp-title">${esc(title)}</div>
       ${sec('基本情報')}
       <table class="wp-info"><tbody>
@@ -14803,6 +14872,7 @@ ${tableHTML}
     set('dash-count-week', weekCount + '件');
     set('dash-date', `${now.getMonth() + 1}/${now.getDate()}(${'日月火水木金土'[now.getDay()]})`);
     { const e = document.getElementById('dash-cal-title'); if (e) { const e2 = new Date(now); e2.setDate(now.getDate() + 29); e.textContent = `📅 これからの30日（${now.getMonth() + 1}/${now.getDate()}〜${e2.getMonth() + 1}/${e2.getDate()}）`; } }
+    try { renderDashStaffBar(); } catch (e) {}
     const cal = document.getElementById('dash-cal'); if (cal) cal.innerHTML = renderDashCalendar(cases);
     const ws = document.getElementById('dash-ws-grid'); if (ws) ws.innerHTML = renderDashWorksheets(cases);
     // 機材重複バナー
@@ -17275,6 +17345,7 @@ ${tableHTML}
         </div>
       </div>
       <div class="dash-body">
+        <div class="dash-staffbar" id="dash-staffbar"></div>
         <div class="dash-cal-strip-wrap">
           <div class="dash-col-head" id="dash-cal-title">📅 これからの30日</div>
           <div class="dash-cal-strip" id="dash-cal"></div>
