@@ -13647,9 +13647,9 @@
       : (s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
     const yen = v => '¥' + (Number(v) || 0).toLocaleString('ja-JP');
     const cols = [
-      { h:'受注No', w:64 }, { h:'日付', w:62 }, { h:'取引先', w:120 }, { h:'件名', w:190 },
-      { h:'税抜額', w:66 }, { h:'消費税', w:58 }, { h:'合計', w:74 }, { h:'外注先', w:130 },
-      { h:'外注費', w:66 }, { h:'粗利', w:74 }, { h:'ステータス', w:60 },
+      { h:'受注No', w:64 }, { h:'作業日', w:78 }, { h:'取引先', w:120 }, { h:'件名', w:180 },
+      { h:'税抜額', w:66 }, { h:'消費税', w:58 }, { h:'合計', w:74 }, { h:'外注先', w:124 },
+      { h:'外注費', w:66 }, { h:'粗利', w:74 }, { h:'請求日', w:74 },
     ];
     const numCell = (v, attrs) => `<td class="num"${attrs || ''}>${yen(v)}</td>`;
     const txtCell = (v, attrs, cls) => `<td${cls ? ' class="' + cls + '"' : ''}${attrs || ''}>${esc(v == null ? '' : v)}</td>`;
@@ -13666,17 +13666,21 @@
       }
       const n = osItems.length;
       const span = n > 1 ? ` rowspan="${n}"` : '';
-      const statusTxt = it.paid ? '入金済' : (it.billed ? '請求済' : '未請求');
+      // 作業日＝請求書の作業日（空なら撮影日程で補完）／請求日＝請求書の請求日（未請求は空）
+      const _st = (typeof loadInvStatus === 'function') ? (loadInvStatus(it.num) || {}) : {};
+      let _shoot = ''; try { _shoot = getWsDateText(it.num) || ''; } catch (e) {} if (_shoot === '日程未定') _shoot = '';
+      const workDate = _st.workDate || _shoot || '';
+      const invDate  = _st.invDate || '';
       const net = (it.netInhouse != null) ? it.netInhouse : ((it.total || 0) - (it.outsourceCost || 0));
       osItems.forEach((os, i) => {
         let tds = '';
         if (i === 0) {
-          tds += txtCell(it.num, span, 'b') + txtCell(it.date, span) + txtCell(it.client, span) + txtCell(it.title, span);
+          tds += txtCell(it.num, span, 'b') + txtCell(workDate, span) + txtCell(it.client, span) + txtCell(it.title, span);
           tds += numCell(it.subtotal, span) + numCell(it.tax, span) + numCell(it.total, span);
         }
         if (os._blank) { tds += txtCell('') + '<td class="num"></td>'; }
         else { tds += txtCell(os.name, '', os.isTax ? 'tax' : '') + `<td class="num${os.isTax ? ' tax' : ''}">${yen(os.cost)}</td>`; }
-        if (i === 0) { tds += numCell(net, span) + txtCell(statusTxt, span); }
+        if (i === 0) { tds += numCell(net, span) + txtCell(invDate, span); }
         bodyRows.push(`<tr>${tds}</tr>`);
       });
     });
