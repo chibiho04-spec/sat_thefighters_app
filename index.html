@@ -8889,6 +8889,7 @@
   // ===== 単独で作る書類の受注番号（T/E/Pに統一・ワークシートと連番共有） =====
   let _invIsNew = false;       // 新規作成中（番号を編集できる）か
   let _invOrderPrefix = 'T';   // 受注番号の接頭辞
+  let _invRemoteChecked = false; // 新規請求書：シート最新での番号重複チェック済みか（保存時に一度だけ実施）
 
   // 受注番号が既にワークシート/案件/請求書のいずれかで使われているか
   function _orderNumExists(num) {
@@ -8898,6 +8899,25 @@
     if (typeof wsData === 'object' && wsData && wsData[num]) return true;
     try { if (getSavedProjects().some(p => String(p.num) === String(num))) return true; } catch (e) {}
     return false;
+  }
+
+  // 【再発防止】受注番号の他端末との衝突（＝同期での上書き事故）を防ぐ。
+  // 新規作成の保存直前に呼び、シート最新の案件(order)・請求書(invoice)を取り込んでから重複判定する。
+  // 自端末だけ見て採番すると、別端末が既に使った番号を再利用 → 同期で相手の案件を上書きしてしまう（T26076/T26043の事故）。
+  // オンライン時のみpull（オフライン等の失敗は黙ってローカル判定にフォールバック）。
+  // 返り値: { ok:true } 使用可 / { ok:false, free:'Txxxx' } 衝突（free=取り込み後に計算した空き番号）
+  async function _verifyOrderNumFreeRemote(num, prefix) {
+    if (_gasUrlOne()) {
+      await Promise.all([
+        pullKind('order').catch(() => {}),
+        pullKind('invoice').catch(() => {})
+      ]);
+    }
+    if (_orderNumExists(num)) {
+      const p = (prefix || 'T').toUpperCase();
+      return { ok: false, free: p + getNextOrderNum(p) };
+    }
+    return { ok: true };
   }
 
   // ===== 受注番号(主キー)の後変更（リネーム） =====
@@ -9324,6 +9344,7 @@
   }
   // フィールドの接頭辞＋番号を inv-detail-num / inv-screen-num に反映
   function _applyInvOrderNum() {
+    _invRemoteChecked = false; // 番号が変わったらシート最新での確認をやり直す
     const digits = (document.getElementById('inv-order-num').value || '').replace(/[^0-9]/g, '');
     const num = _invOrderPrefix + digits;
     document.getElementById('inv-detail-num').textContent = num;
@@ -9343,6 +9364,7 @@
       {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
     // 受注番号を T/E/P で自動採番（ワークシートと連番を共有・重複しない）。新規は編集可
     _invIsNew = true;
+    _invRemoteChecked = false; // 新規請求書：シート最新での番号確認を未実施に戻す
     _invOrderPrefix = 'T';
     const newNum = 'T' + getNextOrderNum('T');
     document.getElementById('inv-screen-num').textContent     = newNum;
@@ -9703,6 +9725,20 @@
       if (_orderNumExists(num)) {
         alert(`受注番号「${num}」は既に使われています。\n別の番号にしてください（次の空き番号：${_invOrderPrefix}${getNextOrderNum(_invOrderPrefix)}）。`);
         return;
+      }
+      // 【再発防止】他端末との衝突を、シート最新を取り込んで最終確認（一度だけ非同期で実施→確認後に再保存）
+      if (_gasUrlOne() && !_invRemoteChecked) {
+        _verifyOrderNumFreeRemote(num, _invOrderPrefix).then(chk => {
+          if (!chk.ok) {
+            const inp = document.getElementById('inv-order-num');
+            if (inp) { inp.value = chk.free.replace(/^[TEP]/i, ''); _applyInvOrderNum(); }
+            alert(`受注番号「${num}」は他の端末で既に使われています。\n空いている「${chk.free}」に自動変更しました。\n内容を確認して、もう一度「保存」を押してください。`);
+          } else {
+            _invRemoteChecked = true;
+            saveInvDoc(); // 確認OK → 本保存へ再実行
+          }
+        }).catch(() => { _invRemoteChecked = true; saveInvDoc(); }); // 取り込み失敗時はローカル判定で続行
+        return; // 非同期チェック中はここで一旦終了
       }
     }
     // 明細行を収集
@@ -15808,7 +15844,7 @@ ${tableHTML}
     document.getElementById('np-num-preview').textContent = val ? '→ ' + _npPrefix + val : '→ ' + _npPrefix + '?';
   }
 
-  function registerNewProject() {
+  async function registerNewProject() {
     // 番号は英数字とハイフンのみ許可（' や < 等の記号はボタンや画面表示を壊すため除去）
     const num     = (_npPrefix + document.getElementById('np-num').value.trim()).replace(/[^0-9A-Za-z\-_]/g, '');
     const company = document.getElementById('np-company').value.trim();
@@ -15833,6 +15869,22 @@ ${tableHTML}
     if (!title)              { alert('件名を入力してください'); return; }
     if (!date)               { alert('撮影日程を入力してください'); return; }
     if (_orderNumExists(num)) { alert(`${num} はすでに使われています（案件または請求書）`); return; }
+
+    // 【再発防止】他端末がシート上で既に使っている番号と被っていないか、最新を取り込んで最終確認する
+    if (_gasUrlOne()) {
+      try {
+        const _bubble = document.querySelector('.speech-bubble');
+        if (_bubble) _bubble.innerHTML = `🔄 受注番号を確認中…<span class="blink">█</span>`;
+        const chk = await _verifyOrderNumFreeRemote(num, _npPrefix);
+        if (!chk.ok) {
+          document.getElementById('np-num').value = chk.free.replace(/^[TEP]/i, '');
+          const _pv = document.getElementById('np-num-preview'); if (_pv) _pv.textContent = '→ ' + chk.free;
+          if (_bubble) _bubble.innerHTML = `⚠️ 番号を変更しました<span class="blink">█</span>`;
+          alert(`受注番号「${num}」は他の端末で既に使われています。\n空いている「${chk.free}」に自動変更しました。\n内容を確認して、もう一度「登録」を押してください。`);
+          return;
+        }
+      } catch (e) { /* 取り込み失敗時はローカル判定のまま続行（オフライン等） */ }
+    }
 
     // オートコンプリートで選んだ取引先のコード（あれば）
     const clientCode = document.getElementById('np-company')?.dataset.clientCode || '';
