@@ -9570,33 +9570,46 @@
     });
   }
 
-  // 現在開いている請求書/見積書の内容をコピーして、新しい納品書(DLV-)を作成する
-  function createDeliveryFromCurrent() {
-    // 明細行を現在の編集画面から収集（saveInvDoc と同じ方式）
+  // ===== 請求書テンプレート（この端末のみ・localStorage 'inv_templates'）=====
+  function loadInvTemplates() {
+    try { return JSON.parse(localStorage.getItem('inv_templates')) || []; } catch (e) { return []; }
+  }
+  function saveInvTemplates(list) {
+    localStorage.setItem('inv_templates', JSON.stringify(Array.isArray(list) ? list : []));
+  }
+
+  // 編集画面の明細行を収集（saveInvDoc / createDeliveryFromCurrent / テンプレ保存で共通利用）
+  function _collectInvLines() {
     const tbody = document.getElementById('inv-lines-body');
     const lines = [];
-    if (tbody) {
-      tbody.querySelectorAll('.inv-line-row').forEach(tr => {
-        const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
-        const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
-        const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
-        const priceEl = tr.querySelector('.inv-line-price');
-        const priceTextEl = tr.querySelector('.inv-td-price span');
-        const codeEl  = tr.querySelector('.inv-td-code');
-        const taxEl   = tr.querySelector('.inv-line-tax');
-        const outsourceEl = tr.querySelector('.inv-line-outsource');
-        const name  = (nameEl?.value  || nameEl?.textContent  || '').trim();
-        const unit  = (unitEl?.value  || unitEl?.textContent  || '').trim();
-        const qty   = Number((qtyEl?.value || qtyEl?.textContent || '').replace(/[^\d.]/g, '')) || 0;
-        const rawPrice = (priceEl?.value || (priceTextEl?.textContent || '').replace(/[¥,]/g, ''));
-        const price = Number(rawPrice) || 0;
-        const code  = (codeEl?.textContent || '').trim();
-        const taxable = taxEl ? (taxEl.value === '1') : true;
-        const outsource = outsourceEl ? !!outsourceEl.checked : false;
-        if (!name && !price) return;
-        lines.push({ code, name, qty, unit, price, taxable, outsource });
-      });
-    }
+    if (!tbody) return lines;
+    tbody.querySelectorAll('.inv-line-row').forEach(tr => {
+      const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
+      const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
+      const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
+      const priceEl = tr.querySelector('.inv-line-price');
+      const priceTextEl = tr.querySelector('.inv-td-price span');
+      const codeEl  = tr.querySelector('.inv-td-code');
+      const taxEl   = tr.querySelector('.inv-line-tax');
+      const outsourceEl = tr.querySelector('.inv-line-outsource');
+      const name  = (nameEl?.value  || nameEl?.textContent  || '').trim();
+      const unit  = (unitEl?.value  || unitEl?.textContent  || '').trim();
+      const qty   = Number((qtyEl?.value || qtyEl?.textContent || '').replace(/[^\d.]/g, '')) || 0;
+      const rawPrice = (priceEl?.value || (priceTextEl?.textContent || '').replace(/[¥,]/g, ''));
+      const price = Number(rawPrice) || 0;
+      const code  = (codeEl?.textContent || '').trim();
+      const taxable = taxEl ? (taxEl.value === '1') : true;
+      const outsource = outsourceEl ? !!outsourceEl.checked : false;
+      if (!name && !price) return;
+      lines.push({ code, name, qty, unit, price, taxable, outsource });
+    });
+    return lines;
+  }
+
+  // 現在開いている請求書/見積書の内容をコピーして、新しい納品書(DLV-)を作成する
+  function createDeliveryFromCurrent() {
+    // 明細行を現在の編集画面から収集（共通関数）
+    const lines = _collectInvLines();
 
     // 新しい納品書番号を採番
     const newNum = generateNewInvNum('delivery');
@@ -9741,29 +9754,8 @@
         return; // 非同期チェック中はここで一旦終了
       }
     }
-    // 明細行を収集
-    const tbody = document.getElementById('inv-lines-body');
-    const lines = [];
-    tbody.querySelectorAll('.inv-line-row').forEach(tr => {
-      const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
-      const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
-      const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
-      const priceEl = tr.querySelector('.inv-line-price');
-      const priceTextEl = tr.querySelector('.inv-td-price span');
-      const codeEl  = tr.querySelector('.inv-td-code');
-      const taxEl   = tr.querySelector('.inv-line-tax');
-      const outsourceEl = tr.querySelector('.inv-line-outsource');
-      const name  = (nameEl?.value  || nameEl?.textContent  || '').trim();
-      const unit  = (unitEl?.value  || unitEl?.textContent  || '').trim();
-      const qty   = Number((qtyEl?.value || qtyEl?.textContent || '').replace(/[^\d.]/g, '')) || 0;
-      const rawPrice = (priceEl?.value || (priceTextEl?.textContent || '').replace(/[¥,]/g, ''));
-      const price = Number(rawPrice) || 0;
-      const code  = (codeEl?.textContent || '').trim();
-      const taxable = taxEl ? (taxEl.value === '1') : true;
-      const outsource = outsourceEl ? !!outsourceEl.checked : false;
-      if (!name && !price) return;
-      lines.push({ code, name, qty, unit, price, taxable, outsource });
-    });
+    // 明細行を収集（共通関数）
+    const lines = _collectInvLines();
     // ステータスを更新（既存のフラグは保持）
     const status = loadInvStatus(num) || {};
     status.lines    = lines;
