@@ -2145,6 +2145,7 @@
     #client-master-screen,
     #new-client-screen,
     #doc-list-screen,
+    #inv-template-screen,
     #sales-screen,
     #product-master-screen,
     #new-product-screen,
@@ -2218,6 +2219,7 @@
     #client-master-screen,
     #new-client-screen,
     #doc-list-screen,
+    #inv-template-screen,
     #sales-screen,
     #product-master-screen,
     #new-product-screen,
@@ -2867,6 +2869,7 @@
   #client-master-screen,
   #new-client-screen,
   #doc-list-screen,
+  #inv-template-screen,
   #sales-screen,
   #product-master-screen,
   #new-product-screen,
@@ -4086,6 +4089,11 @@
           <button onclick="openDocList('invoice')" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#27ae60 0%,#1a7a40 100%);border:3px solid #145a2e;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #145a2e;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #145a2e;letter-spacing:2px;">
             <span style="font-size:32px;line-height:1;">💰</span>
             <span style="flex:1;"><span style="font-size:1.2em;">請</span>求書<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">作成済の請求書一覧</div></span>
+            <span style="font-size:23px;">▶</span>
+          </button>
+          <button onclick="openInvTemplateBox()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#8e44ad 0%,#6c3483 100%);border:3px solid #5b2c6f;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #5b2c6f;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #5b2c6f;letter-spacing:2px;">
+            <span style="font-size:32px;line-height:1;">📑</span>
+            <span style="flex:1;">請求書テンプレート<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">定期案件のひな形から作成</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
           <button onclick="openDocList('estimate')" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#e67e22 0%,#b3650f 100%);border:3px solid #7e4906;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #7e4906;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #7e4906;letter-spacing:2px;">
@@ -5465,6 +5473,25 @@
       <!-- JSで動的生成 -->
     </div>
   </div><!-- /doc-list-screen -->
+
+  <!-- 請求書テンプレート一覧 -->
+  <div id="inv-template-screen" style="
+    position:absolute; inset:0; z-index:155;
+    background:var(--panel-bg);
+    transform:translateX(100%);
+    transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
+    display:flex; flex-direction:column; overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:10px;background:#8e44ad;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #5b2c6f;">
+      <button class="wsd-back" onclick="closeInvTemplateBox()">◀ 戻る</button>
+      <div class="wsd-header-info">
+        <div class="wsd-header-num" style="color:#e8d6f5;">📑 請求書テンプレート</div>
+        <div class="wsd-header-title">定期案件のひな形から請求書を作成</div>
+      </div>
+    </div>
+    <div id="inv-template-items" class="wsd-scroll" style="padding:12px 12px 24px;">
+      <!-- JSで動的生成 -->
+    </div>
+  </div><!-- /inv-template-screen -->
 
   <!-- ========== 売上表画面（スライドイン） ========== -->
   <div id="sales-screen" style="
@@ -8383,6 +8410,7 @@
     { id: 'simple-ws-list-screen',   close: () => closeSimpleWSList() },
     { id: 'driving-list-screen',     close: () => closeDrivingList() },
     { id: 'doc-list-screen',         close: () => closeDocList() },
+    { id: 'inv-template-screen',     close: () => closeInvTemplateBox() },
     { id: 'sales-screen',            close: () => closeSalesScreen() },
     { id: 'worksheet-list-screen',   close: () => closeWorksheetList() },
     { id: 'order-note-screen',       close: () => closeOrderNoteScreen() },
@@ -9656,6 +9684,58 @@
     const bubble = document.querySelector('.speech-bubble');
     if (bubble) bubble.innerHTML = `📑 テンプレート「${escapeHtml(name)}」を保存しました<span class="blink">█</span>`;
     alert('📑 テンプレート「' + name + '」を保存しました。\n会計室の「請求書テンプレート」から呼び出せます。');
+  }
+
+  function openInvTemplateBox() {
+    renderInvTemplateList();
+    const sc = document.getElementById('inv-template-screen');
+    if (sc) sc.style.transform = 'translateX(0)';
+  }
+  function closeInvTemplateBox() {
+    const sc = document.getElementById('inv-template-screen');
+    if (sc) sc.style.transform = 'translateX(100%)';
+  }
+  function renderInvTemplateList() {
+    const wrap = document.getElementById('inv-template-items');
+    if (!wrap) return;
+    const list = loadInvTemplates();
+    if (!list.length) {
+      wrap.innerHTML = '<div style="padding:40px 14px;text-align:center;color:#888;font-size:13px;line-height:1.9;">📑 テンプレートがありません<br>請求書を開いて「📑 テンプレ保存」を押すと<br>ここにひな形が並びます</div>';
+      return;
+    }
+    wrap.innerHTML = list.map(t => {
+      const nm = escapeHtml(t.name || '無題');
+      const sub = escapeHtml([t.company, t.title].filter(Boolean).join(' / '));
+      const cnt = (t.lines || []).length;
+      return `<div style="background:#fff;border:2px solid #d9c2e8;border-radius:8px;padding:12px;margin-bottom:10px;box-shadow:2px 2px 0 #e5d4f0;">
+        <div style="font-weight:bold;font-size:15px;color:#5b2c6f;margin-bottom:2px;">${nm}</div>
+        <div style="font-size:12px;color:#888;margin-bottom:10px;">${sub || '　'}　<span style="color:#aaa;">明細${cnt}行</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="createInvoiceFromTemplate('${t.id}')" style="font-family:'DotGothic16',monospace;font-size:13px;background:#27ae60;color:#fff;border:2px solid #1a7a40;box-shadow:2px 2px 0 #1a7a40;border-radius:4px;padding:8px 12px;cursor:pointer;">＋ この内容で作成</button>
+          <button onclick="renameInvTemplate('${t.id}')" style="font-family:'DotGothic16',monospace;font-size:13px;background:#fff;color:#8e44ad;border:2px solid #8e44ad;border-radius:4px;padding:8px 10px;cursor:pointer;">✏️ 名前変更</button>
+          <button onclick="deleteInvTemplate('${t.id}')" style="font-family:'DotGothic16',monospace;font-size:13px;background:#fff;color:#c0392b;border:2px solid #c0392b;border-radius:4px;padding:8px 10px;cursor:pointer;">🗑 削除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  function renameInvTemplate(id) {
+    const list = loadInvTemplates();
+    const t = list.find(x => x.id === id);
+    if (!t) return;
+    const name = (prompt('テンプレート名', t.name || '') || '').trim();
+    if (!name) return;
+    t.name = name; t._updatedAt = new Date().toISOString();
+    saveInvTemplates(list);
+    renderInvTemplateList();
+  }
+  function deleteInvTemplate(id) {
+    const list = loadInvTemplates();
+    const t = list.find(x => x.id === id);
+    if (!t) return;
+    showConfirm('テンプレート「' + (t.name || '') + '」を削除しますか？', () => {
+      saveInvTemplates(loadInvTemplates().filter(x => x.id !== id));
+      renderInvTemplateList();
+    });
   }
 
   // 現在開いている請求書/見積書の内容をコピーして、新しい納品書(DLV-)を作成する
