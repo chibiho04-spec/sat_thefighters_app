@@ -9738,6 +9738,52 @@
     });
   }
 
+  // テンプレートの内容で新規請求書を起こす（番号は自動採番＝新規、請求日は今日、作業日・数量・単価は空）
+  function createInvoiceFromTemplate(id) {
+    const tpl = loadInvTemplates().find(x => x.id === id);
+    if (!tpl) { alert('テンプレートが見つかりません'); return; }
+    closeInvTemplateBox();
+
+    if (typeof _attachInvCompanyAc === 'function') _attachInvCompanyAc();
+    const today = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
+
+    // 新規・編集可で採番（保存時に重複チェック _verifyOrderNumFreeRemote が効く）
+    _invIsNew = true;
+    _invRemoteChecked = false;
+    _invOrderPrefix = 'T';
+    const newNum = 'T' + getNextOrderNum('T');
+
+    document.getElementById('inv-screen-num').textContent  = newNum;
+    document.getElementById('inv-detail-num').textContent  = newNum;
+    _setInvOrderField(newNum, true); // 受注番号（新規＝編集可）
+
+    // テンプレの宛先・件名・担当・備考を流し込む（請求日は今日、作業日は空）
+    _setInvClientFields(tpl.company || '', tpl.contact || '', tpl.honorific || '御中');
+    document.getElementById('inv-screen-zip').textContent   = tpl.zip || '';
+    document.getElementById('inv-screen-addr').textContent  = tpl.addr || '';
+    document.getElementById('inv-screen-title').value       = tpl.title || '';
+    document.getElementById('inv-screen-workdate').value    = '';            // 作業日は毎回入力
+    document.getElementById('inv-screen-staff').value       = tpl.staff || '';
+    document.getElementById('inv-screen-invdate').value     = today;         // 請求日は今日
+    const memoEl = document.getElementById('inv-screen-memo');
+    if (memoEl) memoEl.value = tpl.memo || '';
+
+    // 外注費（名目のみ・金額空）
+    renderInvOutsourceRows(Array.isArray(tpl.outsourceList) ? tpl.outsourceList : []);
+
+    // 明細（数量・単価は空。最低1行は出す）
+    const tplLines = (tpl.lines && tpl.lines.length)
+      ? tpl.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
+                              qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource }))
+      : [{ code:'', name:'', qty:'', unit:'式', price:'' }];
+    renderInvLines([], tplLines, false);
+    calcInvTotal();
+
+    setDocMode(tpl.docMode || 'invoice');
+    document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
+    if (typeof syncCancelBtn === 'function') syncCancelBtn(false);
+  }
+
   // 現在開いている請求書/見積書の内容をコピーして、新しい納品書(DLV-)を作成する
   function createDeliveryFromCurrent() {
     // 明細行を現在の編集画面から収集（共通関数）
