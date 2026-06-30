@@ -9737,7 +9737,7 @@
     showConfirm('テンプレート「' + (t.name || '') + '」を削除しますか？', () => {
       saveInvTemplates(loadInvTemplates().filter(x => x.id !== id));
       renderInvTemplateList();
-    });
+    }, { okText: '削除', cancelText: 'キャンセル' });
   }
 
   // テンプレートの内容で新規請求書を起こす（番号は自動採番＝新規、請求日は今日、作業日・数量・単価は空）
