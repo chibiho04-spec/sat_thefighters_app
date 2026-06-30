@@ -4877,6 +4877,7 @@
           style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.3);padding:4px 8px;border-radius:3px;cursor:pointer;">納品書</button>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="inv-add-line-btn" style="background:rgba(155,89,182,0.85);" onclick="saveCurrentAsTemplate()" title="今の内容をひな形として保存">📑 テンプレ保存</button>
         <button class="inv-add-line-btn" style="background:rgba(41,128,185,0.85);" onclick="createDeliveryFromCurrent()" title="今の内容をコピーして納品書を作成">📦 納品書化</button>
         <button class="inv-add-line-btn" style="background:rgba(255,255,255,0.22);" onclick="openPrintPreview(_docMode || 'invoice')">🔍 プレビュー</button>
       </div>
@@ -9604,6 +9605,57 @@
       lines.push({ code, name, qty, unit, price, taxable, outsource });
     });
     return lines;
+  }
+
+  // 編集画面のヘッダー＋明細＋外注費＋値引きをまとめて収集（テンプレ保存／納品書化で共通利用）
+  function _collectInvEditorContent() {
+    return {
+      company:  (document.getElementById('inv-screen-company')?.value || '').trim(),
+      contact:  (document.getElementById('inv-screen-contact')?.value || '').trim(),
+      honorific: document.getElementById('inv-screen-honorific')?.value || '御中',
+      zip:      (document.getElementById('inv-screen-zip')?.textContent  || '').trim(),
+      addr:     (document.getElementById('inv-screen-addr')?.textContent || '').trim(),
+      title:    document.getElementById('inv-screen-title')?.value || '',
+      staff:    (document.getElementById('inv-screen-staff')?.value || '').trim(),
+      workDate: document.getElementById('inv-screen-workdate')?.value || '',
+      memo:     (document.getElementById('inv-screen-memo')?.value || '').trim(),
+      docMode:  _docMode || 'invoice',
+      lines:    _collectInvLines(),
+      outsourceList: (typeof getInvOutsourceList === 'function') ? getInvOutsourceList() : [],
+      discount: parseFloat(document.getElementById('inv-discount')?.value || 0) || 0
+    };
+  }
+
+  // 現在の請求書編集内容を「ひな形」として保存する。数量・単価・外注金額・値引きは空にする。
+  function saveCurrentAsTemplate() {
+    const c = _collectInvEditorContent();
+    if (!c.lines.length && !c.company && !c.title) {
+      alert('保存できる内容がありません。先に請求書の内容を入力するか、既存の請求書を開いてください。');
+      return;
+    }
+    const defname = c.title ? (c.title + (c.company ? '（' + c.company + '）' : '')) : (c.company || '無題のテンプレート');
+    const name = (prompt('テンプレート名を入力してください', defname) || '').trim();
+    if (!name) return; // キャンセル
+    const tpl = {
+      id: 'tpl_' + Date.now(),
+      name: name,
+      company: c.company, contact: c.contact, honorific: c.honorific,
+      zip: c.zip, addr: c.addr, title: c.title, staff: c.staff, memo: c.memo,
+      docMode: c.docMode,
+      // 品目名・単位・区分は残し、数量・単価は空にする
+      lines: c.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
+                                 qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource })),
+      // 外注先名は残し、金額は空に
+      outsourceList: (Array.isArray(c.outsourceList) ? c.outsourceList : []).map(o => ({
+                                 name: o.name || '', cost: '', taxable: !!o.taxable })),
+      _updatedAt: new Date().toISOString()
+    };
+    const list = loadInvTemplates();
+    list.push(tpl);
+    saveInvTemplates(list);
+    const bubble = document.querySelector('.speech-bubble');
+    if (bubble) bubble.innerHTML = `📑 テンプレート「${escapeHtml(name)}」を保存しました<span class="blink">█</span>`;
+    alert('📑 テンプレート「' + name + '」を保存しました。\n会計室の「請求書テンプレート」から呼び出せます。');
   }
 
   // 現在開いている請求書/見積書の内容をコピーして、新しい納品書(DLV-)を作成する
