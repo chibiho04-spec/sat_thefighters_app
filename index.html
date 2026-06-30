@@ -1021,6 +1021,8 @@
     padding: 10px 12px;
     flex-shrink: 0;
     border-bottom: 3px solid #0d3a5c;
+    flex-wrap: wrap;       /* 狭い画面ではボタンを折り返して見切れを防ぐ（広い画面では1行のまま） */
+    row-gap: 6px;
   }
   .inv-add-line-btn {
     font-family: 'DotGothic16', monospace;
@@ -4876,7 +4878,7 @@
         <div class="wsd-header-title" id="invd-header-title">📄 御請求書</div>
       </div>
       <!-- モード切替トグル：請求書 / 見積書 -->
-      <div id="invd-mode-toggle" style="display:inline-flex;gap:3px;flex-shrink:0;margin-right:6px;">
+      <div id="invd-mode-toggle" style="display:inline-flex;gap:3px;flex-shrink:0;margin-right:6px;flex-wrap:wrap;">
         <button type="button" class="invd-mode-btn" data-mode="invoice" onclick="setDocMode('invoice')"
           style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.3);color:white;border:1px solid rgba(255,255,255,0.5);padding:4px 8px;border-radius:3px;cursor:pointer;">請求書</button>
         <button type="button" class="invd-mode-btn" data-mode="estimate" onclick="setDocMode('estimate')"
@@ -4884,7 +4886,7 @@
         <button type="button" class="invd-mode-btn" data-mode="delivery" onclick="setDocMode('delivery')"
           style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.3);padding:4px 8px;border-radius:3px;cursor:pointer;">納品書</button>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="inv-add-line-btn" style="background:rgba(155,89,182,0.85);" onclick="saveCurrentAsTemplate()" title="今の内容をひな形として保存">📑 テンプレ保存</button>
         <button class="inv-add-line-btn" style="background:rgba(41,128,185,0.85);" onclick="createDeliveryFromCurrent()" title="今の内容をコピーして納品書を作成">📦 納品書化</button>
         <button class="inv-add-line-btn" style="background:rgba(255,255,255,0.22);" onclick="openPrintPreview(_docMode || 'invoice')">🔍 プレビュー</button>
