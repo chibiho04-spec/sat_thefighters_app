@@ -14517,12 +14517,11 @@ ${tableHTML}
     return `
     <div style="font-size:9pt;color:#111;line-height:1.5;font-family:'ＭＳ 明朝','Yu Mincho',serif;">
 
-      <!-- 書類種別バー（色＝画面/カラー印刷・右上バッジ＋アイコン＝白黒でも判別） -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3mm;">
-        <div style="background:${barColor};color:#fff;padding:1.5mm 4mm;font-size:11pt;font-weight:bold;letter-spacing:2px;border-radius:1mm;display:flex;align-items:center;gap:2mm;print-color-adjust:exact;-webkit-print-color-adjust:exact;">
+      <!-- 書類種別バッジ（右上のみ・書類ごとに色分け。白黒でもアイコン＋書類名で判別） -->
+      <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:3mm;">
+        <div style="display:inline-flex;align-items:center;gap:2mm;background:${barColor};color:#fff;padding:1.5mm 5mm;font-size:12pt;font-weight:bold;letter-spacing:3px;border-radius:1mm;print-color-adjust:exact;-webkit-print-color-adjust:exact;">
           ${iconSvg}<span>${badgeTxt}</span>
         </div>
-        <div style="border:2px solid #111;border-radius:1mm;padding:1mm 4mm;font-size:11pt;font-weight:bold;letter-spacing:2px;">${badgeTxt}</div>
       </div>
 
       <!-- 2行目：宛先ブロック（左）＋ 発行元（右） -->
