@@ -9617,6 +9617,10 @@
     const lines = [];
     if (!tbody) return lines;
     tbody.querySelectorAll('.inv-line-row').forEach(tr => {
+      if (tr.dataset.spacer === '1') {
+        lines.push({ code:'', name:'', qty:0, unit:'', price:0, taxable:true, outsource:false, note:'', spacer:true });
+        return;
+      }
       const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
       const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
       const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
@@ -9634,7 +9638,7 @@
       const taxable = taxEl ? (taxEl.value === '1') : true;
       const outsource = outsourceEl ? !!outsourceEl.checked : false;
       if (!name && !price) return;
-      lines.push({ code, name, qty, unit, price, taxable, outsource });
+      lines.push({ code, name, qty, unit, price, taxable, outsource, note: (tr.dataset.note || ''), spacer:false });
     });
     return lines;
   }
@@ -10094,6 +10098,13 @@
     savedLines.forEach((line, i) => {
       const tr = document.createElement('tr');
       tr.className = 'inv-line-row';
+      if (line.spacer) {
+        tr.dataset.spacer = '1';
+        tr.innerHTML = `<td class="inv-td" colspan="9" style="height:6px;background:#fafafa;"></td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      tr.dataset.note = line.note || '';
       tr.innerHTML = `
         <td class="inv-td inv-td-code">${line.code}</td>
         <td class="inv-td inv-td-name">
@@ -10132,7 +10143,7 @@
             ? `<span style="font-size:11px;">${line.outsource ? '✓' : ''}</span>`
             : `<input type="checkbox" class="inv-line-outsource" ${line.outsource ? 'checked' : ''} onchange="calcInvTotal()" title="この行を外注費として計上する" style="width:16px;height:16px;cursor:pointer;">`}
         </td>
-        ${readonly ? '' : `<td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal();">✕</button></td>`}
+        ${readonly ? '' : `<td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal(); renderInvLineCards();">✕</button></td>`}
       `;
       tbody.appendChild(tr);
     });
@@ -10153,6 +10164,10 @@
   function _readInvLineRows() {
     const out = [];
     document.querySelectorAll('#inv-lines-body .inv-line-row').forEach(tr => {
+      if (tr.dataset.spacer === '1') {
+        out.push({ code:'', name:'', unit:'', qty:0, price:0, taxable:true, outsource:false, note:'', spacer:true });
+        return;
+      }
       const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
       const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
       const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
@@ -10172,7 +10187,7 @@
                             : (taxTextEl ? taxTextEl.textContent.trim() !== '非課税' : true);
       const outsource = outEl ? !!outEl.checked
                               : (outTextEl ? outTextEl.textContent.trim() === '✓' : false);
-      out.push({ code, name, unit, qty, price, taxable, outsource });
+      out.push({ code, name, unit, qty, price, taxable, outsource, note: (tr.dataset.note || ''), spacer:false });
     });
     return out;
   }
@@ -10227,6 +10242,17 @@
     if (rows[i]) rows[i].remove();
     calcInvTotal();
     renderInvLineCards();
+  }
+
+  // i番目の明細の直後に空行（スペース）を挿入して再描画する
+  function insertSpacerAfter(i) {
+    if (_invReadonly) return;
+    const rows = _readInvLineRows();
+    const at = (typeof i === 'number' && i >= 0) ? i + 1 : rows.length;
+    rows.splice(at, 0, { code:'', name:'', unit:'', qty:0, price:0, taxable:true, outsource:false, note:'', spacer:true });
+    const disc = Number(document.getElementById('inv-discount')?.value || 0);
+    renderInvLines([], rows, false, disc);
+    calcInvTotal();
   }
 
   function _updateInvModalAmount() {
@@ -10331,6 +10357,7 @@
   }
 
   function _writeInvLineRow(tr, d) {
+    tr.dataset.note = d.note || '';
     const codeEl = tr.querySelector('.inv-td-code');
     if (codeEl) codeEl.textContent = d.code || '';
     const set = (sel, v) => { const e = tr.querySelector(sel); if (e) e.value = v; };
