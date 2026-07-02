@@ -6826,6 +6826,10 @@
           <label>摘要（作業内容）</label>
           <textarea id="inv-modal-name" placeholder="例）カメラマン人件費（撮影：城間）" oninput="_updateInvModalAmount()"></textarea>
         </div>
+        <div class="inv-field">
+          <label>備考（プレビュー右端に表示）</label>
+          <textarea id="inv-modal-note" placeholder="例）当日精算ぶんを含む"></textarea>
+        </div>
         <div class="inv-field-row">
           <div class="inv-field">
             <label>数量</label>
@@ -10203,6 +10207,13 @@
       return;
     }
     wrap.innerHTML = rows.map((l, i) => {
+      if (l.spacer) {
+        const delS = _invReadonly ? '' : `<button type="button" class="inv-card-del" title="空行を削除" onclick="delInvLineCard(${i})">🗑</button>`;
+        return `<div class="inv-card" style="opacity:0.75;">
+          <div class="inv-card-body" style="cursor:default;color:#999;font-size:12px;letter-spacing:2px;">— 空行（スペース）—</div>
+          <div class="inv-card-right">${delS}</div>
+        </div>`;
+      }
       const amt = Math.round((l.qty || 0) * (l.price || 0));
       const nameTxt = l.name ? _esc(l.name) : '（摘要未入力）';
       const nameCls = l.name ? '' : ' is-empty';
@@ -10211,8 +10222,11 @@
         : '<span class="inv-card-badge">課税</span>';
       const outBadge = l.outsource ? '<span class="inv-card-badge outsrc">外注</span>' : '';
       const codeBadge = l.code ? `<span class="inv-card-badge">${_esc(l.code)}</span>` : '';
+      const noteLine = l.note ? `<div class="inv-card-note" style="font-size:11px;color:#888;margin-top:3px;">📝 ${_esc(l.note)}</div>` : '';
       const delBtn  = _invReadonly ? '' :
         `<button type="button" class="inv-card-del" title="削除" onclick="delInvLineCard(${i})">🗑</button>`;
+      const spacerBtn = _invReadonly ? '' :
+        `<button type="button" class="inv-card-spacer-btn" title="この下に空行を入れる" onclick="insertSpacerAfter(${i})" style="font-family:'DotGothic16',monospace;font-size:11px;background:#fff;color:#2980b9;border:1px solid #2980b9;border-radius:4px;padding:3px 8px;cursor:pointer;margin-top:6px;">＋ 下に空行</button>`;
       return `
         <div class="inv-card">
           <button type="button" class="inv-card-body" onclick="openInvLineModal(${i})">
@@ -10221,7 +10235,9 @@
               <span>¥${(l.price||0).toLocaleString()} × ${l.qty || 0}${_esc(l.unit||'')}</span>
               ${taxBadge}${outBadge}${codeBadge}
             </div>
+            ${noteLine}
           </button>
+          ${spacerBtn}
           <div class="inv-card-right">
             <div class="inv-card-amount">¥${amt.toLocaleString()}</div>
             ${delBtn}
@@ -10283,6 +10299,7 @@
     document.getElementById('inv-modal-tax').value   = (l.taxable === false ? '0' : '1');
     document.getElementById('inv-modal-code').value  = l.code || '';
     document.getElementById('inv-modal-outsource').checked = !!l.outsource;
+    { const nEl = document.getElementById('inv-modal-note'); if (nEl) { nEl.value = l.note || ''; nEl.disabled = _invReadonly; } }
     // 保存ボタン：readonly時は非表示
     const saveBtn = document.querySelector('#inv-line-modal .inv-modal-save');
     if (saveBtn) {
@@ -10310,7 +10327,8 @@
       price: parseFloat(document.getElementById('inv-modal-price').value) || 0,
       taxable:   document.getElementById('inv-modal-tax').value === '1',
       code:  document.getElementById('inv-modal-code').value.trim(),
-      outsource: document.getElementById('inv-modal-outsource').checked
+      outsource: document.getElementById('inv-modal-outsource').checked,
+      note:  (document.getElementById('inv-modal-note')?.value || '').trim()
     };
     if (!data.name && !data.price) {
       alert('摘要または単価を入力してください。');
