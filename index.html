@@ -9684,7 +9684,8 @@
       docMode: c.docMode,
       // 品目名・単位・区分は残し、数量・単価は空にする
       lines: c.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
-                                 qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource })),
+                                 qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource,
+                                 note: l.note || '', spacer: !!l.spacer })),
       // 外注先名は残し、金額は空に
       outsourceList: (Array.isArray(c.outsourceList) ? c.outsourceList : []).map(o => ({
                                  name: o.name || '', cost: '', taxable: !!o.taxable })),
@@ -9786,7 +9787,8 @@
     // 明細（数量・単価は空。最低1行は出す）
     const tplLines = (tpl.lines && tpl.lines.length)
       ? tpl.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
-                              qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource }))
+                              qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource,
+                              note: l.note || '', spacer: !!l.spacer }))
       : [{ code:'', name:'', qty:'', unit:'式', price:'' }];
     renderInvLines([], tplLines, false);
     calcInvTotal();
