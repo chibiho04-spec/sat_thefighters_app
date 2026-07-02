@@ -4987,8 +4987,9 @@
             <span class="inv-cards-title">明細</span>
           </div>
           <div id="inv-cards"></div>
-          <div id="inv-add-line-wrap" style="padding:10px 2px 4px;">
-            <button type="button" class="inv-add-card-btn" onclick="openInvLineModal(null)">＋ 通常行を追加</button>
+          <div id="inv-add-line-wrap" style="padding:10px 2px 4px;display:flex;gap:8px;">
+            <button type="button" class="inv-add-card-btn" style="flex:1;" onclick="openInvLineModal(null)">＋ 通常行を追加</button>
+            <button type="button" class="inv-add-card-btn" style="flex:1;color:#7f8c8d;border-color:#bdc3c7;border-style:solid;" onclick="insertSpacerAfter()">＋ 空行を追加</button>
           </div>
         </div>
 
@@ -10203,7 +10204,7 @@
     if (!wrap) return;
     const rows = _readInvLineRows();
     const addWrap = document.getElementById('inv-add-line-wrap');
-    if (addWrap) addWrap.style.display = _invReadonly ? 'none' : 'block';
+    if (addWrap) addWrap.style.display = _invReadonly ? 'none' : 'flex';
     if (!rows.length) {
       wrap.innerHTML = '<div class="inv-card-empty">明細がありません。下のボタンから追加してください。</div>';
       return;
@@ -10227,8 +10228,6 @@
       const noteLine = l.note ? `<div class="inv-card-note" style="font-size:11px;color:#888;margin-top:3px;">📝 ${_esc(l.note)}</div>` : '';
       const delBtn  = _invReadonly ? '' :
         `<button type="button" class="inv-card-del" title="削除" onclick="delInvLineCard(${i})">🗑</button>`;
-      const spacerBtn = _invReadonly ? '' :
-        `<button type="button" class="inv-card-spacer-btn" title="この下に空行を入れる" onclick="insertSpacerAfter(${i})" style="font-family:'DotGothic16',monospace;font-size:11px;background:#fff;color:#2980b9;border:1px solid #2980b9;border-radius:4px;padding:3px 8px;cursor:pointer;margin-top:6px;">＋ 下に空行</button>`;
       return `
         <div class="inv-card">
           <button type="button" class="inv-card-body" onclick="openInvLineModal(${i})">
@@ -10239,7 +10238,6 @@
             </div>
             ${noteLine}
           </button>
-          ${spacerBtn}
           <div class="inv-card-right">
             <div class="inv-card-amount">¥${amt.toLocaleString()}</div>
             ${delBtn}
