@@ -14445,12 +14445,15 @@ ${tableHTML}
     const tdS = 'border:1px solid #bbb;padding:4px 6px;font-size:8.5pt;vertical-align:middle;';
     const thS = 'background:#2c3e50;color:white;border:1px solid #1a2530;padding:5px 6px;font-size:8pt;text-align:center;';
     document.querySelectorAll('.inv-line-row').forEach((tr, i) => {
+      if (tr.dataset.spacer === '1') {
+        linesHTML += `<tr class="doc-spacer-row"><td style="${tdS}height:14px;">&nbsp;</td>${`<td style="${tdS}"></td>`.repeat(5)}</tr>`;
+        return;
+      }
       const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
       const unitEl  = tr.querySelector('.inv-line-unit') || tr.querySelector('.inv-td-unit span');
       const qtyEl   = tr.querySelector('.inv-line-qty')  || tr.querySelector('.inv-td-qty span');
       const priceEl = tr.querySelector('.inv-line-price');
       const priceTextEl = tr.querySelector('.inv-td-price span');
-      const codeEl  = tr.querySelector('.inv-td-code');
       const taxEl   = tr.querySelector('.inv-line-tax');
       const amtEl   = document.getElementById('inv-amount-' + i);
 
@@ -14459,11 +14462,12 @@ ${tableHTML}
       const qty   = escapeHtml(qtyEl?.value   || qtyEl?.textContent?.trim()   || '');
       const rawPrice = priceEl?.value || priceTextEl?.textContent?.replace(/[¥,]/g, '') || '';
       const price = rawPrice ? Number(rawPrice).toLocaleString() : '';
-      const code  = escapeHtml(codeEl?.textContent?.trim() || '');
       const amt   = amtEl?.textContent?.trim()  || '';
       const taxable = taxEl ? (taxEl.value === '1')
                             : (tr.querySelector('.inv-td-tax span')?.textContent?.trim() !== '非課税');
-      const noteCell = taxable ? '' : '<span style="font-size:8pt;color:#c0392b;font-weight:bold;">非課税</span>';
+      const note  = escapeHtml(tr.dataset.note || '');
+      const taxMark = taxable ? '' : '<div style="font-size:7.5pt;color:#c0392b;font-weight:bold;">非課税</div>';
+      const noteCell = (note ? `<div>${note}</div>` : '') + taxMark;
       if (!name) return;
       rowCount++;
       const bg = rowCount % 2 === 0 ? '#f9f9f9' : 'white';
@@ -14474,7 +14478,7 @@ ${tableHTML}
           <td style="${tdS}text-align:center;">${unit}</td>
           <td style="${tdS}text-align:right;">${price ? '¥'+price : ''}</td>
           <td style="${tdS}text-align:right;font-weight:bold;">${amt}</td>
-          <td style="${tdS}text-align:center;">${noteCell}</td>
+          <td style="${tdS}text-align:left;font-size:7.5pt;">${noteCell}</td>
         </tr>`;
     });
     // 空行補充：emptyRows指定があればその数、無ければ最低10行になるよう補う。
@@ -14585,7 +14589,7 @@ ${tableHTML}
             <th style="${thS}width:36px;">単位</th>
             <th style="${thS}width:76px;">単価</th>
             <th style="${thS}width:76px;">金額</th>
-            <th style="${thS}width:60px;">備考</th>
+            <th style="${thS}width:90px;">備考</th>
           </tr>
         </thead>
         <tbody>${linesHTML}</tbody>
