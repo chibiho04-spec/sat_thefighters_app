@@ -6981,6 +6981,50 @@
     }
   })();
 
+  // ===== 保存失敗（容量オーバー等）をユーザーに知らせる =====
+  // 端末の保存容量がいっぱいだと setItem が例外を投げ、従来は「無言で保存されない」事故になっていた。
+  // ここで setItem に共通フックを入れ、容量オーバー時だけ画面上部に赤い警告を出す。
+  // ※挙動は変えない：例外はそのまま投げ直すので、呼び出し元の「失敗を検知する処理」は今までどおり動く。
+  function _notifyStorageFull() {
+    try {
+      if (!document || !document.body) { try { alert('⚠️ 端末の保存容量がいっぱいで、データを保存できませんでした。'); } catch(_) {} return; }
+      let el = document.getElementById('storage-full-banner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'storage-full-banner';
+        el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2000000;background:#c0392b;color:#fff;font-family:sans-serif;font-size:13px;line-height:1.6;padding:12px 44px 12px 14px;box-shadow:0 3px 8px rgba(0,0,0,0.35);text-align:center;';
+        el.innerHTML = '⚠️ 端末の保存容量がいっぱいで、<b>データを保存できませんでした</b>。<br>データ管理画面でバックアップを取り、古いデータを整理してください。'
+          + '<span id="storage-full-close" style="position:absolute;right:12px;top:8px;cursor:pointer;font-size:22px;line-height:1;">×</span>';
+        document.body.appendChild(el);
+        const c = document.getElementById('storage-full-close');
+        if (c) c.onclick = function() { el.style.display = 'none'; };
+      }
+      el.style.display = 'block';
+    } catch(_) {
+      try { alert('⚠️ 端末の保存容量がいっぱいで、データを保存できませんでした。'); } catch(__) {}
+    }
+  }
+  (function installStorageGuard() {
+    try {
+      const _origSet = localStorage.setItem.bind(localStorage);
+      let _lastWarn = 0;
+      localStorage.setItem = function(key, value) {
+        try {
+          return _origSet(key, value);
+        } catch(e) {
+          const isQuota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014
+            || /quota|exceeded/i.test(String(e && e.message)));
+          // 内部プローブ（__test__ 等）は警告を出さない。連続失敗は3秒に1回だけ通知。
+          if (isQuota && String(key).indexOf('__') !== 0) {
+            const now = Date.now();
+            if (now - _lastWarn > 3000) { _lastWarn = now; _notifyStorageFull(); }
+          }
+          throw e; // 挙動は変えない：呼び出し元へ失敗を伝える
+        }
+      };
+    } catch(e) { /* localStorage 自体が無い環境は無視 */ }
+  })();
+
   // ===== GAS URL デフォルト設定（統合シート版） =====
   // 統合シートの Apps Script Web App URL を既定値としてコードに埋め込む。
   // 「既定URLのバージョン」が変わったら全端末で1回だけ gas_url を強制差し替え（旧URL端末も移行）。
@@ -9496,13 +9540,13 @@
           <div class="inv-num">${num}</div>
           <div class="inv-badge ${badgeClass}">${badgeText}</div>
         </div>
-        <div class="inv-client">${master.client}</div>
-        <div class="inv-title">${master.title}</div>
+        <div class="inv-client">${escapeHtml(master.client)}</div>
+        <div class="inv-title">${escapeHtml(master.title)}</div>
         <div class="inv-total-row">
           <span class="inv-total-label">合計</span>
           <span class="inv-total" style="${totalStyle}">${fmtTotal}</span>
         </div>
-        <div class="inv-meta">👤 ${master.staff} ／ ${master.date} ／ 技術</div>
+        <div class="inv-meta">👤 ${escapeHtml(master.staff)} ／ ${escapeHtml(master.date)} ／ 技術</div>
         ${alertHTML}
         <div class="inv-actions">${actionsHTML}</div>
       `;
@@ -15581,9 +15625,9 @@ ${tableHTML}
         row.dataset.cat = cat;
         row.innerHTML = `
           <span class="em-drag-handle" title="ドラッグで並び替え">☰</span>
-          <span class="em-master-cat em-inline" onclick="editEquipField('${item.id}','cat',this)" title="カテゴリを変更">${cat.slice(0,2)}</span>
-          <span class="em-master-name em-inline" onclick="editEquipField('${item.id}','name',this)" title="名前を編集">${item.name}</span>
-          <span class="em-master-code em-inline" onclick="editEquipField('${item.id}','code',this)" title="コードを編集">${item.code || '＋コード'}</span>
+          <span class="em-master-cat em-inline" onclick="editEquipField('${item.id}','cat',this)" title="カテゴリを変更">${escapeHtml(cat.slice(0,2))}</span>
+          <span class="em-master-name em-inline" onclick="editEquipField('${item.id}','name',this)" title="名前を編集">${escapeHtml(item.name)}</span>
+          <span class="em-master-code em-inline" onclick="editEquipField('${item.id}','code',this)" title="コードを編集">${item.code ? escapeHtml(item.code) : '＋コード'}</span>
           <span class="em-master-qty em-inline" onclick="editEquipField('${item.id}','qty',this)" title="数量を編集">×${item.qty}</span>
           <span class="em-master-price" onclick="editEquipPrice('${item.id}')" title="料金を編集">¥${(item.price||0).toLocaleString()}</span>
           <button class="em-edit-btn" onclick="startEditEquip('${item.id}')" title="まとめて編集">✏️</button>
