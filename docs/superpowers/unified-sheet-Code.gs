@@ -171,13 +171,17 @@ function doPost(e) {
       }
     }
 
-    var updated = 0, added = 0, skipped = 0;
+    var updated = 0, added = 0, skipped = 0, rejected = [];
     (body.rows || []).forEach(function (row) {
       var key = String(row[cfg.key] || '').trim();
       if (!key) return;
+      // 新規採番の「先取り」主張。__new はヘッダー外なので行データには書かれない（判定専用）。
+      var isNewClaim = String(row.__new || '') === '1';
       var line = headers.map(function (h) { return (row[h] !== undefined && row[h] !== null) ? row[h] : ''; });
       var incomingUpd = String(row['更新日時'] || '');
       if (keyToRow[key]) {
+        // 新規採番なのに同じ番号が既に在る＝別端末が先に取得済み。上書きせず拒否し先勝ちで相手の行を守る。
+        if (isNewClaim) { rejected.push(key); return; }
         if (updCol >= 0 && _toMs(incomingUpd) <= _toMs(keyToRow[key].upd)) { skipped++; return; } // 古い/同値は無視（LWW・時刻で比較）
         sh.getRange(keyToRow[key].rowNum, 1, 1, headers.length).setValues([line]);
         keyToRow[key].upd = incomingUpd;
@@ -190,7 +194,7 @@ function doPost(e) {
     });
 
     dupRows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
-    return _json({ ok: true, updated: updated, added: added, skipped: skipped, removedDup: dupRows.length });
+    return _json({ ok: true, updated: updated, added: added, skipped: skipped, removedDup: dupRows.length, rejected: rejected });
   } catch (err) {
     return _json({ ok: false, error: String(err) });
   } finally {

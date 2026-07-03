@@ -9570,7 +9570,7 @@
   function loadInvStatus(num) {
     try { return JSON.parse(localStorage.getItem('inv_' + num)) || {}; } catch { return {}; }
   }
-  function saveInvStatus(num, data) {
+  function saveInvStatus(num, data, opts) {
     data = data || {};
     // 端末間同期のLWW判定用に、保存のたび必ず更新時刻を打つ。
     // これが無いと次回の取り込み（pull）でシート側の古い版に上書きされ、
@@ -9582,9 +9582,95 @@
     try {
       if (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function') {
         const _rec = Object.assign({ '受注No': String(num) }, data);
-        pushKind('invoice', [_rec]).catch(e => { try { pendingAdd('invoice', num); } catch (_) {} });
+        // 新規の単独請求書だけ「先取り主張」で送り、別端末との番号衝突を検知する。
+        const _claim = !!(opts && opts.claimNew);
+        const _fromRecovery = !!(opts && opts.fromRecovery); // リカバリ内の押し直しは再帰させない
+        pushKind('invoice', [_rec], _claim ? { claimNew: true } : undefined)
+          .then(res => {
+            if (_claim && res && Array.isArray(res.rejected) && res.rejected.indexOf(String(num)) >= 0) {
+              // 押し直しても拒否＝新番号もほぼ同時に取られた（超レア）。再帰せず再送キューへ回す。
+              if (_fromRecovery) { try { pendingAdd('invoice', String(num), { claimNew: true }); } catch (_) {} }
+              else { try { _handleInvClaimRejected(String(num)); } catch (_) {} }
+            }
+          })
+          // 送信自体が失敗（ネット不調等）：新規なら claim 情報も保持して再送キューへ（再送時も先取り主張を維持）
+          .catch(e => { try { pendingAdd('invoice', num, _claim ? { claimNew: true } : undefined); } catch (_) {} });
       }
     } catch (e) {}
+  }
+
+  // 単独請求書の新規保存が別端末との番号衝突で拒否された時：相手の行は触らず、ローカルだけ空き番号へ付け替える。
+  // ★順序が重要：pull すると同一キーの相手データでローカルが上書きされるので、pull の「前」に自分の内容を退避する。
+  async function _handleInvClaimRejected(num) {
+    try {
+      // 1) pull より前に自分の請求書内容を退避し、自分の孤立分(inv_num)を先に外す（相手 num が正データとして綺麗に入る）
+      const rawMine = localStorage.getItem('inv_' + num);
+      localStorage.removeItem('inv_' + num);
+      try { if (typeof invData === 'object' && invData && invData[num]) { delete invData[num]; } } catch (_) {}
+      // 2) 最新を取り込み（相手の num はそのまま保持される＝相手データ非破壊）
+      await Promise.all([ pullKind('order').catch(() => {}), pullKind('invoice').catch(() => {}) ]);
+      // 3) 空き番号を採り、退避した「自分の内容」を新番号で保存＋押し直し
+      const pfx = (String(num).match(/^[TEP]/i) || ['T'])[0].toUpperCase();
+      const free = pfx + getNextOrderNum(pfx);
+      try { const idn = document.getElementById('inv-detail-num'); if (idn && idn.textContent === num) idn.textContent = free; } catch (_) {}
+      if (rawMine !== null) {
+        let obj = {}; try { obj = JSON.parse(rawMine) || {}; } catch (_) {}
+        saveInvStatus(free, obj, { claimNew: true, fromRecovery: true });
+      }
+      try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (_) {}
+      try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (_) {}
+      alert(`受注番号「${num}」は他の端末が一瞬先に使いました。\n空いている「${free}」に自動変更して保存しました。`);
+      return free;
+    } catch (e) { console.warn('inv claim rejected handling', e); return null; }
+  }
+
+  // 新規案件(order)の保存が別端末との番号衝突で拒否された時のリカバリ。請求書版と同じく pull の「前」に退避する。
+  // registerNewProject と、再送キュー(retrySyncPending)の両方から使う共通処理。返り値＝新しい空き番号(free)。
+  async function _handleOrderClaimRejected(num) {
+    try {
+      // 1) pull より前に自分の案件内容を退避（projects_saved と ws_ 両方）
+      let mine = null;
+      try {
+        const list = JSON.parse(localStorage.getItem('projects_saved') || '[]');
+        const m = list.find(p => String(p.num) === String(num));
+        if (m) mine = Object.assign({}, m);
+      } catch (_) {}
+      if (!mine && typeof wsData === 'object' && wsData[num]) mine = Object.assign({ num: String(num) }, wsData[num]);
+      const wsRaw = localStorage.getItem('ws_' + num); // ワークシート詳細（オフライン中に入力済みなら存在）
+      // 2) 自分の num 痕跡を先に消す（pull で相手 num が正データとして綺麗に入る＝相手データ非破壊）
+      try {
+        const list2 = JSON.parse(localStorage.getItem('projects_saved') || '[]').filter(p => String(p.num) !== String(num));
+        localStorage.setItem('projects_saved', JSON.stringify(list2));
+      } catch (_) {}
+      try { if (typeof wsData === 'object') delete wsData[num]; } catch (_) {}
+      if (wsRaw !== null) { try { localStorage.removeItem('ws_' + num); } catch (_) {} }
+      try { removeWSCard(num); } catch (_) {}
+      // 3) 最新を取り込み
+      await Promise.all([ pullKind('order').catch(() => {}), pullKind('invoice').catch(() => {}) ]);
+      // 4) 空き番号を採り、退避した「自分の内容」を新番号で登録＋押し直し
+      const pfx = (String(num).match(/^[TEP]/i) || ['T'])[0].toUpperCase();
+      const free = pfx + getNextOrderNum(pfx);
+      if (mine) {
+        mine.num = free; mine._updatedAt = new Date().toISOString();
+        saveProject(free, mine);
+        if (typeof wsData === 'object') wsData[free] = mine;
+        try { addWsCard(free, mine); } catch (_) {}
+        try {
+          const r2 = await pushKind('order', [{ '受注No': free, _project: mine, _updatedAt: mine._updatedAt }], { claimNew: true });
+          if (r2 && Array.isArray(r2.rejected) && r2.rejected.indexOf(free) >= 0) { pendingAdd('order', free, { claimNew: true }); }
+        } catch (_) { try { pendingAdd('order', free, { claimNew: true }); } catch (__) {} }
+        if (wsRaw !== null) {
+          localStorage.setItem('ws_' + free, wsRaw);
+          try {
+            const c = JSON.parse(wsRaw);
+            pushKind('child', [Object.assign({}, c, { '受注No': free, _updatedAt: new Date().toISOString() })])
+              .catch(() => { try { pendingAdd('child', free); } catch (_) {} });
+          } catch (_) {}
+        }
+      }
+      try { if (typeof refreshHomeView === 'function') refreshHomeView(true); } catch (_) {}
+      return free;
+    } catch (e) { console.warn('order claim rejected handling', e); return null; }
   }
 
   // 現在の編集画面の内容を inv_${num} に保存（請求書 or 見積書共通）
@@ -10012,7 +10098,7 @@
     status.outsourceExtraList = _invOsList;
     status.outsourceExtra     = _sumInvOutsource(_invOsList); // 後方互換：合計のミラー
     status.savedAt  = new Date().toLocaleString('ja-JP');
-    saveInvStatus(num, status); // ← _updatedAt の打刻とシートへの自動送信は saveInvStatus が内部で実施
+    saveInvStatus(num, status, { claimNew: _invIsNew }); // ← 打刻＋自動送信は内部で実施。新規時だけ番号の先取り主張を付ける
     if (_invIsNew) { _invIsNew = false; _setInvOrderField(num, false); } // 保存後は番号を確定（以後は表示のみ）
     _markClean('inv-detail-screen');
 
@@ -11085,10 +11171,13 @@
   function _saveSyncPending(list) { localStorage.setItem('sync_pending', JSON.stringify(list)); }
   function _pendKey(kind, num) { return kind + ':' + (num || 'all'); }
   // 失敗を積む（同じ key は最新の1件だけ残す）
-  function pendingAdd(kind, num) {
+  // opts.claimNew=true の新規採番は、再送でも「先取り主張」を維持する必要があるためフラグを持ち回る。
+  function pendingAdd(kind, num, opts) {
     const key = _pendKey(kind, num);
     const list = getSyncPending().filter(p => p.key !== key);
-    list.push({ key, kind, num: num || '', ts: Date.now() });
+    const item = { key, kind, num: num || '', ts: Date.now() };
+    if (opts && opts.claimNew) item.claimNew = true;
+    list.push(item);
     _saveSyncPending(list);
     updatePendingDisplay();
   }
@@ -11117,7 +11206,14 @@
           const rec = cfg.loadLocal().find(r => String((r && r[cfg.keyField]) || '') === key);
           let res;
           if (rec) {
-            res = await pushKind(item.kind, [rec]);
+            // 新規採番(claimNew)は再送でも先取り主張を維持し、相手が先に使っていたら上書きせず改名リカバリへ。
+            const claimOpts = item.claimNew ? { claimNew: true } : undefined;
+            res = await pushKind(item.kind, [rec], claimOpts);
+            if (item.claimNew && res && Array.isArray(res.rejected) && res.rejected.indexOf(key) >= 0) {
+              if (item.kind === 'invoice')    { try { await _handleInvClaimRejected(key); } catch (_) {} }
+              else if (item.kind === 'order') { try { await _handleOrderClaimRejected(key); } catch (_) {} }
+              pendingClear(item.kind, item.num); ok++; continue; // 相手行は絶対に上書きしない
+            }
           } else {
             // ローカルに無い＝削除済み。論理削除（削除フラグ）を再送する
             res = await pushKind(item.kind, [{ [cfg.keyField]: key, _deleted: true, _updatedAt: new Date().toISOString() }]);
@@ -11790,12 +11886,15 @@
     return { pulled: sheetRecs.length };
   }
 
-  async function pushKind(kind, records) {
+  async function pushKind(kind, records, opts) {
     const cfg = SYNC_KINDS[kind]; const url = _gasUrlOne();
     if (!cfg || !url) return { ok: false };
     const list = records || cfg.loadLocal();
-    const rows = list.map(cfg.toRow);
+    let rows = list.map(cfg.toRow);
     if (!rows.length) return { ok: true, added: 0 };
+    // 新規採番の「先取り」主張：この番号が既にシートに在れば上書きせず拒否させる（別端末との衝突検知）。
+    // __new はサーバ側でヘッダー外＝シートには書かれない。旧GASは無視するので後方互換。
+    if (opts && opts.claimNew) rows = rows.map(r => Object.assign({}, r, { __new: '1' }));
     const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'upsert', kind: kind, rows: rows }) });
     const data = await res.json();
@@ -16192,14 +16291,25 @@ ${tableHTML}
     saveProject(num, newProject);
     addWsCard(num, newProject);
 
-    // 統合エンジンで親（案件）を送信（URL未設定なら何もしない / fire-and-forget）
+    // 統合エンジンで親（案件）を送信。新規採番なので「先取り主張(claimNew)」付きで送り、
+    // 別端末が一瞬先に同じ番号を取っていたら（rejected）空き番号へ自動で付け替える。
+    let openNum = num;
     if (_gasUrlOne()) {
-      pushKind('order', [{ '受注No': num, _project: newProject, _updatedAt: newProject._updatedAt }])
-        .catch(e => { try { pendingAdd('order', num); } catch(_){} });
+      try {
+        const _res = await pushKind('order', [{ '受注No': num, _project: newProject, _updatedAt: newProject._updatedAt }], { claimNew: true });
+        if (_res && Array.isArray(_res.rejected) && _res.rejected.indexOf(num) >= 0) {
+          // 別端末が一瞬先に num を確保済み。共通リカバリで空き番号へ付け替える（相手データは触らない）。
+          const free = await _handleOrderClaimRejected(num);
+          if (free) {
+            openNum = free;
+            alert(`受注番号「${num}」は他の端末が一瞬先に使いました。\n空いている「${free}」に自動変更して登録しました。`);
+          }
+        }
+      } catch (e) { try { pendingAdd('order', num, { claimNew: true }); } catch (_) {} }
     }
 
     document.querySelector('.speech-bubble').innerHTML =
-      `✅ ${num} を登録！<br>ワークシートに情報を入力してね！<span class="blink">█</span>`;
+      `✅ ${openNum} を登録！<br>ワークシートに情報を入力してね！<span class="blink">█</span>`;
 
     // 確認ダイアログなしで直接ワークシート編集画面へ
     closeNewProject();
@@ -16207,7 +16317,7 @@ ${tableHTML}
     refreshHomeView(true);
     // 少し待ってからワークシート編集画面を開く（タブ切り替えのアニメーション後）
     setTimeout(() => {
-      openWS(num);
+      openWS(openNum);
       toggleWsEdit(true); // 最初から編集モードで開く
     }, 200);
   }
