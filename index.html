@@ -1496,6 +1496,7 @@
   /* ホームカレンダーのみフォント拡大 */
   .home-sch-dow-row .sch-dow       { font-size: 17px; padding: 7px 0; }
   .home-sch-grid                   { grid-auto-rows: 56px; }
+  #home-sch-grid                   { grid-auto-rows: 96px; } /* 各日に案件を4件まで表示できる高さ（ID指定で全幅に適用） */
   .home-sch-grid .sch-day-num      { font-size: 15px; width: 22px; height: 22px; }
   .home-sch-grid .sch-cell.today .sch-day-num { font-size: 15px; width: 22px; height: 22px; }
   .home-sch-grid .sch-dot          { font-size: 12px; }
@@ -8802,7 +8803,7 @@
       if (events.length) {
         const wrap = document.createElement('div');
         wrap.className = 'sch-dot-wrap';
-        events.slice(0, 2).forEach(ev => {
+        events.slice(0, 4).forEach(ev => {
           const dot = document.createElement('div');
           // 自分が関わる案件は紫、それ以外はグレー
           if (isUserInEvent(ev)) {
@@ -8814,10 +8815,10 @@
           dot.textContent = ev.title.slice(0, 5);
           wrap.appendChild(dot);
         });
-        if (events.length > 2) {
+        if (events.length > 4) {
           const more = document.createElement('div');
           more.className = 'sch-dot'; more.style.background = '#999';
-          more.textContent = `+${events.length - 2}`;
+          more.textContent = `+${events.length - 4}`;
           wrap.appendChild(more);
         }
         cell.appendChild(wrap);
