@@ -1223,6 +1223,9 @@
   .inv-card-badge.tax-off { background: #fdeeee; color: #c0392b; border-color: #f2cccc; }
   .inv-card-badge.outsrc  { background: #fef6e7; color: #b9770e; border-color: #f5e0b0; }
   .inv-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .inv-card-drag { flex-shrink: 0; align-self: center; cursor: grab; touch-action: none; user-select: none; color: #bbb; font-size: 20px; line-height: 1; padding: 4px 2px; }
+  .inv-card-drag:active { cursor: grabbing; }
+  .inv-card.inv-card-dragging { opacity: 0.5; border-color: #2980b9; box-shadow: 0 0 0 2px rgba(41,128,185,0.3); }
   .inv-card-amount { font-size: 15px; font-weight: bold; color: #1a5c8a; white-space: nowrap; }
   .inv-card-del {
     font-size: 15px; line-height: 1; background: #fde8e8; border: 1px solid #e74c3c;
@@ -10355,10 +10358,12 @@
       wrap.innerHTML = '<div class="inv-card-empty">明細がありません。下のボタンから追加してください。</div>';
       return;
     }
+    const dragH = _invReadonly ? '' : '<div class="inv-card-drag" title="ドラッグで並べ替え" aria-label="並べ替え">≡</div>';
     wrap.innerHTML = rows.map((l, i) => {
       if (l.spacer) {
         const delS = _invReadonly ? '' : `<button type="button" class="inv-card-del" title="空行を削除" onclick="delInvLineCard(${i})">🗑</button>`;
-        return `<div class="inv-card" style="opacity:0.75;">
+        return `<div class="inv-card" data-idx="${i}" style="opacity:0.75;">
+          ${dragH}
           <div class="inv-card-body" style="cursor:default;color:#999;font-size:12px;letter-spacing:2px;">— 空行（スペース）—</div>
           <div class="inv-card-right">${delS}</div>
         </div>`;
@@ -10375,7 +10380,8 @@
       const delBtn  = _invReadonly ? '' :
         `<button type="button" class="inv-card-del" title="削除" onclick="delInvLineCard(${i})">🗑</button>`;
       return `
-        <div class="inv-card">
+        <div class="inv-card" data-idx="${i}">
+          ${dragH}
           <button type="button" class="inv-card-body" onclick="openInvLineModal(${i})">
             <div class="inv-card-name${nameCls}">${nameTxt}</div>
             <div class="inv-card-sub">
@@ -10390,6 +10396,53 @@
           </div>
         </div>`;
     }).join('');
+    _wireInvCardDrag();
+  }
+
+  // 明細カードのドラッグ並べ替え（マウス/タッチ共通の Pointer Events）。ハンドル(≡)を掴んで上下に移動。
+  let _invDrag = null;
+  function _wireInvCardDrag() {
+    const wrap = document.getElementById('inv-cards');
+    if (!wrap || wrap._dragWired) return;
+    wrap._dragWired = true;
+    wrap.addEventListener('pointerdown', (e) => {
+      if (_invReadonly) return;
+      const handle = e.target.closest('.inv-card-drag');
+      if (!handle) return;
+      const card = handle.closest('.inv-card');
+      if (!card) return;
+      e.preventDefault();
+      _invDrag = { card };
+      card.classList.add('inv-card-dragging');
+      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    wrap.addEventListener('pointermove', (e) => {
+      if (!_invDrag) return;
+      e.preventDefault();
+      const card = _invDrag.card;
+      const others = Array.from(wrap.querySelectorAll('.inv-card')).filter(c => c !== card);
+      let before = null;
+      for (const sib of others) {
+        const r = sib.getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { before = sib; break; }
+      }
+      if (before) { if (card.nextElementSibling !== before) wrap.insertBefore(card, before); }
+      else if (wrap.lastElementChild !== card) { wrap.appendChild(card); }
+    });
+    const _end = () => {
+      if (!_invDrag) return;
+      const card = _invDrag.card; _invDrag = null;
+      card.classList.remove('inv-card-dragging');
+      // カードの新しい並び順を裏の明細テーブルへ反映する
+      const order = Array.from(wrap.querySelectorAll('.inv-card')).map(c => parseInt(c.dataset.idx, 10)).filter(n => !isNaN(n));
+      const rows = _readInvLineRows();
+      const reordered = order.map(i => rows[i]).filter(Boolean);
+      const disc = Number(document.getElementById('inv-discount')?.value || 0);
+      renderInvLines([], reordered, false, disc);
+      calcInvTotal();
+    };
+    wrap.addEventListener('pointerup', _end);
+    wrap.addEventListener('pointercancel', _end);
   }
 
   function _esc(s) {
