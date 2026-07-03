@@ -10036,6 +10036,18 @@
     // 金額バナー
     const totalLbl = document.getElementById('invd-total-label');
     if (totalLbl) totalLbl.textContent = L.total;
+    // 書類種別で編集画面の色を切り替える（今どの書類を編集中か色で直感的に分かるように）
+    const _DOC_THEME = {
+      invoice:  { head:'#1a7a40', headBorder:'#0f5a2c', accent:'#1f9e6f', bannerBg:'#eef6f1' },
+      estimate: { head:'#b3650f', headBorder:'#7e4906', accent:'#d9791d', bannerBg:'#f7f0e8' },
+      delivery: { head:'#1a5c8a', headBorder:'#0d3a5c', accent:'#2377ba', bannerBg:'#eef3f8' },
+    };
+    const _th = _DOC_THEME[_docMode] || _DOC_THEME.invoice;
+    const _hdr = document.querySelector('#inv-detail-screen .invd-header');
+    if (_hdr) { _hdr.style.background = _th.head; _hdr.style.borderBottomColor = _th.headBorder; }
+    const _banner = document.querySelector('#inv-detail-screen .invd-total-banner');
+    if (_banner) { _banner.style.borderColor = _th.accent; _banner.style.background = _th.bannerBg; }
+    if (totalLbl) totalLbl.style.color = _th.accent;
     // モードトグルの見た目
     document.querySelectorAll('.invd-mode-btn').forEach(b => {
       const selected = b.dataset.mode === _docMode;
