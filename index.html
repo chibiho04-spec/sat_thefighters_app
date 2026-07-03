@@ -14421,9 +14421,9 @@ ${tableHTML}
       delivery: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
     };
     const _T = {
-      invoice:  { title: '御　請　求　書', date: '御請求日', amt: '御請求金額', lead: '下記の通りご請求申し上げます。', barColor:'#1f9e6f', badge:'請 求 書', iconSvg:_ICON.invoice },
-      estimate: { title: '御　見　積　書', date: '御見積日', amt: '御見積金額', lead: '下記の通り御見積り申し上げます。', barColor:'#d9791d', badge:'見 積 書', iconSvg:_ICON.estimate },
-      delivery: { title: '御　納　品　書', date: '納品日',   amt: '御納品金額', lead: '下記の通り御納品申し上げます。', barColor:'#2377ba', badge:'納 品 書', iconSvg:_ICON.delivery },
+      invoice:  { title: '御　請　求　書', date: '御請求日', amt: '御請求金額', lead: '下記の通りご請求申し上げます。', barColor:'#1f9e6f', badge:'請 求 書', iconSvg:_ICON.invoice, headBg:'#5b8a72', totalBg:'#eef6f1' },
+      estimate: { title: '御　見　積　書', date: '御見積日', amt: '御見積金額', lead: '下記の通り御見積り申し上げます。', barColor:'#d9791d', badge:'見 積 書', iconSvg:_ICON.estimate, headBg:'#b07f4d', totalBg:'#f7f0e8' },
+      delivery: { title: '御　納　品　書', date: '納品日',   amt: '御納品金額', lead: '下記の通り御納品申し上げます。', barColor:'#2377ba', badge:'納 品 書', iconSvg:_ICON.delivery, headBg:'#587a9e', totalBg:'#eef3f8' },
     };
     const _L = _T[type] || _T.invoice;
     const docTitle   = _L.title;
@@ -14433,6 +14433,8 @@ ${tableHTML}
     const barColor   = _L.barColor || '#1f9e6f';
     const badgeTxt   = _L.badge || '請 求 書';
     const iconSvg    = _L.iconSvg || '';
+    const headBg     = _L.headBg  || '#5b8a72';
+    const totalBg    = _L.totalBg || '#eef6f1';
 
     // 印刷用HTMLに流し込む文字は全てエスケープ（取引先名の「&」「<」等で印刷が崩れるのを防ぐ）
     const num      = escapeHtml(document.getElementById('inv-detail-num').textContent);
@@ -14451,7 +14453,7 @@ ${tableHTML}
     let linesHTML = '';
     let rowCount = 0;
     const tdS = 'border:1px solid #bbb;padding:4px 6px;font-size:8.5pt;vertical-align:middle;';
-    const thS = 'background:#2c3e50;color:white;border:1px solid #1a2530;padding:5px 6px;font-size:8pt;text-align:center;';
+    const thS = `background:${headBg};color:white;border:1px solid rgba(255,255,255,0.45);padding:5px 6px;font-size:8pt;text-align:center;print-color-adjust:exact;-webkit-print-color-adjust:exact;`;
     document.querySelectorAll('.inv-line-row').forEach((tr, i) => {
       if (tr.dataset.spacer === '1') {
         linesHTML += `<tr class="doc-spacer-row"><td style="${tdS}height:14px;">&nbsp;</td>${`<td style="${tdS}"></td>`.repeat(5)}</tr>`;
@@ -14618,7 +14620,7 @@ ${tableHTML}
             <td style="border:1px solid #bbb;padding:4px 12px;color:#555;">消費税額(10%)</td>
             <td style="border:1px solid #bbb;padding:4px 12px;text-align:right;font-weight:bold;min-width:80px;">${tax}</td>
             <td style="border:1px solid #bbb;padding:4px 12px;color:#555;">合計</td>
-            <td style="border:2px solid #2980b9;padding:4px 12px;text-align:right;font-weight:bold;font-size:11pt;min-width:80px;background:#f0f8ff;">${total}</td>
+            <td style="border:2px solid ${barColor};padding:4px 12px;text-align:right;font-weight:bold;font-size:11pt;min-width:80px;background:${totalBg};print-color-adjust:exact;-webkit-print-color-adjust:exact;">${total}</td>
           </tr>
         </table>
       </div>
