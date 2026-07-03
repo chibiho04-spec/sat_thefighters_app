@@ -10196,7 +10196,7 @@
     }
   }
 
-  function openInv(num, action) {
+  function openInv(num, action, _skipFreshen) {
     // 前回のモーダルが残っていたら確実に閉じる
     closeInvLineModal();
     _attachInvCompanyAc();
@@ -10239,6 +10239,9 @@
     setDocMode(_actionToMode(action));
     document.getElementById('inv-detail-screen').style.transform = 'translateX(0)';
     syncCancelBtn(isBilled);
+
+    // ③ 開いた直後に最新をバックグラウンド取り込み（他端末の変更があり新規でなく未編集の時だけ静かに再描画）
+    if (!_skipFreshen) _freshenOpenRecord('inv', num, action);
   }
 
   function renderInvLines(masterLines, savedLines, readonly, discount) {
@@ -16789,7 +16792,74 @@ ${tableHTML}
     }
   }
 
-  function openWS(num) {
+  // ③ 編集画面を開いた時、その1件だけ最新をシートから取り込む（同時編集での取りこぼし低減）。
+  //    そのレコードの更新時刻の「指紋」。pull 前後で比較し、変化した時だけ再描画する（ちらつき防止）。
+  function _recStamp(kind, num) {
+    try {
+      if (kind === 'ws') {
+        let a = ''; try { a = (JSON.parse(localStorage.getItem('ws_' + num) || '{}')._updatedAt) || ''; } catch (_) {}
+        let b = ''; try { const p = getSavedProjects().find(pp => String(pp.num) === String(num)); b = (p && p._updatedAt) || ''; } catch (_) {}
+        return a + '|' + b;
+      }
+      try { return (JSON.parse(localStorage.getItem('inv_' + num) || '{}')._updatedAt) || ''; } catch (_) { return ''; }
+    } catch (_) { return ''; }
+  }
+  // 開いた直後に裏で最新を pull し、他端末の変更があり、かつ「閲覧モード／新規でない・未編集」の時だけ静かに再描画。
+  // 入力中（dirty）・編集モード・別レコードへ移動済み・画面を閉じた場合は一切触らない。
+  async function _freshenOpenRecord(kind, num, action) {
+    try {
+      if (typeof _gasUrlOne !== 'function' || !_gasUrlOne()) return; // オフラインは何もしない
+      const before = _recStamp(kind, num);
+      if (kind === 'ws') await Promise.all([ pullKind('order').catch(() => {}), pullKind('child').catch(() => {}) ]);
+      else               await pullKind('invoice').catch(() => {});
+      const after = _recStamp(kind, num);
+      if (before === after) return; // 他端末による変更なし＝再描画しない
+      if (kind === 'ws') {
+        const scr = document.getElementById('ws-detail-screen');
+        const numEl = document.getElementById('ws-detail-num');
+        const editPanel = document.getElementById('wsd-edit-panel');
+        if (!scr || !numEl || !editPanel) return;
+        if (scr.style.display === 'none') return;               // 閉じている
+        if (numEl.textContent !== String(num)) return;          // 別の案件へ移った
+        if (editPanel.style.display === 'flex') return;         // 編集モード中は触らない
+        if (typeof _isDirty === 'function' && _isDirty('ws-detail-screen')) return; // 入力中は触らない
+        if (document.activeElement && scr.contains(document.activeElement)) return; // 画面内を操作中は触らない
+        // 他端末で案件ごと削除された場合：ローカルも消えているので画面を閉じて知らせる
+        const wsGone = (localStorage.getItem('ws_' + num) === null) && !getSavedProjects().some(p => String(p.num) === String(num));
+        if (wsGone) {
+          try { if (typeof wsData === 'object') delete wsData[num]; } catch (_) {}
+          try { removeWSCard(num); } catch (_) {}
+          try { closeWS(); } catch (_) {}
+          try { if (typeof showToast === 'function') showToast('🗑 この案件は他の端末で削除されました'); } catch (_) {}
+          return;
+        }
+        openWS(num, true);                                      // 再取り込みはしない（無限ループ防止）
+        try { if (typeof showToast === 'function') showToast('🔄 他の端末の変更を反映しました'); } catch (_) {}
+      } else {
+        const scr = document.getElementById('inv-detail-screen');
+        const numEl = document.getElementById('inv-detail-num');
+        if (!scr || !numEl) return;
+        if (scr.style.transform === 'translateX(100%)') return; // 閉じている
+        if (numEl.textContent !== String(num)) return;          // 別の書類へ移った
+        if (_invIsNew) return;                                  // 新規作成中は触らない
+        if (typeof _isDirty === 'function' && _isDirty('inv-detail-screen')) return;
+        if (document.activeElement && scr.contains(document.activeElement)) return; // 画面内を操作中は触らない
+        // 他端末で削除された場合：ローカルも消えているので画面を閉じて知らせる
+        if (localStorage.getItem('inv_' + num) === null) {
+          try { if (typeof invData === 'object' && invData) delete invData[num]; } catch (_) {}
+          try { if (typeof closeInv === 'function') closeInv(); } catch (_) {}
+          try { if (typeof showToast === 'function') showToast('🗑 この書類は他の端末で削除されました'); } catch (_) {}
+          return;
+        }
+        const _prevMode = (typeof _docMode !== 'undefined') ? _docMode : null; // 手動の書類モード切替（請求/見積）を保つ
+        openInv(num, action, true);
+        if (_prevMode) { try { if (typeof setDocMode === 'function') setDocMode(_prevMode); } catch (_) {} }
+        try { if (typeof showToast === 'function') showToast('🔄 他の端末の変更を反映しました'); } catch (_) {}
+      }
+    } catch (e) { console.warn('freshen open record', e); }
+  }
+
+  function openWS(num, _skipFreshen) {
     if (isDeletedWS(num)) {
       removeWSCard(num);
       return;
@@ -16940,6 +17010,9 @@ ${tableHTML}
     // （display:flex なのに画面外＝クリックしても無反応に見える不具合の防止）
     ws.style.transform = 'translateX(0)';
     ws.style.display = 'flex';
+
+    // ③ 開いた直後に最新をバックグラウンド取り込み（変更があり未編集の時だけ静かに再描画）
+    if (!_skipFreshen) _freshenOpenRecord('ws', num);
   }
 
   function closeWS() {
