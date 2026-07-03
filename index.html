@@ -13693,7 +13693,7 @@
     };
 
     // ===== 月別粗利推移グラフ（棒グラフ + 損益分岐ライン） =====
-    const BREAK_EVEN = 5000000; // 損益分岐：500万円（暫定）
+    const BREAK_EVEN = 7500000; // 損益分岐：750万円
     const TARGET_SALES = 6000000; // 目標粗利：600万円（毎月・請求額−外注費ベース）
     const chartKeys = Object.keys(byMonth).sort(); // 古い順
     const chartData = chartKeys.map(k => {
@@ -14678,12 +14678,8 @@ ${tableHTML}
     return `
     <div style="font-size:9pt;color:#111;line-height:1.5;font-family:'ＭＳ 明朝','Yu Mincho',serif;">
 
-      <!-- 書類種別バッジ（右上のみ・書類ごとに色分け。白黒でもアイコン＋書類名で判別） -->
-      <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:3mm;">
-        <div style="display:inline-flex;align-items:center;gap:2mm;background:${barColor};color:#fff;padding:1.5mm 5mm;font-size:12pt;font-weight:bold;letter-spacing:3px;border-radius:1mm;print-color-adjust:exact;-webkit-print-color-adjust:exact;">
-          ${iconSvg}<span>${badgeTxt}</span>
-        </div>
-      </div>
+      <!-- 1行目：空白（書類種別は色＝表見出し/金額枠＋タイトルで判別。バッジは廃止） -->
+      <div style="height:4mm;"></div>
 
       <!-- 2行目：宛先ブロック（左）＋ 発行元（右） -->
       <div style="display:flex;gap:10mm;margin-bottom:3mm;">
