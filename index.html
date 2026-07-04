@@ -3645,16 +3645,17 @@
         </div>
         <div id="google-login-error" style="display:none;margin-top:8px;font-family:'DotGothic16',monospace;font-size:11px;color:#e74c3c;text-align:center;"></div>
         <div style="text-align:center;margin-top:18px;">
-          <a href="#" onclick="showPinLogin();return false;" style="font-family:'DotGothic16',monospace;font-size:11px;color:#7a7aa0;text-decoration:underline;cursor:pointer;">PINでログイン（お試し用）</a>
+          <a href="#" onclick="showPinLogin();return false;" style="font-family:'DotGothic16',monospace;font-size:11px;color:#7a7aa0;text-decoration:underline;cursor:pointer;">🎭 紹介モード（デモを見る）</a>
         </div>
       </div>
 
       <!-- PINログイン（file:// / HTTPS 共通） -->
       <div id="local-login-section" style="display:none;">
         <div class="login-form-title">▶ LOGIN</div>
-        <div style="font-family:'DotGothic16',monospace;font-size:11px;color:#aaa;text-align:center;margin-bottom:16px;line-height:1.8;">
+        <div style="font-family:'DotGothic16',monospace;font-size:11px;color:#aaa;text-align:center;margin-bottom:8px;line-height:1.8;">
           名前を選んで4桁のPINを入力
         </div>
+        <div style="font-family:'DotGothic16',monospace;font-size:11px;color:#e6c96a;text-align:center;margin-bottom:16px;line-height:1.6;">🎭 紹介モード：すべてダミーデータで表示されます（実データには影響しません）</div>
         <select id="local-login-name" style="font-family:'DotGothic16',monospace;font-size:14px;width:100%;padding:10px 8px;border-radius:4px;border:2px solid #f39c12;background:#1a1a2e;color:white;margin-bottom:10px;">
           <option value="shin">城間</option>
           <option value="kawasaki">川崎</option>
@@ -7140,6 +7141,15 @@
         throw err;
       }
       if (typeof window._demoSeed === 'function') window._demoSeed();
+      // 上部バーに紹介モードバッジを常時表示（DOM構築後）
+      document.addEventListener('DOMContentLoaded', function () {
+        var txt = document.getElementById('api-status-text');
+        var dot = document.getElementById('api-dot');
+        var bar = document.getElementById('api-label');
+        if (txt) { txt.textContent = ''; }
+        if (bar) { bar.innerHTML = '🎭 紹介モード（ダミーデータ・同期オフ）'; bar.style.color = '#ffe9a8'; bar.style.fontWeight = 'bold'; }
+        if (dot) { dot.style.background = '#f1c40f'; }
+      });
     })();
   }
 
@@ -8098,6 +8108,12 @@
   }
 
   function doLogout() {
+    if (window.DEMO_MODE) {
+      if (!confirm('紹介モードを終了しますか？\n（ダミーデータは消えて、通常のログイン画面に戻ります）')) return;
+      try { sessionStorage.removeItem('demo_mode'); sessionStorage.removeItem('demo_login_name'); } catch (e) {}
+      location.reload();
+      return;
+    }
     if (!confirm('ログアウトしますか？\n（Googleログイン画面に戻ります）')) return;
     try {
       localStorage.removeItem('last_login_name');
@@ -8127,11 +8143,16 @@
     const pin    = pinEl ? pinEl.value.trim() : '';
     const expected = USERS[name] || '';
 
-    // file:// の場合はPIN不要（選択だけでOK）
-    if (window.location.protocol === 'file:') {
-      loginSuccess(name);
-      return;
+    // PINログインは常に「紹介モード」（ダミーデータのデモ）で起動する。
+    // 実データは Google ログインのみ。file:// はPIN省略で紹介モードへ。
+    function startDemo() {
+      try {
+        sessionStorage.setItem('demo_mode', '1');
+        sessionStorage.setItem('demo_login_name', name);
+      } catch (e) { alert('この環境では紹介モードを利用できません'); return; }
+      location.reload();
     }
+    if (window.location.protocol === 'file:') { startDemo(); return; }
 
     if (!pin || pin !== expected) {
       if (errEl) errEl.style.display = 'block';
@@ -8139,7 +8160,7 @@
       return;
     }
     if (errEl) errEl.style.display = 'none';
-    loginSuccess(name);
+    startDemo();
   }
 
   // ===== セッション管理：無操作30分でタイムアウト =====
@@ -11387,7 +11408,7 @@
   }
   function getGasToken()      { return (localStorage.getItem('gas_token')       || '').trim(); }
 
-  function getDrivingGasUrl() { return (localStorage.getItem('gas_url_driving') || '').trim(); }
+  function getDrivingGasUrl() { if (window.DEMO_MODE) return ''; return (localStorage.getItem('gas_url_driving') || '').trim(); }
 
   // ===== 送信失敗の再送キュー（sync_pending）=====
   // ネット不調などで送信に失敗したら、その「種類＋番号」を sync_pending に積んでおき、
@@ -12100,7 +12121,7 @@
   }
 
   let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip', 'order', 'child', 'simpleWS']; // 配線済み kind
-  function _gasUrlOne() { return (localStorage.getItem('gas_url') || '').trim(); }
+  function _gasUrlOne() { if (window.DEMO_MODE) return ''; return (localStorage.getItem('gas_url') || '').trim(); }
 
   async function pullKind(kind) {
     const cfg = SYNC_KINDS[kind]; const url = _gasUrlOne();
@@ -12148,6 +12169,7 @@
   // ===== 同期状態の見える化（上部バー） =====
   // 失敗（特に合言葉エラー）を画面に出して気づけるようにする
   function _setSyncStatus(state, msg) {
+    if (window.DEMO_MODE) return; // 紹介モード中は同期表示を固定（起動時にバッジ表示済み）
     const dot = document.getElementById('api-dot');
     const txt = document.getElementById('api-status-text');
     const bar = document.getElementById('api-label');
@@ -13919,8 +13941,8 @@
     };
 
     // ===== 月別粗利推移グラフ（棒グラフ + 損益分岐ライン） =====
-    const BREAK_EVEN = 7500000; // 損益分岐：750万円
-    const TARGET_SALES = 8000000; // 目標粗利：800万円（毎月・請求額−外注費ベース）
+    const BREAK_EVEN = window.DEMO_MODE ? 5000000 : 7500000; // 損益分岐：750万円（紹介モードはダミー値500万）
+    const TARGET_SALES = window.DEMO_MODE ? 6000000 : 8000000; // 目標粗利：800万円（紹介モードはダミー値600万）
     const chartKeys = Object.keys(byMonth).sort(); // 古い順
     const chartData = chartKeys.map(k => {
       const grp = byMonth[k];
