@@ -6970,6 +6970,48 @@
 
 
 <script>
+  // ===== 紹介モード（デモ）シム =====
+  // PINログインで入ると sessionStorage.demo_mode='1' が立ち、ここで localStorage を
+  // メモリ上の偽ストレージ（ダミーデータ入り）に差し替える。実データは読まれも書かれもしない。
+  // 同期URL系キーは常に null を返す＝同期は起動しない（_gasUrlOne のガードと二重防御）。
+  window.DEMO_MODE = false;
+  try { window.DEMO_MODE = (sessionStorage.getItem('demo_mode') === '1'); } catch (e) {}
+  // 紹介モードのダミーデータを偽ストレージへ流し込む（Task 2 で中身を実装）
+  window._demoSeed = function () {
+    var now = new Date();
+    localStorage.setItem('last_login_name', sessionStorage.getItem('demo_login_name') || 'shin');
+    localStorage.setItem('last_login_time', String(Date.now()));
+  };
+  if (window.DEMO_MODE) {
+    (function installDemoStorage() {
+      var BLOCKED = { 'gas_url': 1, 'gas_url_seed': 1, 'gas_url_driving': 1, 'gas_token': 1 };
+      var fake = {};
+      Object.defineProperty(fake, 'getItem',    { value: function (k) { k = String(k); if (BLOCKED[k]) return null; return Object.prototype.hasOwnProperty.call(this, k) ? String(this[k]) : null; } });
+      Object.defineProperty(fake, 'setItem',    { value: function (k, v) { k = String(k); if (BLOCKED[k]) return; this[k] = String(v); } });
+      Object.defineProperty(fake, 'removeItem', { value: function (k) { delete this[String(k)]; } });
+      Object.defineProperty(fake, 'key',        { value: function (i) { return Object.keys(this)[i] ?? null; } });
+      Object.defineProperty(fake, 'clear',      { value: function () { var self = this; Object.keys(self).forEach(function (k) { delete self[k]; }); } });
+      Object.defineProperty(fake, 'length',     { get: function () { return Object.keys(this).length; } });
+      try {
+        Object.defineProperty(window, 'localStorage', { value: fake, configurable: true });
+        // セルフテスト：差し替えが効いているか（読み書き・列挙・実ストレージ非汚染）
+        localStorage.setItem('__demo_selftest__', 'ok');
+        var pass = (localStorage.getItem('__demo_selftest__') === 'ok')
+          && (Object.keys(localStorage).indexOf('__demo_selftest__') >= 0)
+          && (localStorage.length >= 1);
+        localStorage.removeItem('__demo_selftest__');
+        if (!pass) throw new Error('demo storage self-test failed');
+      } catch (err) {
+        // 差し替えに失敗したら紹介モードを開始しない（実データ画面にも進まない）
+        try { sessionStorage.removeItem('demo_mode'); } catch (e) {}
+        alert('この環境では紹介モードを開始できませんでした。通常のログイン画面に戻ります。');
+        location.reload();
+        throw err;
+      }
+      if (typeof window._demoSeed === 'function') window._demoSeed();
+    })();
+  }
+
   // localStorage の T26xxx → Z26xxx キー移行
   // ※旧仕様（T26xxx→Z26xxx 自動変換）は廃止しました。
   //   受注ノート（Google Sheets）と整合させるため案件Noは T26xxx が正となります。
