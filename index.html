@@ -6976,11 +6976,142 @@
   // 同期URL系キーは常に null を返す＝同期は起動しない（_gasUrlOne のガードと二重防御）。
   window.DEMO_MODE = false;
   try { window.DEMO_MODE = (sessionStorage.getItem('demo_mode') === '1'); } catch (e) {}
-  // 紹介モードのダミーデータを偽ストレージへ流し込む（Task 2 で中身を実装）
+  // 紹介モードのダミーデータ。撮影日・請求日は「今日」を基準に相対配置し、
+  // いつ開いてもカレンダー/ダッシュボード/売上グラフが生きて見えるようにする。
   window._demoSeed = function () {
-    var now = new Date();
-    localStorage.setItem('last_login_name', sessionStorage.getItem('demo_login_name') || 'shin');
-    localStorage.setItem('last_login_time', String(Date.now()));
+    // 日付ヘルパー：today+days → 'YYYY/MM/DD'
+    function rel(days) {
+      var d = new Date(); d.setDate(d.getDate() + days);
+      return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+    }
+    // monthsAgoヶ月前のday日 → 'YYYY/MM/DD'（請求日など過去月用）
+    function relM(monthsAgo, day) {
+      var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - monthsAgo);
+      var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(day, last));
+      return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+    }
+    var NOW_ISO = new Date().toISOString();
+    function S(k, v) { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
+
+    // ---- ログインセッション ----
+    var loginName = 'shin';
+    try { loginName = sessionStorage.getItem('demo_login_name') || 'shin'; } catch (e) {}
+    S('last_login_name', loginName);
+    S('last_login_time', String(Date.now()));
+    S('worklog_' + loginName, { hours: 126, overtime: 4, _ts: Date.now() });
+
+    // ---- 案件（projects_saved + ws_）----
+    // 撮影日: 過去2週〜未来3週に分散。未来5件以上でダッシュボードが賑わう。
+    function proj(num, title, company, dateStr, type, orderType, staff, crew, receivedDays) {
+      var p = { num: num, title: title, company: company, clientCode: '', date: dateStr,
+        type: type, orderType: orderType, staff: staff, memo: '',
+        receivedAt: rel(receivedDays).replace(/\//g, '-'),
+        crewProducer: crew.p || '', crewD: crew.d || '', crewPm1: crew.pm || '', crewPm2: '',
+        crewC: crew.c || '', crewA: crew.a || '', crewA2: '', crewSound: crew.s || '', crewEdit: crew.e || '',
+        _updatedAt: NOW_ISO };
+      return p;
+    }
+    var projects = [
+      proj('T26051', '観光PR番組「島じかん」撮影技術', 'やんばるテレビ放送(株)', rel(-12), 'TV', '撮影', '川崎', { c: '城間', a: '上地', s: '新崎' }, -20),
+      proj('T26052', '新商品「琉球サイダー」CM撮影', '(株)シーサー広告', rel(-8), 'CM', '撮影', '川野', { d: '松田', c: '上原', a: '平岡' }, -18),
+      proj('T26053', '企業VP「未来をつくる仕事」', '美ら海メディア(株)', rel(-5) + '-' + rel(-4).slice(-2), 'WEB', '撮影／編集', '川崎', { c: '城間', e: '森田' }, -15),
+      proj('E26054', 'ドキュメンタリー「海人」編集', '首里映像社', rel(-3), 'TV', '編集', '森田', { e: '森田' }, -14),
+      proj('T26055', '音楽ライブ「島唄フェス」収録', 'ちゅら企画(株)', rel(2), 'イベント', '撮影', '川崎', { c: '上原', a: '玻座真', s: '新崎' }, -10),
+      proj('T26056', 'ウェディングPV撮影', '(株)グスク商事', rel(4), 'PV', '撮影', '川野', { c: '城間', a: '上地' }, -9),
+      proj('T26057', '情報番組「まちかどナビ」中継技術', 'やんばるテレビ放送(株)', rel(7), 'TV', '撮影', '川崎', { c: '平岡', s: '新崎' }, -7),
+      proj('P26058', 'Web CM「夏のキャンペーン」演出', '(株)シーサー広告', rel(9) + '-' + rel(10).slice(-2), 'CM', '制作', '松田', { p: '川崎', d: '松田', c: '上原' }, -6),
+      proj('T26059', 'ドラマ「首里の坂」技術協力', '首里映像社', rel(12), 'TV', '撮影', '川崎', { c: '城間', a: '上地', s: '新崎' }, -5),
+      proj('T26060', '会社案内VP「島のちから」', '美ら海メディア(株)', rel(15), 'WEB', '撮影／編集', '川野', { c: '平岡', e: '森田' }, -4),
+      proj('T26061', 'イベント「産業まつり」記録', 'ちゅら企画(株)', rel(18), 'イベント', '撮影', '川崎', { c: '上原', a: '玻座真' }, -2),
+      proj('T26062', 'テレビCM「新春セール」撮影', '(株)グスク商事', rel(21), 'CM', '撮影', '川野', { d: '松田', c: '城間', a: '平岡', s: '新崎' }, -1),
+    ];
+    S('projects_saved', projects);
+    // ワークシート詳細（機材チェック・メモ入りを数件：ダッシュボードのカードが埋まる）
+    S('ws_T26055', { equip: { dm001: { checked: true }, dm004: { checked: true, qty: 2 }, dm008: { checked: true }, dm011: { checked: true, qty: 4 } }, 'wsd-shootdate': rel(2), 'wsd-memo': '会場入り 8:00／リハ 10:00' });
+    S('ws_T26057', { equip: { dm002: { checked: true }, dm009: { checked: true }, dm012: { checked: true, qty: 2 } }, 'wsd-shootdate': rel(7), 'wsd-memo': '中継車は現地9時' });
+    S('ws_T26059', { equip: { dm001: { checked: true }, dm005: { checked: true }, dm010: { checked: true } }, 'wsd-shootdate': rel(12), 'wsd-memo': '' });
+
+    // ---- 請求書（inv_）----
+    // 過去5ヶ月＋今月に分散。billed/paid で売上グラフが毎月立つ。金額は月200〜600万円規模。
+    function inv(num, title, company, contact, monthsAgo, day, lines, opts) {
+      opts = opts || {};
+      var st = { lines: lines, title: title, company: company, contact: contact || '',
+        honorific: '御中', zip: '', addr: '',
+        invDate: relM(monthsAgo, day), workDate: opts.workDate || relM(monthsAgo, Math.max(1, day - 7)) + '〜' + String(day - 3) + '日',
+        staff: opts.staff || '川崎', billed: opts.billed !== false, paid: !!opts.paid,
+        discount: opts.discount || 0, memo: '', docMode: opts.docMode || 'invoice',
+        outsourceExtraList: opts.osList || [], savedAt: new Date().toLocaleString('ja-JP'), _updatedAt: NOW_ISO };
+      S('inv_' + num, st);
+    }
+    function L(name, qty, unit, price, o) { o = o || {}; return { code: o.code || '', name: name, qty: qty, unit: unit, price: price, taxable: o.taxable !== false, outsource: !!o.outsource, note: o.note || '', spacer: !!o.spacer }; }
+    var SP = { code: '', name: '', qty: 0, unit: '', price: 0, taxable: true, outsource: false, note: '', spacer: true };
+    // 5ヶ月前〜1ヶ月前（請求済み・古い月は入金済み）
+    inv('T26021', '報道番組 技術協力（月次）', 'やんばるテレビ放送(株)', '報道部長 金城',   5, 25, [L('カメラマン人件費', 8, '日', 80000), L('音声人件費', 8, '日', 60000), L('機材一式', 8, '日', 150000)], { paid: true });
+    inv('T26025', 'CM撮影「春のドライブ」', '(株)シーサー広告', '制作部 比嘉',            4, 20, [L('撮影技術一式', 2, '日', 450000), SP, L('編集・グレーディング', 1, '式', 380000), L('スタジオ使用料', 1, '式', 200000, { taxable: false, note: '実費' })], { paid: true });
+    inv('T26028', '企業VP撮影・編集', '美ら海メディア(株)', '',                           4, 28, [L('企画構成', 1, '式', 250000), L('撮影（2日）', 2, '日', 350000), L('編集一式', 1, '式', 400000)], { paid: true });
+    inv('T26033', 'イベント収録「桜まつり」', 'ちゅら企画(株)', '事業部 大城',            3, 15, [L('収録技術一式', 1, '式', 680000), L('照明助手（外注）', 2, '日', 45000, { outsource: true, note: '外注' })], { paid: true });
+    inv('T26036', 'MV撮影「島の風」', '首里映像社', '',                                   3, 27, [L('撮影技術一式', 2, '日', 520000), SP, L('特機レンタル', 1, '式', 180000, { note: 'クレーン' })], { paid: true });
+    inv('T26040', 'ドラマ技術協力（前編）', '首里映像社', 'プロデューサー 宮城',          2, 18, [L('カメラマン人件費', 10, '日', 85000), L('撮影助手人件費', 10, '日', 45000), L('機材一式', 10, '日', 120000)], {});
+    inv('T26043', 'Web CM「梅雨明け」', '(株)シーサー広告', '制作部 比嘉',                2, 26, [L('撮影・編集一式', 1, '式', 880000), L('ナレーション収録', 1, '式', 120000, { taxable: false })], {});
+    inv('T26046', '会社案内 撮影', '(株)グスク商事', '総務部 島袋',                       1, 12, [L('撮影技術一式', 1, '日', 380000), L('ドローン空撮', 1, '式', 250000, { note: '許可取得込み' })], {});
+    inv('T26048', '報道番組 技術協力（月次）', 'やんばるテレビ放送(株)', '報道部長 金城', 1, 25, [L('カメラマン人件費', 9, '日', 80000), L('音声人件費', 9, '日', 60000), L('機材一式', 9, '日', 150000)], {});
+    // 今月：未請求2件＋見積書1件（一覧のステータスの違いを見せる）
+    inv('T26053', '企業VP「未来をつくる仕事」', '美ら海メディア(株)', '', 0, 5, [L('撮影（2日）', 2, '日', 350000), L('編集一式', 1, '式', 420000)], { billed: false, workDate: rel(-5) + '〜' + rel(-4) });
+    inv('E26054', 'ドキュメンタリー「海人」編集', '首里映像社', '', 0, 8, [L('編集人件費', 12, '日', 55000), L('グレーディング', 1, '式', 180000)], { billed: false, workDate: rel(-3) });
+    inv('T26055', '音楽ライブ「島唄フェス」収録（見積）', 'ちゅら企画(株)', '事業部 大城', 0, 2, [L('収録技術一式', 1, '式', 720000), L('照明（外注）', 2, '日', 50000, { outsource: true })], { billed: false, docMode: 'estimate', workDate: rel(2) });
+
+    // ---- 機材マスタ ----
+    S('equip_master', [
+      { id: 'dm001', cat: '📷 カメラ', name: 'SONY FX6 ①', code: 'Z101', qty: 1, price: 35000 },
+      { id: 'dm002', cat: '📷 カメラ', name: 'SONY FX6 ②', code: 'Z102', qty: 1, price: 35000 },
+      { id: 'dm003', cat: '📷 カメラ', name: 'SONY FX3', code: 'Z103', qty: 1, price: 25000 },
+      { id: 'dm004', cat: '🔭 レンズ', name: '24-70mm F2.8 GM', code: 'Z110', qty: 2, price: 8000 },
+      { id: 'dm005', cat: '🔭 レンズ', name: '70-200mm F2.8 GM', code: 'Z111', qty: 1, price: 8000 },
+      { id: 'dm006', cat: '📸 カメラアクセサリー', name: 'マットボックス一式', code: 'Z115', qty: 1, price: 5000 },
+      { id: 'dm007', cat: '💾 メディア', name: 'CFexpress 512GB', code: 'Z120', qty: 6, price: 2000 },
+      { id: 'dm008', cat: '🎬 三脚/スタンド', name: 'ザハトラー Video18', code: 'Z130', qty: 2, price: 6000 },
+      { id: 'dm009', cat: '🖥 モニター', name: '17インチ モニター', code: 'Z140', qty: 2, price: 7000 },
+      { id: 'dm010', cat: '📡 映像伝送', name: 'ワイヤレス伝送セット', code: 'Z145', qty: 1, price: 15000 },
+      { id: 'dm011', cat: '🎤 マイク', name: 'ワイヤレスピンマイク', code: 'Z150', qty: 4, price: 4000 },
+      { id: 'dm012', cat: '🎚 ミキサー/REC', name: 'フィールドミキサー', code: 'Z155', qty: 2, price: 8000 },
+      { id: 'dm013', cat: '💡 照明', name: 'LEDパネル 60W', code: 'Z160', qty: 4, price: 5000 },
+      { id: 'dm014', cat: '🔋 バッテリー', name: 'Vマウントバッテリー', code: 'Z170', qty: 8, price: 1500 },
+      { id: 'dm015', cat: '📦 その他', name: 'ドローン Mavic 3', code: 'Z180', qty: 1, price: 30000 },
+    ]);
+
+    // ---- 取引先・商品・メディアのマスタ（キャッシュ形式 {at, rows} ）----
+    S('client_master_cache', { at: Date.now(), rows: [
+      { '取引先コード': 'C001', '取引先名': 'やんばるテレビ放送(株)', '取引先名カナ': 'ヤンバルテレビホウソウ', '担当者': '金城 勇', '担当者部署': '報道部', '担当者役職': '部長', '電話番号': '098-000-1111', 'FAX': '', 'メール': 'kinjo@example.com', '郵便番号': '900-0001', '住所': '沖縄県那覇市おもろまち1-1-1', '請求書宛先名': '', '備考': '' },
+      { '取引先コード': 'C002', '取引先名': '(株)シーサー広告', '取引先名カナ': 'シーサーコウコク', '担当者': '比嘉 恵', '担当者部署': '制作部', '担当者役職': '', '電話番号': '098-000-2222', 'FAX': '', 'メール': 'higa@example.com', '郵便番号': '900-0002', '住所': '沖縄県那覇市久茂地2-2-2', '請求書宛先名': '', '備考': '' },
+      { '取引先コード': 'C003', '取引先名': '美ら海メディア(株)', '取引先名カナ': 'チュラウミメディア', '担当者': '', '担当者部署': '', '担当者役職': '', '電話番号': '098-000-3333', 'FAX': '', 'メール': '', '郵便番号': '901-0003', '住所': '沖縄県浦添市港川3-3-3', '請求書宛先名': '', '備考': '' },
+      { '取引先コード': 'C004', '取引先名': '首里映像社', '取引先名カナ': 'シュリエイゾウシャ', '担当者': '宮城 学', '担当者部署': '制作', '担当者役職': 'プロデューサー', '電話番号': '098-000-4444', 'FAX': '', 'メール': '', '郵便番号': '903-0004', '住所': '沖縄県那覇市首里4-4-4', '請求書宛先名': '', '備考': '' },
+      { '取引先コード': 'C005', '取引先名': 'ちゅら企画(株)', '取引先名カナ': 'チュラキカク', '担当者': '大城 舞', '担当者部署': '事業部', '担当者役職': '', '電話番号': '098-000-5555', 'FAX': '', 'メール': '', '郵便番号': '904-0005', '住所': '沖縄県沖縄市中央5-5-5', '請求書宛先名': '', '備考': '' },
+      { '取引先コード': 'C006', '取引先名': '(株)グスク商事', '取引先名カナ': 'グスクショウジ', '担当者': '島袋 誠', '担当者部署': '総務部', '担当者役職': '', '電話番号': '098-000-6666', 'FAX': '', 'メール': '', '郵便番号': '905-0006', '住所': '沖縄県名護市宮里6-6-6', '請求書宛先名': '', '備考': '' },
+    ]});
+    S('product_master_cache', { at: Date.now(), rows: [
+      { '商品コード': 'Z001', '商品名': 'カメラマン人件費', '単位': '日', '単価': '80000', 'カテゴリ': '人件費', '備考': '' },
+      { '商品コード': 'Z002', '商品名': '撮影助手人件費', '単位': '日', '単価': '45000', 'カテゴリ': '人件費', '備考': '' },
+      { '商品コード': 'Z003', '商品名': '音声人件費', '単位': '日', '単価': '60000', 'カテゴリ': '人件費', '備考': '' },
+      { '商品コード': 'Z101', '商品名': 'カメラ機材一式', '単位': '日', '単価': '150000', 'カテゴリ': '機材', '備考': '' },
+      { '商品コード': 'Z201', '商品名': '編集一式', '単位': '式', '単価': '400000', 'カテゴリ': '編集', '備考': '' },
+    ]});
+    S('media_cache', { at: Date.now(), rows: [
+      { 'ID': 'M001', '使用日': rel(-8), 'メディア種別': 'CFexpress', '使用カード': 'No.1,2', '使用者': '城間', '現場名': '新商品CM撮影', '受注No': 'T26052', 'BU確認': '済', '返却者': '城間', '備考': '' },
+      { 'ID': 'M002', '使用日': rel(-5), 'メディア種別': 'SDカード', '使用カード': 'No.3', '使用者': '上原', '現場名': '企業VP撮影', '受注No': 'T26053', 'BU確認': '済', '返却者': '', '備考': '' },
+    ]});
+
+    // ---- 請求書テンプレート ----
+    S('inv_templates', [{
+      id: 'tpl_demo1', name: '報道番組 技術協力（月次）', company: 'やんばるテレビ放送(株)', contact: '報道部長 金城',
+      honorific: '御中', zip: '', addr: '', title: '報道番組 技術協力', staff: '川崎', memo: '', docMode: 'invoice',
+      lines: [
+        { code: '', name: 'カメラマン人件費', unit: '日', qty: '', price: '', taxable: true, outsource: false, note: '', spacer: false },
+        { code: '', name: '音声人件費', unit: '日', qty: '', price: '', taxable: true, outsource: false, note: '', spacer: false },
+        { code: '', name: '機材一式', unit: '日', qty: '', price: '', taxable: true, outsource: false, note: '', spacer: false },
+      ],
+      outsourceList: [], _updatedAt: NOW_ISO,
+    }]);
   };
   if (window.DEMO_MODE) {
     (function installDemoStorage() {
