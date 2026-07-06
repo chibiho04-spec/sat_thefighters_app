@@ -8270,25 +8270,39 @@
   // Enterキー対応（Googleログインのみのため無効化）
   // document.addEventListener('keydown', e => { ... });
 
-  // ===== SATとTHE FIGHTERSの横幅を常に揃える =====
+  // ===== SaTをTHE FIGHTERSより約10%大きく（実テキスト幅で比率調整） =====
+  // 注: .login-title系は display:block のため getBoundingClientRect はコンテナ幅を返す。
+  //     実際の文字幅は inline-block の隠しプローブで測る。
+  const SAT_RATIO = 1.1; // SaTの幅 = THE FIGHTERSの幅 × 1.1
+  function _measureTextWidth(srcEl, fontPx) {
+    const p = srcEl.cloneNode(true);
+    p.style.position   = 'absolute';
+    p.style.left       = '-99999px';
+    p.style.top        = '0';
+    p.style.display    = 'inline-block';
+    p.style.width      = 'auto';
+    p.style.maxWidth   = 'none';
+    p.style.whiteSpace = 'nowrap';
+    if (fontPx) p.style.fontSize = fontPx + 'px';
+    document.body.appendChild(p);
+    const w = p.getBoundingClientRect().width;
+    document.body.removeChild(p);
+    return w;
+  }
   function syncLoginTitles() {
-    const t1 = document.querySelector('.login-title');   // SAT
+    const t1 = document.querySelector('.login-title');   // SaT
     const t2 = document.querySelector('.login-title2');  // THE FIGHTERS
     if (!t1 || !t2) return;
 
-    // t2をベースCSSにリセットして計測
-    t2.style.fontSize    = '';
+    const satW = _measureTextWidth(t1);                                  // SaTの実描画幅（現CSSサイズ）
+    const baseSize = parseFloat(window.getComputedStyle(t2).fontSize);   // THE FIGHTERSの基準サイズ
+    const figBaseW = _measureTextWidth(t2, baseSize);                    // THE FIGHTERSを基準サイズで測った実幅
+    if (!satW || !figBaseW || !baseSize) return;
+
+    const targetW = satW / SAT_RATIO;                 // THE FIGHTERSの目標幅（SaTの1/1.1）
+    const newSize = baseSize * (targetW / figBaseW);  // 目標幅にするフォントサイズ
     t2.style.letterSpacing = '0px';
-
-    // SATの実際の描画幅を取得（強制リフロー）
-    const w1 = t1.getBoundingClientRect().width;
-    const w2 = t2.getBoundingClientRect().width;
-    if (!w1 || !w2) return;
-
-    // 比率でフォントサイズを調整
-    const baseSize = parseFloat(window.getComputedStyle(t2).fontSize);
-    const newSize  = baseSize * (w1 / w2);
-    t2.style.fontSize = (newSize + 15) + 'px';
+    t2.style.fontSize = newSize + 'px';
   }
 
   // 起動時・リサイズ時に実行
