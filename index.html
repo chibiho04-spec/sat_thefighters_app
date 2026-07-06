@@ -857,6 +857,8 @@
   .ws-status.cm       { color: #e74c3c; border-color: #e74c3c; background: #fde8e8; }
   .ws-status.produce  { color: #8e44ad; border-color: #8e44ad; background: #f3e8fb; }
   .ws-status.plan     { color: #16a085; border-color: #16a085; background: #e8f8f4; }
+  .ws-status.rental   { color: #546e7a; border-color: #546e7a; background: #eceff1; }
+  .ws-status.still    { color: #c0398b; border-color: #c0398b; background: #fbe9f4; }
 
   .ws-title {
     font-size: 25px;
@@ -6313,6 +6315,8 @@
             <button class="np-select-btn" onclick="selectNp('order','プロデュース')">プロデュース</button>
             <button class="np-select-btn" onclick="selectNp('order','企画・演出')">企画・演出</button>
             <button class="np-select-btn" onclick="selectNp('order','スタッフ派遣')">スタッフ派遣</button>
+            <button class="np-select-btn" onclick="selectNp('order','機材レンタル')">機材レンタル</button>
+            <button class="np-select-btn" onclick="selectNp('order','スチール撮影')">スチール撮影</button>
           </div>
           <input id="np-order" class="wsd-input" style="margin-top:6px;" type="text" placeholder="または直接入力...">
         </div>
@@ -6630,6 +6634,8 @@
               <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">プロデュース</button>
               <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">企画・演出</button>
               <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">スタッフ派遣</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">機材レンタル</button>
+              <button type="button" class="np-select-btn" onclick="toggleWsOrderBtn(this)">スチール撮影</button>
             </div>
             <input id="wsd-edit-order-extra" class="wsd-input" type="text" placeholder="その他（直接入力）" style="margin-top:4px;">
           </div>
@@ -17657,6 +17663,8 @@ ${tableHTML}
       '撮影・編集': 'edit',
       'プロデュース': 'produce',
       '企画・演出': 'plan',
+      '機材レンタル': 'rental',
+      'スチール撮影': 'still',
     }[key] || 'shooting';
   }
 
