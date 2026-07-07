@@ -5062,18 +5062,8 @@
 
       </div><!-- /invd-paper -->
 
-      <!-- 社内用：売上計算専用の外注費（請求書・PDFには出ません） -->
-      <div style="margin:10px 12px 0;padding:10px 12px;background:#f4f0fb;border:2px dashed #b38ed6;border-radius:5px;">
-        <div style="font-size:12px;font-weight:bold;color:#6c3483;margin-bottom:2px;">🤝 外注費（売上計算用・社内メモ）</div>
-        <div style="font-size:10px;color:#8e7aa0;line-height:1.5;margin-bottom:6px;">合計が<b>売上から差し引かれます</b>。<b>請求書・PDFには表示されません</b>。<br>名目と金額を記入。<b>課税</b>＝税抜で入力（自動で+10%）／<b>非課税</b>＝そのまま。行は「＋ 行を追加」で増やせます。</div>
-        <div id="inv-outsource-rows" style="display:flex;flex-direction:column;gap:6px;">
-          <!-- JSで動的生成（最低1行） -->
-        </div>
-        <button type="button" onclick="addInvOutsourceRow()"
-          style="font-family:'DotGothic16',monospace;font-size:12px;background:#8e44ad;border:2px solid #5b2c6f;color:white;padding:6px 14px;border-radius:3px;margin-top:6px;cursor:pointer;box-shadow:2px 2px 0 #5b2c6f;align-self:flex-start;">
-          ＋ 行を追加
-        </button>
-      </div>
+      <!-- 【2026-07-07】請求書の外注費記入欄は廃止。外注費はワークシートからのみ集計する
+           （ワークシートと請求書に二重入力して二重計上する事故の防止）。 -->
 
       <!-- 保存 / 印刷プレビュー / 取り消しボタン -->
       <div style="padding:12px 12px 4px;">
@@ -5537,6 +5527,12 @@
         <option value="billed">請求済（未入金）</option>
         <option value="paid">入金済</option>
         <option value="unbilled">未請求（進行中）</option>
+      </select>
+      <span style="font-size:12px;color:#666;margin-left:6px;">並び順：</span>
+      <select id="sales-sort" onchange="renderSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
+        <option value="date-desc">請求日（新しい順）</option>
+        <option value="date-asc">請求日（古い順）</option>
+        <option value="num">受注番号順</option>
       </select>
     </div>
 
@@ -6337,12 +6333,12 @@
           <div style="flex:1;">
             <div class="wsd-crew-label">P（プロデューサー）</div>
             <select id="np-crew-producer" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-producer-txt')"></select>
-            <input id="np-crew-producer-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-producer-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
           <div style="flex:1;">
             <div class="wsd-crew-label">D（監督）</div>
             <select id="np-crew-d" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-d-txt')"></select>
-            <input id="np-crew-d-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-d-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
         </div>
 
@@ -6350,12 +6346,12 @@
           <div style="flex:1;">
             <div class="wsd-crew-label">PM</div>
             <select id="np-crew-pm1" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-pm1-txt')"></select>
-            <input id="np-crew-pm1-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-pm1-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
           <div style="flex:1;">
             <div class="wsd-crew-label">PM</div>
             <select id="np-crew-pm2" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-pm2-txt')"></select>
-            <input id="np-crew-pm2-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-pm2-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
         </div>
 
@@ -6363,7 +6359,7 @@
           <div style="flex:1;">
             <div class="wsd-crew-label">C（カメラマン）</div>
             <select id="np-crew-c" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-c-txt')"></select>
-            <input id="np-crew-c-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-c-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
         </div>
 
@@ -6371,12 +6367,12 @@
           <div style="flex:1;">
             <div class="wsd-crew-label">CA</div>
             <select id="np-crew-a" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-a-txt')"></select>
-            <input id="np-crew-a-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-a-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
           <div style="flex:1;">
             <div class="wsd-crew-label">CA</div>
             <select id="np-crew-a2" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-a2-txt')"></select>
-            <input id="np-crew-a2-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-a2-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
         </div>
 
@@ -6384,12 +6380,12 @@
           <div style="flex:1;">
             <div class="wsd-crew-label">S（音声）</div>
             <select id="np-crew-sound" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-sound-txt')"></select>
-            <input id="np-crew-sound-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-sound-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
           <div style="flex:1;">
             <div class="wsd-crew-label">E（編集）</div>
             <select id="np-crew-edit" class="crew-sel wsd-select" onchange="onCrewSel(this,'np-crew-edit-txt')"></select>
-            <input id="np-crew-edit-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+            <input id="np-crew-edit-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
           </div>
         </div>
 
@@ -6592,7 +6588,7 @@
         <span class="wsd-creator-icon">✍️</span>
         <span class="wsd-creator-label">案件担当者</span>
         <select id="wsd-creator" class="crew-sel wsd-creator-sel" onchange="onCrewSel(this,'wsd-creator-txt')"></select>
-        <input id="wsd-creator-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+        <input id="wsd-creator-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
       </div>
 
       <!-- ===== セクション1: 受付時記入 ===== -->
@@ -6682,12 +6678,12 @@
             <div style="flex:1;">
               <div class="wsd-crew-label">P（プロデューサー）</div>
               <select id="wsd-crew-producer" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-producer-txt')"></select>
-              <input id="wsd-crew-producer-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-producer-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
             <div style="flex:1;">
               <div class="wsd-crew-label">D（監督）</div>
               <select id="wsd-crew-d" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-d-txt')"></select>
-              <input id="wsd-crew-d-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-d-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
           </div>
 
@@ -6695,12 +6691,12 @@
             <div style="flex:1;">
               <div class="wsd-crew-label">PM</div>
               <select id="wsd-crew-pm1" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-pm1-txt')"></select>
-              <input id="wsd-crew-pm1-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-pm1-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
             <div style="flex:1;">
               <div class="wsd-crew-label">PM</div>
               <select id="wsd-crew-pm2" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-pm2-txt')"></select>
-              <input id="wsd-crew-pm2-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-pm2-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
           </div>
 
@@ -6708,7 +6704,7 @@
             <div style="flex:1;">
               <div class="wsd-crew-label">C（カメラマン）</div>
               <select id="wsd-crew-c" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-c-txt')"></select>
-              <input id="wsd-crew-c-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-c-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
           </div>
 
@@ -6716,12 +6712,12 @@
             <div style="flex:1;">
               <div class="wsd-crew-label">CA</div>
               <select id="wsd-crew-a" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-a-txt')"></select>
-              <input id="wsd-crew-a-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-a-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
             <div style="flex:1;">
               <div class="wsd-crew-label">CA</div>
               <select id="wsd-crew-a2" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-a2-txt')"></select>
-              <input id="wsd-crew-a2-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-a2-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
           </div>
 
@@ -6729,12 +6725,12 @@
             <div style="flex:1;">
               <div class="wsd-crew-label">S（音声）</div>
               <select id="wsd-crew-sound" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-sound-txt')"></select>
-              <input id="wsd-crew-sound-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-sound-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
             <div style="flex:1;">
               <div class="wsd-crew-label">E（編集）</div>
               <select id="wsd-crew-edit" class="crew-sel wsd-select" onchange="onCrewSel(this,'wsd-crew-edit-txt')"></select>
-              <input id="wsd-crew-edit-txt" class="wsd-input crew-free" type="text" placeholder="名前を入力" style="display:none;margin-top:4px;">
+              <input id="wsd-crew-edit-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="名前を入力" style="display:none;margin-top:4px;">
             </div>
           </div>
 
@@ -6789,7 +6785,7 @@
             <option value="2号車">2号車</option>
             <option value="__free__">自由記入</option>
           </select>
-          <input id="wsd-vehicle-txt" class="wsd-input crew-free" type="text" placeholder="車両を入力" style="display:none;margin-top:4px;">
+          <input id="wsd-vehicle-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="車両を入力" style="display:none;margin-top:4px;">
         </div>
       </div>
 
@@ -13683,14 +13679,9 @@
         .forEach(o => add(o.name, o.cost, o.taxable !== false)); // WS外注：旧データ(taxable無)=課税
       add('機材（リース）', String(saved['wsd-rental-cost'] || '').replace(/[^\d]/g, ''), true); // レンタル=課税
     } catch (e) {}
-    (lines || []).forEach(l => {
-      if (l && l.outsource) add(l.name, (Number(l.qty)||0) * (Number(l.price)||0), l.taxable !== false);
-    });
-    if (status && Array.isArray(status.outsourceExtraList)) {
-      status.outsourceExtraList.forEach(o => add(o.name || '外注費', o.cost, o.taxable === true)); // 外注費リスト：true のみ課税
-    } else if (status && Number(status.outsourceExtra)) {
-      add('外注費', status.outsourceExtra, false); // 旧・単一値=非課税
-    }
+    // 【2026-07-07】外注費はワークシートからのみ集計する。
+    // 請求書明細の「外注」チェックや請求書の外注費リストは、ワークシートと二重計上する事故の
+    // もとになるため集計対象から除外（lines / status.outsourceExtraList は参照しない）。
     const tax = Math.round(base * 1.1) - base;
     if (tax > 0) rows.push({ name: '消費税', cost: tax, isTax: true });
     return { items: rows, cost: Math.round(base * 1.1) + exempt };
@@ -13741,6 +13732,21 @@
     if (m2) return { y: new Date().getFullYear(), m: +m2[1], d: +m2[2] };
     return null;
   }
+
+  // 売上表の並び替え比較（請求日→同日は受注番号）。mode: 'date-desc'(既定)/'date-asc'/'num'
+  // 画面(renderSalesScreen)と売上PDF(_openSalesPrint)で共通利用する。
+  function _salesRowCmp(a, b, mode) {
+    const key    = it => { const d = _parseDateForSales(it && it.date); return d ? (d.y*10000 + d.m*100 + d.d) : null; };
+    const numCmp = (x, y) => String((x && x.num) || '').localeCompare(String((y && y.num) || ''), 'ja', { numeric: true });
+    if (mode === 'num') return numCmp(a, b);
+    const da = key(a), db = key(b);
+    if (da == null && db == null) return numCmp(a, b);
+    if (da == null) return 1;   // 請求日なしは末尾へ
+    if (db == null) return -1;
+    const diff = (mode === 'date-asc') ? (da - db) : (db - da); // 既定は新しい順
+    return diff !== 0 ? diff : numCmp(a, b); // 同じ請求日は受注番号順
+  }
+  function _currentSalesSort() { return document.getElementById('sales-sort')?.value || 'date-desc'; }
 
   function _collectSalesItems() {
     const items = [];
@@ -13913,6 +13919,7 @@
   function renderSalesScreen() {
     const period       = document.getElementById('sales-period').value;
     const statusFilter = document.getElementById('sales-status-filter').value;
+    const sortMode     = document.getElementById('sales-sort')?.value || 'date-desc'; // 並び順（既定：請求日の新しい順）
 
     let items = _collectSalesItems();
 
@@ -14014,7 +14021,8 @@
       if (!byMonth[key]) byMonth[key] = { label: d ? `${d.y}年 ${d.m}月` : '日付未設定', items: [] };
       byMonth[key].items.push(it);
     });
-    const sortedKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)); // 新しい順
+    const sortedKeys = Object.keys(byMonth).sort((a, b) =>
+      sortMode === 'date-asc' ? a.localeCompare(b) : b.localeCompare(a)); // 古い順のときだけ月も昇順
 
     // 本体描画
     const body = document.getElementById('sales-body');
@@ -14129,11 +14137,7 @@
       const grpOut  = grpBilled.reduce((s, it) => s + (it.outsourceCost || 0), 0);
       const grpNet  = grpSum - grpOut;
       const rows = grp.items
-        .sort((a, b) => {
-          const da = _parseDateForSales(a.date), db = _parseDateForSales(b.date);
-          if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
-          return (db.d - da.d);
-        })
+        .sort((a, b) => _salesRowCmp(a, b, sortMode)) // 請求日順（同日は受注番号順）／並び順セレクトに追従
         .map(it => {
           const out = it.outsourceCost || 0;
           const net = it.netInhouse != null ? it.netInhouse : (it.total - out);
@@ -14399,6 +14403,7 @@
   // 新しい印刷ウィンドウに表＋A4横向きCSSを書き出し、印刷ダイアログから「PDFとして保存」できる。
   // 読み取り専用（保存・同期なし）。請求書PDF(executePrint)と同じ方式。
   function _openSalesPrint(filtered, fileLabel) {
+    filtered = (filtered || []).slice().sort((a, b) => _salesRowCmp(a, b, _currentSalesSort())); // 画面と同じ並び順で出力
     const esc = (typeof escapeHtml === 'function') ? escapeHtml
       : (s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
     const yen = v => '¥' + (Number(v) || 0).toLocaleString('ja-JP');
