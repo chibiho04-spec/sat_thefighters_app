@@ -11349,6 +11349,7 @@
       if (typeof _sumInvOutsource === 'function') status.outsourceExtra = _sumInvOutsource(osList);
       saveInvStatus(num, status); // 打刻＋同期送信は内部で実施（billed は据え置き）
       try { renderInvCards(); } catch (e) {}
+      try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {} // 売上表も最新に（手動保存と同じ）
       try { refreshHomeView(true); } catch (e) {}
     } catch (e) { console.warn('save invoice on print', e); }
   }
