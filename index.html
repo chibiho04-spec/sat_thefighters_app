@@ -11312,11 +11312,12 @@
     window.removeEventListener('resize', scalePrintContent);
   }
 
-  // 【2026-07-07 ユーザー要望】請求書を印刷/PDF保存した時点で「発行」とみなし、
-  // 現在の明細を保存する。印刷したのに発行ボタン未押下で内容が保存されず消える事故を防ぐ。
+  // 【2026-07-07 ユーザー要望・B案】請求書を印刷/PDF保存した時点で、現在の明細を「保存」する。
+  // 発行＝請求済にはしない（請求済にするかは発行ボタン／売上表チェックで従来どおり手動）。
+  // 目的：印刷したのに保存されず内容が消える事故の防止（発行状態は変えない）。
   // ・請求書(invoice)のみ対象（見積書・納品書は対象外）
   // ・空の請求書／閲覧専用(readonly)表示は保存しない（誤って空保存・課税誤判定を防ぐ）
-  function _markIssuedFromPrint() {
+  function _saveInvoiceOnPrint() {
     try {
       if (_currentPreviewType !== 'invoice') return;
       if (_invReadonly) return; // 既発行の閲覧のみ表示は再収集しない（既に保存済み）
@@ -11328,8 +11329,8 @@
       const g = (id) => document.getElementById(id);
       const prev = loadInvStatus(num) || {};
       const osList = (typeof getInvOutsourceList === 'function') ? getInvOutsourceList() : (prev.outsourceExtraList || []);
+      // billed / issuedAt は変更しない（発行状態は据え置き）。明細と入力内容だけ保存する。
       const status = Object.assign({}, prev, {
-        billed:    true,
         lines:     lines,
         title:     g('inv-screen-title')?.value || prev.title || '',
         invDate:   g('inv-screen-invdate')?.value || prev.invDate || '',
@@ -11343,19 +11344,18 @@
         memo:      (g('inv-screen-memo')?.value || '').trim(),
         discount:  parseFloat(g('inv-discount')?.value || 0) || 0,
         docMode:   'invoice',
-        outsourceExtraList: osList,
-        issuedAt:  prev.issuedAt || new Date().toLocaleString('ja-JP') // 初回発行時刻は保持
+        outsourceExtraList: osList
       });
       if (typeof _sumInvOutsource === 'function') status.outsourceExtra = _sumInvOutsource(osList);
-      saveInvStatus(num, status); // 打刻＋同期送信は内部で実施
+      saveInvStatus(num, status); // 打刻＋同期送信は内部で実施（billed は据え置き）
       try { renderInvCards(); } catch (e) {}
       try { refreshHomeView(true); } catch (e) {}
-    } catch (e) { console.warn('mark issued from print', e); }
+    } catch (e) { console.warn('save invoice on print', e); }
   }
 
   function executePrint() {
-    // 請求書の印刷/PDF保存は「発行」とみなし、現在の明細を保存（内容消失の防止・2026-07-07）
-    _markIssuedFromPrint();
+    // 請求書の印刷/PDF保存時に現在の明細を保存（発行はしない・内容消失の防止・2026-07-07 B案）
+    _saveInvoiceOnPrint();
     const content = document.getElementById('print-content')?.innerHTML || '';
     const win = window.open('', '_blank', 'width=800,height=1000');
     win.document.write(`<!DOCTYPE html>
