@@ -5361,7 +5361,7 @@
         <div class="wsd-header-num" style="color:#fadbd8;">ワークシート</div>
         <div class="wsd-header-title" id="wl-header-title">案件一覧</div>
       </div>
-      <button onclick="fetchOrderMaster && fetchOrderMaster(true); setTimeout(renderWorksheetList, 800);"
+      <button onclick="refreshWorksheetListFromSheet()"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;"
         title="シートから最新を取得">🔄 更新</button>
       <a href="https://docs.google.com/spreadsheets/d/1-4JZsI7Hq21cBYh9EUDX-CGErm5ba5Lj6gj86IQiWnE/edit#gid=567658269" target="_blank"
@@ -14323,6 +14323,19 @@
     }
   }
 
+  // ワークシート一覧の上にワークシート詳細を全画面で重ねる。
+  // 一覧(worksheet-list-screen)は phone-frame 直下(z172)だが、ws-detail-screen は scroll-content 内に
+  // ネストしており親の重なりに閉じ込められる。full-page-overlay(position:fixed)で前面化しないと、
+  // 一覧を開いたままカードを押しても詳細が裏に開いて「無反応」に見える（2026-07-07 修正）。
+  function openWSFromList(num) {
+    openWS(num);
+    const ws = document.getElementById('ws-detail-screen');
+    if (ws) {
+      _applyFullPageStyle(ws, 9000); // ワークシート一覧(z172)より前面
+      ws.dataset.fromList = '1';
+    }
+  }
+
   // 単独請求書（INV-xxxxx 等）からワークシート（案件）を作成する。
   // 番号は請求書と同じものを使い、件名・取引先・日付・金額（税抜小計）を引き継ぐ。
   function createWSFromInvoice(num) {
@@ -15767,6 +15780,21 @@ ${tableHTML}
 
   function closeWorksheetList() {
     document.getElementById('worksheet-list-screen').style.transform = 'translateX(100%)';
+  }
+
+  // ワークシート一覧の「🔄 更新」：シートから最新(案件/子/請求書)を取り込んで一覧を再描画。
+  // 旧コードは未定義の fetchOrderMaster を呼んでいてボタンが機能していなかった（2026-07-07 修正）。
+  async function refreshWorksheetListFromSheet() {
+    try {
+      if (typeof pullKind === 'function' && typeof _gasUrlOne === 'function' && _gasUrlOne()) {
+        await Promise.all([
+          pullKind('order').catch(() => {}),
+          pullKind('child').catch(() => {}),
+          pullKind('invoice').catch(() => {})
+        ]);
+      }
+    } catch (e) { console.warn('refreshWorksheetListFromSheet', e); }
+    try { renderWorksheetList(); } catch (e) {}
   }
 
   // ===== 受注ノート一覧（会計室・読み取り専用） =====
@@ -17269,6 +17297,10 @@ ${tableHTML}
       _resetFullPageStyle(ws);
       ws.dataset.fromInv = '';
     }
+    if (ws.dataset.fromList === '1') {
+      _resetFullPageStyle(ws);
+      ws.dataset.fromList = '';
+    }
     ws.style.display = 'none';
     // 売上表・請求書カードリストを最新データで再描画
     if (typeof renderSalesScreen === 'function') {
@@ -17743,7 +17775,7 @@ ${tableHTML}
 
     card.className = 'ws-card';
     card.dataset.wsnum = num;
-    card.setAttribute('onclick', `openWS('${num}')`);
+    card.setAttribute('onclick', `openWSFromList('${num}')`);
     card.innerHTML = `
       <div style="position:relative;padding-right:76px;min-width:0;">
         <div class="ws-badge-col">
