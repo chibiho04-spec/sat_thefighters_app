@@ -1708,6 +1708,8 @@
     text-shadow: 3px 3px 0 #8b6914, 0 0 20px rgba(241,196,15,0.6);
     animation: titlePulse 2.5s ease-in-out infinite;
   }
+  /* SaT の S と a の間だけ 3px 広げる（letter-spacing 6px に加算） */
+  .login-title .sat-s { margin-right: 3px; }
   @keyframes titlePulse {
     0%,100% { text-shadow: 3px 3px 0 #8b6914, 0 0 20px rgba(241,196,15,0.6); }
     50%      { text-shadow: 3px 3px 0 #8b6914, 0 0 35px rgba(241,196,15,0.9); }
@@ -3615,7 +3617,7 @@
     <!-- タイトルロゴ -->
     <div class="login-logo-area">
       <div class="login-pixel-cam">🎥</div>
-      <div class="login-title">SaT</div>
+      <div class="login-title"><span class="sat-s">S</span>aT</div>
       <div class="login-title2">THE FIGHTERS</div>
       <div class="login-subtitle">映像制作 案件管理システム</div>
     </div>
