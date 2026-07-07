@@ -11980,7 +11980,35 @@
   }
   function _pickNewer(a, b) {
     const ta = _toMillis(a && a._updatedAt); const tb = _toMillis(b && b._updatedAt);
-    return tb > ta ? b : a; // 同時刻はローカル(a)優先
+    const winner = tb > ta ? b : a; // 同時刻はローカル(a)優先
+    const loser  = tb > ta ? a : b;
+    // 【データ保護 2026-07-07】明細を持つ請求書を「明細ゼロの版」で丸ごと上書きさせないガード。
+    // 事故例：別端末で明細を持たないまま請求済/入金済にした空レコードが、LWWで新しいと
+    //         正しい発行済み請求書(明細あり)を丸ごと上書きして消す（ガリガリくんT26075）。
+    // 発火条件：勝者(新)が明細ゼロ・非削除で、敗者(古)が明細あり、かつどちらかが発行/請求/入金の印を持つ。
+    //   （下書き同士の正当な「全消しやり直し」は阻害しない＝どちらも未発行なら通常LWW）
+    // 復元方法：明細を持つ敗者を土台に、勝者の非空フィールド(宛先変更・値引き等の正当な編集)は活かし、
+    //   明細だけは敗者から復元。請求済/入金済フラグはOR。更新時刻は打ち直して自己修復（次のpushで
+    //   シート側の空版も上書きし直せるように）。
+    // ※削除(削除フラグ/_deleted)は保護対象外＝削除は通常どおり通す。
+    // ※残課題：勝者が「部分的な古い明細」を持つ場合や、シートに空版が書かれる瞬間そのものは
+    //   クライアント側では防げない（GAS側の明細優先が必要）。
+    const _hasLines = r => r && Array.isArray(r.lines) && r.lines.length > 0;
+    const _issued   = r => r && (r.billed || r.paid || r.issuedAt);
+    const _isDel    = r => r && (String((r && r['削除フラグ']) || '') === '1' || (r && r._deleted));
+    if (!_isDel(winner) && !_hasLines(winner) && _hasLines(loser) && (_issued(loser) || _issued(winner))) {
+      const merged = Object.assign({}, loser); // 明細を持つ版を土台にする
+      for (const k of Object.keys(winner)) {   // 勝者の非空フィールドを上書き（宛先変更などの編集を活かす）
+        const v = winner[k];
+        if (v !== '' && v != null && !(Array.isArray(v) && v.length === 0)) merged[k] = v;
+      }
+      merged.lines      = loser.lines;                        // 明細は必ず明細のある敗者から復元
+      merged.billed     = !!(winner.billed || loser.billed);
+      merged.paid       = !!(winner.paid   || loser.paid);
+      merged._updatedAt = new Date().toISOString();           // 自己修復：以後のpushで勝てるよう時刻を更新
+      return merged;
+    }
+    return winner;
   }
   function _mergeRecordsLWW(localList, sheetList, keyField) {
     const byKey = new Map();
