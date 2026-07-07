@@ -5541,7 +5541,8 @@
     </div>
 
     <!-- 部門別売上（売上サマリーの下に別枠で表示） -->
-    <div id="sales-dept-breakdown" style="padding:10px 12px;background:#faf5fc;border-bottom:2px solid #d2b4de;flex-shrink:0;">
+    <!-- 部門別粗利：精度向上まで非表示（2026-07-07）。あとで再実装する際は display:none を外す＋renderSalesDeptBox 呼び出しを戻す -->
+    <div id="sales-dept-breakdown" style="display:none;padding:10px 12px;background:#faf5fc;border-bottom:2px solid #d2b4de;flex-shrink:0;">
       <!-- JSで動的生成 -->
     </div>
 
@@ -13992,8 +13993,8 @@
       </div>
     `;
 
-    // 部門別売上の別枠（期間に連動。ステータスフィルタには非連動＝期間内の全売上が対象）
-    renderSalesDeptBox(period);
+    // 部門別売上の別枠：精度向上まで非表示（2026-07-07）。再実装時にこの呼び出しを戻す。
+    // renderSalesDeptBox(period);
 
     // 月別グルーピング
     const byMonth = {};
