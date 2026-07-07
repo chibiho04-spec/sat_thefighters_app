@@ -5020,7 +5020,6 @@
                 <th class="inv-th" style="width:72px;">単価</th>
                 <th class="inv-th" style="width:72px;">金額</th>
                 <th class="inv-th" style="width:64px;">課税</th>
-                <th class="inv-th" style="width:46px;" title="外注した項目（売上表の外注費に集計）">外注</th>
                 <th class="inv-th" style="width:24px;"></th>
               </tr>
             </thead>
@@ -6864,10 +6863,6 @@
         <div class="inv-field">
           <label>商品コード（任意）</label>
           <input id="inv-modal-code" type="text" placeholder="例）Z020">
-        </div>
-        <div class="inv-toggle-row">
-          <span class="lbl">外注費として計上する</span>
-          <input id="inv-modal-outsource" type="checkbox" style="width:22px;height:22px;cursor:pointer;">
         </div>
       </div>
       <div class="inv-modal-amount">金額　<b id="inv-modal-amount">¥0</b></div>
@@ -10468,7 +10463,7 @@
       tr.className = 'inv-line-row';
       if (line.spacer) {
         tr.dataset.spacer = '1';
-        tr.innerHTML = `<td class="inv-td" colspan="9" style="height:6px;background:#fafafa;"></td>`;
+        tr.innerHTML = `<td class="inv-td" colspan="8" style="height:6px;background:#fafafa;"></td>`;
         tbody.appendChild(tr);
         return;
       }
@@ -10505,11 +10500,6 @@
                  <option value="1" ${line.taxable === false ? '' : 'selected'}>課税</option>
                  <option value="0" ${line.taxable === false ? 'selected' : ''}>非課税</option>
                </select>`}
-        </td>
-        <td class="inv-td inv-td-outsource" style="text-align:center;">
-          ${readonly
-            ? `<span style="font-size:11px;">${line.outsource ? '✓' : ''}</span>`
-            : `<input type="checkbox" class="inv-line-outsource" ${line.outsource ? 'checked' : ''} onchange="calcInvTotal()" title="この行を外注費として計上する" style="width:16px;height:16px;cursor:pointer;">`}
         </td>
         ${readonly ? '' : `<td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal(); renderInvLineCards();">✕</button></td>`}
       `;
@@ -10586,7 +10576,7 @@
       const taxBadge = l.taxable === false
         ? '<span class="inv-card-badge tax-off">非課税</span>'
         : '<span class="inv-card-badge">課税</span>';
-      const outBadge = l.outsource ? '<span class="inv-card-badge outsrc">外注</span>' : '';
+      const outBadge = ''; // 外注列は廃止（外注費はワークシートで管理）
       const codeBadge = l.code ? `<span class="inv-card-badge">${_esc(l.code)}</span>` : '';
       const noteLine = l.note ? `<div class="inv-card-note" style="font-size:11px;color:#888;margin-top:3px;">📝 ${_esc(l.note)}</div>` : '';
       const delBtn  = _invReadonly ? '' :
@@ -10702,14 +10692,12 @@
     document.getElementById('inv-modal-title').textContent = _invReadonly ? '明細を確認' : (isNew ? '通常行を追加' : '明細を編集');
     const fields = ['inv-modal-name','inv-modal-qty','inv-modal-unit','inv-modal-price','inv-modal-tax','inv-modal-code'];
     fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = _invReadonly; });
-    document.getElementById('inv-modal-outsource').disabled = _invReadonly;
     document.getElementById('inv-modal-name').value  = l.name || '';
     document.getElementById('inv-modal-qty').value   = (l.qty != null ? l.qty : 1);
     document.getElementById('inv-modal-unit').value  = l.unit || '日';
     document.getElementById('inv-modal-price').value = (l.price != null ? l.price : 0);
     document.getElementById('inv-modal-tax').value   = (l.taxable === false ? '0' : '1');
     document.getElementById('inv-modal-code').value  = l.code || '';
-    document.getElementById('inv-modal-outsource').checked = !!l.outsource;
     { const nEl = document.getElementById('inv-modal-note'); if (nEl) { nEl.value = l.note || ''; nEl.disabled = _invReadonly; } }
     // 保存ボタン：readonly時は非表示
     const saveBtn = document.querySelector('#inv-line-modal .inv-modal-save');
@@ -10738,7 +10726,7 @@
       price: parseFloat(document.getElementById('inv-modal-price').value) || 0,
       taxable:   document.getElementById('inv-modal-tax').value === '1',
       code:  document.getElementById('inv-modal-code').value.trim(),
-      outsource: document.getElementById('inv-modal-outsource').checked,
+      outsource: false, // 外注列は廃止（外注費はワークシートで管理）
       note:  (document.getElementById('inv-modal-note')?.value || '').trim()
     };
     if (!data.name && !data.price) {
@@ -10777,9 +10765,6 @@
         <select class="inv-line-tax" onchange="calcInvTotal()">
           <option value="1">課税</option><option value="0">非課税</option>
         </select>
-      </td>
-      <td class="inv-td inv-td-outsource" style="text-align:center;">
-        <input type="checkbox" class="inv-line-outsource" onchange="calcInvTotal()">
       </td>
       <td class="inv-td"></td>`;
     return tr;
@@ -10856,9 +10841,6 @@
           <option value="1" selected>課税</option>
           <option value="0">非課税</option>
         </select>
-      </td>
-      <td class="inv-td inv-td-outsource" style="text-align:center;">
-        <input type="checkbox" class="inv-line-outsource" onchange="calcInvTotal()" title="この行を外注費として計上する" style="width:16px;height:16px;cursor:pointer;">
       </td>
       <td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal();">✕</button></td>
     `;
