@@ -13789,7 +13789,9 @@
         const num = k.slice(4);
         if (!/^(INV-\d|[TEP]\d|0\d{3})/.test(num)) return; // INV-/T/E/P受注番号/退避中の0000系のみ（EST-/DLV-は除外）
         if (seen.has(num)) return; seen.add(num);
-        if (deletedInv.includes(num)) return;
+        // 削除済みは除外：単独請求書の削除(deleted_inv)に加え、ワークシートから削除した案件(deletedWS)の
+        // 残存 inv_ レコードも除外する（削除した古い案件が売上表/PDFに漏れ出す不具合の対策・2026-07-08）
+        if (deletedInv.includes(num) || deletedWS.includes(num)) return;
         const status = loadInvStatus(num) || {};
         if (!status.lines || !status.lines.length) return; // 明細がない空ドキュメントは除外
         items.push(_calcCaseSales(num, {
@@ -14378,7 +14380,9 @@
   // 月別PDF出力（月の見出しの「📥 PDF」ボタンから呼ばれる）
   // monthKey 形式: "YYYY-MM"（または "日付未設定"）
   function exportSalesPDFForMonth(monthKey) {
-    const items = _collectSalesItems();
+    // 月別PDFは「請求済み」の案件のみを載せる（未請求＝進行中は売上記録に含めない・2026-07-08）
+    // ※billed は入金済(paid)も含む＝発行済みの請求全部。売上表の月別小計(countedItems=billed)と一致。
+    const items = _collectSalesItems().filter(it => it.billed);
     let filtered;
     if (monthKey === '日付未設定') {
       filtered = items.filter(it => !_parseDateForSales(it.date));
