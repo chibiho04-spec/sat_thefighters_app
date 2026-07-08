@@ -14488,21 +14488,21 @@ ${tableHTML}
 
   // 売上表をPDFダウンロード（ヘッダー右上の📥PDFボタンから・現在のフィルタ条件で出力）
   function exportSalesPDF() {
-    const items = _collectSalesItems();
     const period       = document.getElementById('sales-period').value;
     const statusFilter = document.getElementById('sales-status-filter').value;
-    let filtered = items;
+    // PDFは「請求済み（入金済み含む）」のみ＝未請求は載せない（月別PDFと統一・2026-07-08）
+    let filtered = _collectSalesItems().filter(it => it.billed);
     if (period !== 'all') {
       const y = parseInt(period, 10);
       filtered = filtered.filter(it => { const d = _parseDateForSales(it.date); return d && d.y === y; });
     }
-    if (statusFilter === 'billed')   filtered = filtered.filter(it => it.billed && !it.paid);
-    if (statusFilter === 'paid')     filtered = filtered.filter(it => it.paid);
-    if (statusFilter === 'unbilled') filtered = filtered.filter(it => !it.billed);
+    // 「表示：」フィルタが未入金／入金済のときは請求済みの中でさらに絞る（未請求は対象外なので無視）
+    if (statusFilter === 'billed')    filtered = filtered.filter(it => !it.paid); // 請求済（未入金）
+    else if (statusFilter === 'paid') filtered = filtered.filter(it => it.paid);  // 入金済
     let label = (period === 'all') ? '全期間' : (period + '年');
-    if (statusFilter === 'billed')   label += '・請求済';
-    else if (statusFilter === 'paid')     label += '・入金済';
-    else if (statusFilter === 'unbilled') label += '・未請求';
+    if (statusFilter === 'billed')    label += '・請求済（未入金）';
+    else if (statusFilter === 'paid') label += '・入金済';
+    else                              label += '・請求済み';
     _openSalesPrint(filtered, label);
   }
 
