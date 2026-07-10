@@ -14006,8 +14006,8 @@
       if (!byMonth[key]) byMonth[key] = { label: d ? `${d.y}年 ${d.m}月` : '日付未設定', items: [] };
       byMonth[key].items.push(it);
     });
-    const sortedKeys = Object.keys(byMonth).sort((a, b) =>
-      sortMode === 'date-asc' ? a.localeCompare(b) : b.localeCompare(a)); // 古い順のときだけ月も昇順
+    // 月グループは常に新しい月を一番上に固定（並び順セレクトは月内の案件だけに効かせる・2026-07-08）
+    const sortedKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
 
     // 本体描画
     const body = document.getElementById('sales-body');
