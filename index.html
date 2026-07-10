@@ -5529,8 +5529,8 @@
       </select>
       <span style="font-size:12px;color:#666;margin-left:6px;">並び順：</span>
       <select id="sales-sort" onchange="renderSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
+        <option value="date-asc" selected>請求日（古い順）</option>
         <option value="date-desc">請求日（新しい順）</option>
-        <option value="date-asc">請求日（古い順）</option>
         <option value="num">受注番号順</option>
       </select>
     </div>
@@ -13729,7 +13729,7 @@
     const diff = (mode === 'date-asc') ? (da - db) : (db - da); // 既定は新しい順
     return diff !== 0 ? diff : numCmp(a, b); // 同じ請求日は受注番号順
   }
-  function _currentSalesSort() { return document.getElementById('sales-sort')?.value || 'date-desc'; }
+  function _currentSalesSort() { return document.getElementById('sales-sort')?.value || 'date-asc'; }
 
   function _collectSalesItems() {
     const items = [];
@@ -13904,7 +13904,7 @@
   function renderSalesScreen() {
     const period       = document.getElementById('sales-period').value;
     const statusFilter = document.getElementById('sales-status-filter').value;
-    const sortMode     = document.getElementById('sales-sort')?.value || 'date-desc'; // 並び順（既定：請求日の新しい順）
+    const sortMode     = document.getElementById('sales-sort')?.value || 'date-asc'; // 並び順（既定：請求日の古い順）
 
     let items = _collectSalesItems();
 
