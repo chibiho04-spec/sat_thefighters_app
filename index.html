@@ -14126,6 +14126,7 @@
         .map(it => {
           const out = it.outsourceCost || 0;
           const net = it.netInhouse != null ? it.netInhouse : (it.total - out);
+          const marginRate = (Number(it.total) > 0) ? (net / it.total * 100) : null; // 利益率＝粗利÷請求額
           const paidIn  = !!it.paid;
           const paidOut = !!it.outsourcePaid || out === 0; // 外注費が0なら自動で済とみなす
           const confirmed = paidIn && paidOut;
@@ -14193,6 +14194,7 @@
               <div class="col-net" style="color:${counted ? '#0e6655' : '#9aa6ae'};">
                 <div class="col-label" style="color:${counted ? '#0e6655' : '#9aa6ae'};">🏢 粗利</div>
                 <div style="font-size:20px;font-weight:bold;line-height:1.1;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(14,102,85,0.12);">${fmt(net)}</div>
+                <div style="font-size:12px;font-weight:bold;line-height:1.2;margin-top:2px;color:${counted ? '#0e6655' : '#9aa6ae'};">利益率 ${marginRate != null ? marginRate.toFixed(1) + '%' : '—'}</div>
                 ${!counted
                   ? '<div style="margin-top:6px;"><span style="background:#eef1f3;color:#7a8a99;border:1px dashed #b8c2cc;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;">未計上</span></div>'
                   : (confirmed ? '<div style="margin-top:6px;"><span style="background:#27ae60;color:white;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:bold;letter-spacing:1px;">✓ 入金・支払済</span></div>' : '')}
