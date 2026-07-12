@@ -6778,14 +6778,12 @@
       <!-- 使用車両（独立ボックス） -->
       <div class="wsd-field-group">
         <div class="wsd-field-row">
-          <label class="wsd-label">🚐 使用車両</label>
-          <select id="wsd-vehicle" class="wsd-select" onchange="onCrewSel(this,'wsd-vehicle-txt')">
-            <option value="">─ 未定 ─</option>
-            <option value="1号車">1号車</option>
-            <option value="2号車">2号車</option>
-            <option value="__free__">自由記入</option>
-          </select>
-          <input id="wsd-vehicle-txt" class="wsd-input crew-free" type="text" autocomplete="off" placeholder="車両を入力" style="display:none;margin-top:4px;">
+          <label class="wsd-label">🚐 使用車両（複数選択可）</label>
+          <div class="np-btn-group" id="wsd-vehicle-group" style="margin-top:3px;">
+            <button type="button" class="np-select-btn" onclick="toggleWsVehicleBtn(this)">1号車</button>
+            <button type="button" class="np-select-btn" onclick="toggleWsVehicleBtn(this)">2号車</button>
+          </div>
+          <input id="wsd-vehicle-extra" class="wsd-input" type="text" autocomplete="off" placeholder="その他の車両（自由記入）" style="margin-top:4px;">
         </div>
       </div>
 
@@ -16596,6 +16594,35 @@ ${tableHTML}
     return sel.join('／');
   }
 
+  // ===== 使用車両：複数選択（プリセットボタン）＋自由記入（受注分類と同方式・2026-07-10）=====
+  function toggleWsVehicleBtn(btn) {
+    btn.classList.toggle('selected');
+    try { _markDirty('ws-detail-screen'); } catch (e) {}
+  }
+  function _setWsVehicle(value) {
+    const group = document.getElementById('wsd-vehicle-group');
+    const extra = document.getElementById('wsd-vehicle-extra');
+    if (!group) return;
+    const btns = [...group.querySelectorAll('.np-select-btn')];
+    btns.forEach(b => b.classList.remove('selected'));
+    const presets = btns.map(b => b.textContent.trim());
+    const rest = [];
+    String(value || '').split('／').map(s => s.trim()).filter(Boolean).forEach(t => {
+      const i = presets.indexOf(t);
+      if (i >= 0) btns[i].classList.add('selected'); else rest.push(t);
+    });
+    if (extra) extra.value = rest.join('／');
+  }
+  function _getWsVehicle() {
+    const group = document.getElementById('wsd-vehicle-group');
+    const extra = document.getElementById('wsd-vehicle-extra');
+    if (!group) return '';
+    const sel = [...group.querySelectorAll('.np-select-btn.selected')].map(b => b.textContent.trim());
+    const ex = ((extra && extra.value) || '').trim();
+    if (ex) sel.push(ex);
+    return sel.join('／');
+  }
+
   function updateNpNum() {
     const val = document.getElementById('np-num').value;
     document.getElementById('np-num-preview').textContent = val ? '→ ' + _npPrefix + val : '→ ' + _npPrefix + '?';
@@ -17190,21 +17217,8 @@ ${tableHTML}
     renderRentalRows(loadRentalItems(saved));
     renderOutsourceRows(loadOutsourceItems(saved));
 
-    // 使用車両プルダウン復元
-    const vehicleSel = document.getElementById('wsd-vehicle');
-    const vehicleTxt = document.getElementById('wsd-vehicle-txt');
-    if (vehicleSel) {
-      const v = saved['wsd-vehicle'] || '';
-      if (v === '1号車' || v === '2号車') {
-        vehicleSel.value = v;
-        if (vehicleTxt) { vehicleTxt.style.display = 'none'; vehicleTxt.value = ''; }
-      } else if (v) {
-        vehicleSel.value = '__free__';
-        if (vehicleTxt) { vehicleTxt.style.display = 'block'; vehicleTxt.value = v; }
-      } else {
-        vehicleSel.value = '';
-      }
-    }
+    // 使用車両（複数選択＋自由記入）復元
+    _setWsVehicle(saved['wsd-vehicle'] || '');
     ['postpro','honhenshu','kahenshu','cg','dubbing','sonota'].forEach(k => {
       const el = document.getElementById('wsd-cb-'+k);
       if (el) el.checked = saved['cb_'+k] || false;
@@ -17475,7 +17489,7 @@ ${tableHTML}
     });
     data['creator']       = getCrewVal('wsd-creator',    'wsd-creator-txt');
     data['crew_extra']    = document.getElementById('wsd-crew-extra')?.value   || '';
-    data['wsd-vehicle']   = getCrewVal('wsd-vehicle',    'wsd-vehicle-txt');
+    data['wsd-vehicle']   = _getWsVehicle();
     data['edit_title']    = document.getElementById('wsd-edit-title')?.value   || '';
     data['edit_company']  = document.getElementById('wsd-edit-company')?.value || '';
     data['edit_contact']  = document.getElementById('wsd-edit-contact')?.value || '';
