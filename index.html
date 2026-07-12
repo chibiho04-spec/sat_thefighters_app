@@ -13929,6 +13929,7 @@
     const sumTotal       = countedItems.reduce((s, it) => s + it.total, 0);
     const sumOutsource   = countedItems.reduce((s, it) => s + (it.outsourceCost || 0), 0);
     const sumInhouse     = sumTotal - sumOutsource; // 社内流放（受注合計 − 外注費）
+    const marginRateAll  = (sumTotal > 0) ? (sumInhouse / sumTotal * 100) : null; // 全体の利益率＝粗利÷請求合計
     const sumBilledOnly  = countedItems.filter(it => !it.paid).reduce((s, it) => s + it.total, 0);
     const sumPaid        = countedItems.filter(it => it.paid).reduce((s, it) => s + it.total, 0);
 
@@ -13952,6 +13953,7 @@
             <div>
               <span class="sales-bar-hl-label">🏢 粗利　</span>
               <span class="sales-bar-hl-val">${fmt(sumInhouse)}</span>
+              <span style="font-size:14px;font-weight:bold;color:#0e6655;margin-left:8px;white-space:nowrap;">利益率 ${marginRateAll != null ? marginRateAll.toFixed(1) + '%' : '—'}</span>
             </div>
             <span class="sales-bar-hl-sub">請求合計 ${fmt(sumTotal)}（計上 ${countedItems.length}件）− 外注費 ${fmt(sumOutsource)}</span>
           </div>
