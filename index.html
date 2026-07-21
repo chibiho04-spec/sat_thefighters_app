@@ -10306,9 +10306,8 @@
     status.docMode  = _docMode || 'invoice';
     status.discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0; // お値引きも保存（再表示・売上集計で使用）
     status.memo     = (document.getElementById('inv-screen-memo')?.value || '').trim(); // 備考も保存
-    const _invOsList = getInvOutsourceList(); // 売上計算用の外注費（名目＋税込金額・請求書非表示）
-    status.outsourceExtraList = _invOsList;
-    status.outsourceExtra     = _sumInvOutsource(_invOsList); // 後方互換：合計のミラー
+    // 外注費リスト(outsourceExtraList/outsourceExtra)は書き換えない（UI撤去済み・2026-07-11）。
+    // 撤去前は空UIから読んで毎回空上書きし、過去の記録を静かに消していたため、既存値を保持する。
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status, { claimNew: _invIsNew }); // ← 打刻＋自動送信は内部で実施。新規時だけ番号の先取り主張を付ける
     if (_invIsNew) { _invIsNew = false; _setInvOrderField(num, false); } // 保存後は番号を確定（以後は表示のみ）
@@ -10804,11 +10803,15 @@
       const qtyTextEl   = tr.querySelector('.inv-td-qty span');
       const priceTextEl = tr.querySelector('.inv-td-price span');
       const taxEl   = tr.querySelector('.inv-line-tax');
+      const taxTextEl = tr.querySelector('.inv-td-tax span'); // 閲覧専用表示では select が無く span になる
       const qty = parseFloat((qtyEl?.value || qtyTextEl?.textContent || '0').replace(/,/g, '')) || 0;
       const price = parseFloat((priceEl?.value || priceTextEl?.textContent || '0').replace(/[¥,]/g, '')) || 0;
       const amt = qty * price;
       subtotal += amt;
-      const taxable = taxEl ? (taxEl.value === '1') : true; // デフォルト課税
+      // 課税判定：select（編集時）→ span表示（閲覧時）→ 既定は課税。
+      // 旧実装は閲覧時に非課税行を課税扱いにする潜在バグがあった（2026-07-11修正）
+      const taxable = taxEl ? (taxEl.value === '1')
+                            : (taxTextEl ? taxTextEl.textContent.trim() !== '非課税' : true);
       if (taxable) taxableSubtotal += amt;
       const amtEl = document.getElementById('inv-amount-'+i);
       if (amtEl) amtEl.textContent = '¥' + Math.round(amt).toLocaleString();
@@ -10899,10 +10902,9 @@
     // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き（値引きも保存）
     const prev = loadInvStatus(num) || {};
     const discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0;
+    // 外注費リストは書き換えない（UI撤去済み・既存値を保持・2026-07-11）
     saveInvStatus(num, Object.assign({}, prev, { billed: true, invDate, title, lines, discount,
       memo: (document.getElementById('inv-screen-memo')?.value || '').trim(),
-      outsourceExtraList: getInvOutsourceList(),
-      outsourceExtra: _sumInvOutsource(getInvOutsourceList()),
       issuedAt: new Date().toLocaleString('ja-JP') }));
 
     // カードリストを再描画
@@ -11278,8 +11280,8 @@
       if (!lines.length) return; // 空の請求書は発行扱いにしない
       const g = (id) => document.getElementById(id);
       const prev = loadInvStatus(num) || {};
-      const osList = (typeof getInvOutsourceList === 'function') ? getInvOutsourceList() : (prev.outsourceExtraList || []);
       // billed / issuedAt は変更しない（発行状態は据え置き）。明細と入力内容だけ保存する。
+      // 外注費リスト(outsourceExtraList/outsourceExtra)も書き換えない（UI撤去済み・既存値を保持・2026-07-11）。
       const status = Object.assign({}, prev, {
         lines:     lines,
         title:     g('inv-screen-title')?.value || prev.title || '',
@@ -11293,10 +11295,8 @@
         staff:     (g('inv-screen-staff')?.value || '').trim() || prev.staff || '',
         memo:      (g('inv-screen-memo')?.value || '').trim(),
         discount:  parseFloat(g('inv-discount')?.value || 0) || 0,
-        docMode:   'invoice',
-        outsourceExtraList: osList
+        docMode:   'invoice'
       });
-      if (typeof _sumInvOutsource === 'function') status.outsourceExtra = _sumInvOutsource(osList);
       saveInvStatus(num, status); // 打刻＋同期送信は内部で実施（billed は据え置き）
       try { renderInvCards(); } catch (e) {}
       try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {} // 売上表も最新に（手動保存と同じ）
