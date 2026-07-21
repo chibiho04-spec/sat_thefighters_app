@@ -5082,7 +5082,7 @@
         </button>
         <div class="wsd-save-note">この案件のワークシートを開きます（まだ無ければ請求書の内容から作成）</div>
         <button id="invd-issue-btn" class="wsd-save-btn" style="display:none;background:#e67e22;border-color:#8b4500;box-shadow:4px 4px 0 #5a2800;margin-top:10px;" onclick="issueInvoice()">
-          📄 発行する（案件終了）
+          📄 請求書を発行（案件終了）
         </button>
         <div id="invd-issue-note" class="wsd-save-note" style="display:none;">発行すると「請求済」になり、ホームの「終了案件」へ移動します</div>
       </div>
@@ -6568,7 +6568,7 @@
       </div>
       <div style="padding:6px 12px 6px;display:flex;gap:8px;">
         <button onclick="openEstimateFromWS()" style="font-family:'DotGothic16',monospace;font-size:13px;background:#f1c40f;border:3px solid #b7950b;color:#5d4037;padding:12px 8px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #b7950b;flex:1;">🧮 <span style="font-size:16px;">見</span>積書</button>
-        <button onclick="openInvoiceFromWS()" style="font-family:'DotGothic16',monospace;font-size:13px;background:#27ae60;border:3px solid #1a7a40;color:white;padding:12px 8px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #1a7a40;flex:1;">💰 <span style="font-size:16px;">請</span>求書</button>
+        <button onclick="openInvoiceFromWS()" style="font-family:'DotGothic16',monospace;font-size:13px;background:#27ae60;border:3px solid #1a7a40;color:white;padding:12px 8px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #1a7a40;flex:1;">💰 <span style="font-size:16px;">請</span>求書を開く</button>
       </div>
       <div style="padding:4px 12px 6px;text-align:center;font-size:10px;color:#aaa;">
         請求書タブに移動して作成します
@@ -6818,7 +6818,7 @@
 
       <!-- 請求書を発行して案件終了 -->
       <div style="margin:4px 12px 24px;padding-top:14px;border-top:1px dashed #ddd;">
-        <button type="button" onclick="openInvoiceFromWS()" style="font-family:'DotGothic16',monospace;font-size:14px;background:#27ae60;border:3px solid #1a7a40;color:white;padding:12px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #1a7a40;width:100%;">🧾 <span style="font-size:16px;">請</span>求書を発行して案件終了</button>
+        <button type="button" onclick="openInvoiceFromWS()" style="font-family:'DotGothic16',monospace;font-size:14px;background:#27ae60;border:3px solid #1a7a40;color:white;padding:12px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #1a7a40;width:100%;">🧾 <span style="font-size:16px;">請</span>求書を発行（案件終了）</button>
         <div style="margin-top:6px;text-align:center;font-size:10px;color:#999;">請求書画面が開きます。内容を確認して「発行」を押すと「終了案件」へ移動します</div>
       </div>
 
@@ -8663,7 +8663,6 @@
 
   // タブ切り替え時にスケジュールを描画
   const _origSetTab = window.setTab;
-  function integrateWorksheetIntoHome() { /* 廃止：案件タブに移行 */ }
 
   // ===== ナビバーから他タブへ移る時の挙動 =====
   // 一覧/マスタ画面：そのまま閉じてタブ移動
@@ -8752,29 +8751,6 @@
       if (_isPanelOpen(document.getElementById(s.id))) return s;
     }
     return null;
-  }
-  // 取り込み後、ワークシート詳細が開いていれば最新データで再描画する。
-  // ※ 編集中（編集パネル表示中）は入力を壊さないため何もしない。
-  function _refreshOpenWsDetail() {
-    const scr = document.getElementById('ws-detail-screen');
-    if (!scr || !_isPanelOpen(scr)) return;
-    const editPanel = document.getElementById('wsd-edit-panel');
-    const isEditing = editPanel && editPanel.style.display !== 'none';
-    if (isEditing) return; // 編集中はクロバーしない
-    const num = (document.getElementById('ws-detail-num') || {}).textContent;
-    if (!num) return;
-    const saved = loadWS(num);
-    try { if (typeof renderWsView === 'function') renderWsView(num, saved); } catch (e) { console.warn('wsView refresh', e); }
-    // 編集パネル（非表示）の入力欄も最新に揃えておく
-    try {
-      if (typeof renderRentalRows === 'function')    renderRentalRows(loadRentalItems(saved));
-      if (typeof renderOutsourceRows === 'function') renderOutsourceRows(loadOutsourceItems(saved));
-      if (typeof renderEquipChecklist === 'function') renderEquipChecklist(num, saved.equip || {});
-      ['wsd-private','wsd-media','wsd-report','wsd-memo','wsd-shootdate','wsd-order-amount'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el && saved[id] !== undefined) el.value = saved[id];
-      });
-    } catch (e) { console.warn('wsDetail inputs refresh', e); }
   }
   function _closeAllOpenListPanels() {
     _NAV_LIST_PANELS.forEach(s => {
@@ -9116,8 +9092,6 @@
     panel.style.display = 'block';
   }
 
-  function homeCalMove(dir) { homeSchChangeMonth(dir); } // 後方互換
-
   // 日別パネルを閉じる際は＋ボタンと選択状態もクリア
   function closeHomeSchDay() {
     document.getElementById('home-sch-day-panel').style.display = 'none';
@@ -9127,14 +9101,6 @@
 
   // スケジュール初期描画（タブが開かれたとき用に準備）
   // ※ tab-2が表示されたときに呼ばれるので起動時は不要
-
-  // 酒場サブタブ
-  function setSubtab(name) {
-    ['seika','member'].forEach(n => {
-      document.getElementById('subtab-'+n).classList.toggle('active', n === name);
-      document.getElementById('subtab-'+n+'-panel').style.display = n === name ? 'block' : 'none';
-    });
-  }
 
   // ホーム画面から直接 見積書・請求書 作成画面を開く
   function openNewEstimate() {
@@ -9676,7 +9642,6 @@
     _setInvOrderField(newNum, true); // 受注番号フィールド（編集可）
     const memoEl2 = document.getElementById('inv-screen-memo');
     if (memoEl2) memoEl2.value = '';
-    renderInvOutsourceRows([]); // 新規作成は空（最低1行）
     renderInvLines([], [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
     calcInvTotal();
     // 見積書・請求書 どちらも編集画面で開く（編集可能）
@@ -9907,21 +9872,6 @@
     const sel = document.getElementById('inv-screen-honorific');
     if (sel) sel.value = (hon === '様') ? '様' : '御中';
   }
-  // 「○○株式会社 御中（担当：xx 様）」のような文字列を 2入力欄＋敬称に分解して設定
-  function _setInvClientFromString(combined) {
-    const c = document.getElementById('inv-screen-company');
-    const p = document.getElementById('inv-screen-contact');
-    if (!c || !p) return;
-    const s = String(combined || '').trim();
-    if (!s || s === '（取引先未設定）') {
-      c.value = ''; p.value = ''; _setInvHonorific('御中'); _syncClientLine(); return;
-    }
-    const m = s.match(/^(.*?)\s*(御中|様)?\s*(?:（担当[:：]\s*(.+?)\s*様?）)?\s*$/);
-    c.value = (m && m[1] || '').trim();
-    _setInvHonorific((m && m[2]) || '御中');
-    p.value = (m && m[3] || '').trim();
-    _syncClientLine();
-  }
   // 会社名・担当者・敬称を別々に設定（honorific 省略時は御中）
   function _setInvClientFields(company, contact, honorific) {
     const c = document.getElementById('inv-screen-company');
@@ -10007,7 +9957,7 @@
       memo:     (document.getElementById('inv-screen-memo')?.value || '').trim(),
       docMode:  _docMode || 'invoice',
       lines:    _collectInvLines(),
-      outsourceList: (typeof getInvOutsourceList === 'function') ? getInvOutsourceList() : [],
+      outsourceList: [], // 外注費UIは廃止（テンプレ互換のため空配列を維持・2026-07-11）
       discount: parseFloat(document.getElementById('inv-discount')?.value || 0) || 0
     };
   }
@@ -10128,7 +10078,6 @@
     if (memoEl) memoEl.value = tpl.memo || '';
 
     // 外注費（名目のみ・金額空）
-    renderInvOutsourceRows(Array.isArray(tpl.outsourceList) ? tpl.outsourceList : []);
 
     // 明細（数量・単価は空。最低1行は出す）
     const tplLines = (tpl.lines && tpl.lines.length)
@@ -10185,7 +10134,6 @@
     document.getElementById('inv-screen-invdate').value    = status.invDate;
     const memoEl3 = document.getElementById('inv-screen-memo');
     if (memoEl3) memoEl3.value = status.memo || '';
-    renderInvOutsourceRows(_loadInvOutsourceList(status));
     // 明細が空でも1行は表示する（値引きも引き継ぐ）
     renderInvLines([], lines.length ? lines : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false, status.discount);
     calcInvTotal();
@@ -10194,71 +10142,6 @@
     if (typeof syncCancelBtn === 'function') syncCancelBtn(false);
 
     alert('📦 納品書「' + newNum + '」を作成しました。\n内容をコピーしました。必要なら編集して保存してください。');
-  }
-
-  // ===== 請求書編集画面の「外注費（売上計算用）」複数行リスト =====
-  // 値は status.outsourceExtraList = [{name, cost(税込)}]。旧 status.outsourceExtra(単一数値)とも互換。
-  function _loadInvOutsourceList(status) {
-    status = status || {};
-    if (Array.isArray(status.outsourceExtraList)) {
-      // 旧データ(taxable無し)は従来どおり税込そのまま＝非課税扱いにして数字を変えない
-      return status.outsourceExtraList.map(o => ({
-        name: o.name || '', cost: o.cost,
-        taxable: (typeof o.taxable === 'boolean') ? o.taxable : false
-      }));
-    }
-    const v = Number(status.outsourceExtra) || 0;        // 後方互換：旧・単一値を1行に（税込＝非課税扱い）
-    return v > 0 ? [{ name: '', cost: String(v), taxable: false }] : [];
-  }
-  function renderInvOutsourceRows(items) {
-    const wrap = document.getElementById('inv-outsource-rows');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-    const list = items || [];
-    const total = Math.max(list.length, 1);             // 最低1行は見せる
-    for (let i = 0; i < total; i++) _appendInvOutsourceRow(wrap, list[i] || { name: '', cost: '' });
-  }
-  function _appendInvOutsourceRow(wrap, it) {
-    const row = document.createElement('div');
-    row.className = 'inv-os-row';
-    row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
-    const taxable = (it.taxable !== false); // 新規行は課税。読込済みの旧データは非課税(false)で渡る
-    row.innerHTML = `
-      <input type="text" class="inv-os-name" placeholder="名目 (例: ドローン撮影 ◯◯社)" value="${escapeHtml(it.name || '')}"
-        style="flex:2;min-width:110px;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);">
-      <span style="font-size:13px;color:#6c3483;font-weight:bold;flex-shrink:0;">¥</span>
-      <input type="number" class="inv-os-cost" placeholder="金額" min="0" value="${escapeHtml(String(it.cost || ''))}"
-        style="flex:1;max-width:100px;min-width:0;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 8px;background:#fff;color:var(--text-dark);text-align:right;">
-      <select class="inv-os-tax" title="課税＝税抜で入力(自動で+10%)／非課税＝そのまま" style="font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #d2b4de;border-radius:3px;padding:6px 4px;background:#fff;color:var(--text-dark);max-width:90px;flex-shrink:0;">
-        <option value="1" ${taxable ? 'selected' : ''}>課税</option>
-        <option value="0" ${taxable ? '' : 'selected'}>非課税</option>
-      </select>
-      <button type="button" onclick="this.parentElement.remove(); try{_markDirty('inv-detail-screen');}catch(e){}" title="この行を削除"
-        style="background:#e74c3c;color:white;border:2px solid #922b21;padding:0 10px;border-radius:3px;font-size:15px;cursor:pointer;height:36px;line-height:1;flex-shrink:0;">×</button>
-    `;
-    wrap.appendChild(row);
-  }
-  function addInvOutsourceRow() {
-    const wrap = document.getElementById('inv-outsource-rows');
-    if (wrap) { _appendInvOutsourceRow(wrap, { name: '', cost: '' }); try { _markDirty('inv-detail-screen'); } catch (e) {} }
-  }
-  function getInvOutsourceList() {
-    const wrap = document.getElementById('inv-outsource-rows');
-    if (!wrap) return [];
-    const rows = [];
-    wrap.querySelectorAll('.inv-os-row').forEach(r => {
-      const name = (r.querySelector('.inv-os-name')?.value || '').trim();
-      const cost = (r.querySelector('.inv-os-cost')?.value || '').trim();
-      const taxable = (r.querySelector('.inv-os-tax')?.value !== '0'); // 既定は課税
-      if (name || cost) rows.push({ name, cost, taxable });
-    });
-    return rows;
-  }
-  // 売上から引かれる実際の支払額（税込）：課税は×1.1、非課税はそのまま
-  function _sumInvOutsource(list) {
-    let base = 0, exempt = 0;
-    (list || []).forEach(o => { const c = Number(o.cost) || 0; if (o.taxable === false) exempt += c; else base += c; });
-    return Math.round(base * 1.1) + exempt;
   }
 
   function saveInvDoc() {
@@ -10436,7 +10319,6 @@
     _invIsNew = false; _setInvOrderField(num, false); // 既存書類は受注番号を表示のみ
     const memoEl0 = document.getElementById('inv-screen-memo');
     if (memoEl0) memoEl0.value = status.memo || '';
-    renderInvOutsourceRows(_loadInvOutsourceList(status));
 
     // 明細行を描画（保存済みの値引きも復元）
     renderInvLines(master.lines, status.lines || master.lines, isBilled, status.discount);
@@ -10831,37 +10713,6 @@
     if (el('inv-total-big2')) el('inv-total-big2').textContent= '¥' + Math.round(total).toLocaleString();
   }
 
-  function addInvLine() {
-    const tbody = document.getElementById('inv-lines-body');
-    const i = document.querySelectorAll('.inv-line-row').length;
-    const tr = document.createElement('tr');
-    tr.className = 'inv-line-row';
-    tr.innerHTML = `
-      <td class="inv-td inv-td-code"><input class="inv-line-input" style="width:48px;" placeholder="Z001"></td>
-      <td class="inv-td inv-td-name"><input class="inv-line-input inv-line-name" placeholder="作業内容" oninput="calcInvTotal()"></td>
-      <td class="inv-td inv-td-unit"><input class="inv-line-input inv-line-unit" value="日" style="width:36px;" oninput="calcInvTotal()"></td>
-      <td class="inv-td inv-td-qty"><input class="inv-line-input inv-line-qty" type="number" value="1" style="width:44px;" oninput="calcInvTotal()"></td>
-      <td class="inv-td inv-td-price"><input class="inv-line-input inv-line-price" type="number" value="0" oninput="calcInvTotal()"></td>
-      <td class="inv-td inv-td-amount" id="inv-amount-${i}">¥0</td>
-      <td class="inv-td inv-td-tax">
-        <select class="inv-line-tax" onchange="calcInvTotal()" style="font-size:11px;padding:2px;">
-          <option value="1" selected>課税</option>
-          <option value="0">非課税</option>
-        </select>
-      </td>
-      <td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal();">✕</button></td>
-    `;
-    // 割引行の前に挿入
-    tbody.insertBefore(tr, tbody.lastElementChild);
-    calcInvTotal();
-  }
-
-  function delInvLine(i) {
-    const rows = document.querySelectorAll('.inv-line-row');
-    if (rows[i]) rows[i].remove();
-    calcInvTotal();
-  }
-
   function issueInvoice() {
     const num = document.getElementById('inv-detail-num').textContent;
     const client = document.getElementById('inv-screen-client').textContent;
@@ -11243,22 +11094,6 @@
       content.style.marginBottom = `${(scale - 1) * sheetH}px`;
     }
   }
-  function issueFromPreview() {
-    const num    = document.getElementById('inv-detail-num').textContent;
-    const client = document.getElementById('inv-screen-client').textContent;
-    const total  = document.getElementById('inv-total-big').textContent;
-    showConfirm(
-      `${num} の請求書を発行しますか？\n\n宛先: ${client}\n金額: ${total}\n\n発行後はステータスが「請求済」に変わります。`,
-      () => {
-        _issueInvoiceExec();
-        const btn = document.getElementById('preview-issue-btn');
-        btn.textContent = '✓ 発行済み';
-        btn.style.background = '#27ae60';
-        btn.disabled = true;
-      },
-      { okText: '📄 発行する', okBg: '#27ae60', okBorder: '#1a7a40' }
-    );
-  }
 
   function closePrintPreview() {
     document.getElementById('print-preview-overlay').style.display = 'none';
@@ -11425,7 +11260,6 @@
       }).catch(() => set('⚠️ 同期に失敗しました（合言葉/URLを確認）', '#c0392b'));
     }
   }
-  function getGasToken()      { return (localStorage.getItem('gas_token')       || '').trim(); }
 
   function getDrivingGasUrl() { if (window.DEMO_MODE) return ''; return (localStorage.getItem('gas_url_driving') || '').trim(); }
 
@@ -12829,28 +12663,6 @@
   }
   function closeNewMedia() {
     document.getElementById('new-media-screen').style.transform = 'translateX(100%)';
-  }
-  function openEditMedia(index) {
-    const list = document.getElementById('media-items');
-    const filtered = JSON.parse(list.dataset.filteredJson || '[]');
-    const r = filtered[index];
-    if (!r) return;
-    openNewMedia();
-    _nmEditMode = true;
-    _nmEditOriginalId = r['ID'] || '';
-    document.getElementById('nm-date').value     = r['使用日']      || '';
-    document.getElementById('nm-type').value     = r['メディア種別'] || '';
-    document.getElementById('nm-cards').value    = r['使用カード']   || '';
-    document.getElementById('nm-user').value     = r['使用者']       || '';
-    document.getElementById('nm-site').value     = r['現場名']       || '';
-    document.getElementById('nm-orderno').value  = r['受注No']       || '';
-    document.getElementById('nm-bu').value       = r['BU確認']       || '';
-    document.getElementById('nm-return').value   = r['返却者']       || '';
-    document.getElementById('nm-memo').value     = r['備考']         || '';
-    document.getElementById('nm-id-preview').textContent = _nmEditOriginalId || '(IDなし)';
-    document.getElementById('nm-title-num').textContent = 'メディア記録を編集';
-    document.getElementById('nm-title-sub').textContent = _nmEditOriginalId + ' の内容を更新';
-    document.getElementById('nm-save-btn').textContent  = '💾 記録を更新';
   }
 
   async function saveNewMedia() {
@@ -15185,67 +14997,6 @@ ${tableHTML}
     if (el) { el.textContent = msg; el.style.color = color || '#555'; }
   }
 
-  // 機材マスタのシート行を機材オブジェクトへ変換する。
-  // 機材シートには見出し行（ID/カテゴリ/機材名…）が無く、GAS が「先頭データ行の値」を
-  // キーにして返すため、見出し名での取得（r['ID'] 等）では 0 件になってしまう。
-  // そこで、見出しがあれば従来通り、無ければ各列の中身から列の役割を推定して取り込む。
-  function normalizeEquipRows(rows) {
-    if (!Array.isArray(rows) || rows.length === 0) return [];
-    const norm = (o) => ({
-      id:    String(o.id    == null ? '' : o.id).trim(),
-      cat:   String(o.cat   == null ? '' : o.cat).trim(),
-      name:  String(o.name  == null ? '' : o.name).trim(),
-      code:  String(o.code  == null ? '' : o.code).trim(),
-      qty:   Number(o.qty   || 1),
-      price: Number(o.price || 0)
-    });
-    const keys = Object.keys(rows[0]);
-    // ケースA：正しい見出し行がある場合（ID/機材名 など）
-    if (keys.indexOf('機材名') >= 0 || keys.indexOf('ID') >= 0) {
-      return rows.map(r => norm({
-        id: r['ID'], cat: r['カテゴリ'], name: r['機材名'],
-        code: r['商品コード'], qty: r['数量'], price: r['単価（円）']
-      })).filter(e => e.id && e.name);
-    }
-    // ケースB：見出し行が無い → 列の中身から役割を推定
-    const stats = {};
-    keys.forEach(k => {
-      const vals = rows.map(r => r[k]);
-      let emCount = 0, emojiCount = 0, zcodeCount = 0, emptyCount = 0, sum = 0, numN = 0, numAll = true;
-      vals.forEach(v => {
-        const s = String(v == null ? '' : v).trim();
-        if (s === '') { emptyCount++; return; }
-        if (/^em\w+/i.test(s)) emCount++;
-        if (/^Z\d/i.test(s)) zcodeCount++;
-        if (/[\u{1F300}-\u{1FAFF}☀-➿]/u.test(s)) emojiCount++;
-        const n = Number(s);
-        if (!isNaN(n)) { sum += n; numN++; } else { numAll = false; }
-      });
-      stats[k] = { emCount, emojiCount, zcodeCount, emptyCount, numAll, numN, avg: numN ? sum / numN : 0 };
-    });
-    const used = new Set();
-    const pick = (scoreFn) => {
-      let best = null, bestScore = -Infinity;
-      keys.forEach(k => {
-        if (used.has(k)) return;
-        const sc = scoreFn(stats[k]);
-        if (sc > bestScore) { bestScore = sc; best = k; }
-      });
-      if (best) used.add(best);
-      return best;
-    };
-    const idKey    = pick(s => s.emCount);                                  // em で始まる列
-    const catKey   = pick(s => s.emojiCount);                               // 絵文字を含む列
-    const priceKey = pick(s => (s.numAll && s.numN > 0) ? s.avg : -1);       // 全部数値・平均が大きい
-    const qtyKey   = pick(s => (s.numAll && s.numN > 0) ? (100000 - s.avg) : -1); // 全部数値・平均が小さい
-    const codeKey  = pick(s => s.zcodeCount + s.emptyCount);                 // Z始まり/空が多い列
-    const nameKey  = pick(() => 1);                                         // 残り（機材名）
-    return rows.map(r => norm({
-      id: r[idKey], cat: r[catKey], name: r[nameKey],
-      code: r[codeKey], qty: r[qtyKey], price: r[priceKey]
-    })).filter(e => e.id && e.name);
-  }
-
   async function fetchEquipMaster(showStatus) {
     if (!_gasUrlOne()) { setEquipSyncStatus('⚠️ 同期URLが未設定です（データ管理から設定してください）', '#c0392b'); return; }
     if (showStatus) setGasStatus('📥 機材マスタ取り込み中...', '#2980b9');
@@ -15304,24 +15055,6 @@ ${tableHTML}
       }
       return [...defaultEquipMaster];
     } catch { return [...defaultEquipMaster]; }
-  }
-
-  // 機材名リスト（ws_ の equip チェック済み × equip_master 名）。ダッシュボード用。
-  function getWsEquipNames(num) {
-    try {
-      const saved  = (typeof loadWS === 'function') ? loadWS(num) : {};
-      const equip  = saved.equip || {};
-      const master = (typeof loadEquipMaster === 'function') ? loadEquipMaster() : [];
-      const names = [];
-      master.forEach(item => {
-        const sv = equip[item.id];
-        if (sv && sv.checked) {
-          const q = (sv.qty !== undefined ? sv.qty : item.qty) || 1;
-          names.push(item.name + (Number(q) > 1 ? ' ×' + q : ''));
-        }
-      });
-      return names;
-    } catch (e) { return []; }
   }
 
   // ダッシュボード対象＝撮影日が未来・未請求・撮影日程ありの案件（初日昇順）
@@ -16811,7 +16544,6 @@ ${tableHTML}
     _invIsNew = false; _setInvOrderField(num, false); // 既存書類は受注番号を表示のみ
     const memoEl1 = document.getElementById('inv-screen-memo');
     if (memoEl1) memoEl1.value = savedStatus.memo || '';
-    renderInvOutsourceRows(_loadInvOutsourceList(savedStatus));
 
     // 保存済み明細があればそれを描画して終了（値引きも復元）
     if (hasSavedDoc) {
@@ -17918,7 +17650,7 @@ ${tableHTML}
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ws-card-billbtn';
-    btn.textContent = '🧾 請求書を発行して案件終了';
+    btn.textContent = '🧾 請求書を発行（案件終了）';
     btn.style.cssText = "display:block;width:100%;margin-top:8px;font-family:'DotGothic16',monospace;font-size:11px;background:#27ae60;border:2px solid #1a7a40;color:white;padding:7px 8px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;";
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
