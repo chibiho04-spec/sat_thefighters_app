@@ -399,6 +399,9 @@
     .api-bar button       { font-size: 14px !important; padding: 4px 10px !important; }
     #font-scale-label     { font-size: 12px !important; min-width: 40px !important; padding: 0 4px !important; }
     .speech-bubble        { font-size: 14px !important; line-height: 1.5 !important; }
+    /* スマホでは「⏏退出」が画面外に見切れるため、PC専用のダッシュボードと時計を隠して幅を確保（2026-07-11） */
+    #dash-open-btn        { display: none !important; }  /* ダッシュボードはPCモニター用機能 */
+    #clock                { display: none !important; }  /* 時刻はOSのステータスバーで見える */
   }
 
   .char-name-tag {
@@ -3713,7 +3716,7 @@
       <span id="font-scale-label" style="color:#ffe;font-family:'DotGothic16',monospace;font-size:20px;padding:0 6px;min-width:56px;text-align:center;">100%</span>
       <button onclick="changeFontScale(0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:30px;padding:6px 14px;cursor:pointer;font-weight:bold;" title="文字を大きく">A+</button>
     </div>
-    <button onclick="openDashboard()" style="background:#16243a;border:1px solid #2980b9;color:#cfe0f2;font-family:'DotGothic16',monospace;font-size:18px;padding:6px 12px;border-radius:4px;cursor:pointer;margin-right:6px;white-space:nowrap;" title="進行中ダッシュボード（モニター用）">🖥 ダッシュボード</button>
+    <button id="dash-open-btn" onclick="openDashboard()" style="background:#16243a;border:1px solid #2980b9;color:#cfe0f2;font-family:'DotGothic16',monospace;font-size:18px;padding:6px 12px;border-radius:4px;cursor:pointer;margin-right:6px;white-space:nowrap;" title="進行中ダッシュボード（モニター用）">🖥 ダッシュボード</button>
     <button onclick="openSettings()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-family:'DotGothic16',monospace;font-size:22px;padding:6px 14px;border-radius:4px;cursor:pointer;margin-right:6px;" title="データ管理">データ管理</button>
     <button onclick="doLogout()" style="background:rgba(255,100,100,0.25);border:1px solid rgba(255,150,150,0.4);color:#ffcccc;font-family:'DotGothic16',monospace;font-size:22px;padding:6px 14px;border-radius:4px;cursor:pointer;margin-right:8px;" title="ログアウト">⏏ 退出</button>
     <div class="api-label" id="clock"></div>
@@ -5083,14 +5086,14 @@
         </button>
         <div id="invd-issue-note" class="wsd-save-note" style="display:none;">発行すると「請求済」になり、ホームの「終了案件」へ移動します</div>
       </div>
-      <div style="padding:0 12px 8px;">
-        <button id="inv-cancel-btn" class="inv-cancel-issue-btn" onclick="cancelFromScreen()">
+      <!-- 危険ゾーン：発行取消・削除は通常操作（保存/プレビュー）と見た目を分けて誤タップを防ぐ（2026-07-11） -->
+      <div style="margin:18px 12px 20px;padding:10px 12px 12px;border:2px dashed #e74c3c;border-radius:6px;background:#fff8f7;">
+        <div style="font-family:'DotGothic16',monospace;font-size:11px;color:#c0392b;font-weight:bold;letter-spacing:1px;margin-bottom:8px;">⚠ 取り扱い注意（元に戻す・削除）</div>
+        <button id="inv-cancel-btn" class="inv-cancel-issue-btn" onclick="cancelFromScreen()" style="margin-bottom:8px;">
           ↩ 発行を取り消す
         </button>
-      </div>
-      <div style="padding:0 12px 20px;">
         <button onclick="deleteInvDoc()"
-          style="width:100%;font-family:'DotGothic16',monospace;font-size:14px;background:#c0392b;color:white;border:2px solid #7b241c;box-shadow:3px 3px 0 #7b241c;border-radius:3px;padding:10px 0;cursor:pointer;letter-spacing:1px;">
+          style="width:100%;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#c0392b;border:2px solid #c0392b;border-radius:3px;padding:9px 0;cursor:pointer;letter-spacing:1px;">
           🗑 この案件を会計室から削除
         </button>
       </div>
