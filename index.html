@@ -11177,48 +11177,19 @@
   // ===== 印刷プレビュー =====
   let _currentPreviewType = 'invoice';
 
-  // 請求書/見積書/納品書を、フッター（合計・振込先）が単独で次ページに
-  // 取り残されないよう空行数を自動調整して #print-content に描画する。
-  // A4(余白15mm)＝本文幅180mm・本文高267mm を1ページとして計算（executePrint と同じ）。
+  // 請求書/見積書/納品書を #print-content に描画する。
+  // 【2026-07-11 ユーザー要望】空行の自動追加を廃止。実際の明細だけで描画し、
+  //   ・最低10行への水増し
+  //   ・フッター（合計・振込先）孤立回避のための空行追加
+  //   の両方を行わない。項目が増えたときに不要な空行で2ページ化するのを防ぐ。
+  //   （3書類ともこの関数を通るので一括で無効化される。フッターは #doc-footer-block の
+  //    page-break-inside:avoid で分割されずまとまって送られる。）
   function _renderDocBalanced(type) {
     const content = document.getElementById('print-content');
     if (!content) return;
-    content.style.transform = '';            // 前回の縮小スケールを解除（計測を実寸で行う）
+    content.style.transform = '';            // 前回の縮小スケールを解除
     content.style.marginBottom = '';
-    const PAGE_MM = 297, MARGIN_MM = 15, MIN_TAIL = 3;
-    const measure = (E) => {
-      content.innerHTML = buildDocHTML(type, E);
-      const pxPerMm = content.offsetWidth / 210;
-      const pageH   = pxPerMm * (PAGE_MM - MARGIN_MM * 2);
-      if (!pageH) return null;
-      const padTop  = parseFloat(getComputedStyle(content).paddingTop || '0');
-      const areaTop = content.getBoundingClientRect().top + padTop;
-      const footer  = content.querySelector('#doc-footer-block');
-      if (!footer) return null;
-      const fr = footer.getBoundingClientRect();
-      const footerTopY = fr.top - areaTop;
-      const pageOfFooter = Math.floor((footerTopY + 0.5) / pageH);
-      const yInPage = footerTopY - pageOfFooter * pageH;
-      const footerFits = (yInPage + fr.height) <= pageH + 2;
-      let rowsAbove = 0;
-      content.querySelectorAll('tbody tr').forEach(r => {
-        const ry = r.getBoundingClientRect().top - areaTop;
-        if (Math.floor((ry + 0.5) / pageH) === pageOfFooter && ry < footerTopY - 1) rowsAbove++;
-      });
-      return { pageOfFooter, footerFits, rowsAbove };
-    };
-    // 実明細数を数えて開始の空行数を決める（従来どおり最低10行）
-    measure(0);
-    const realRows = content.querySelectorAll('tbody tr').length;
-    let E = Math.max(0, 10 - realRows), guard = 0, m = null;
-    while (guard++ < 80) {
-      m = measure(E);
-      if (!m) break;
-      if (m.pageOfFooter === 0 && m.footerFits) break;          // 1ページに収まった
-      if (m.footerFits && m.rowsAbove >= MIN_TAIL) break;       // フッターのページに項目行が十分ある＝孤立でない
-      E++;                                                       // 空行を足してバランスを取る
-    }
-    // 最終描画は measure() 内で完了済み
+    content.innerHTML = buildDocHTML(type, 0); // 空行ゼロ（水増しなし）
   }
 
   function openPrintPreview(type) {
