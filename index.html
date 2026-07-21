@@ -3710,7 +3710,7 @@
   </div>
   <div class="api-bar">
     <div class="api-dot" id="api-dot"></div>
-    <div class="api-label" id="api-label" onclick="openSettings()" title="同期の状態（クリックでデータ管理）" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;cursor:pointer;">Google Sheets API: <span id="api-status-text">接続済み</span></div>
+    <div class="api-label" id="api-label" onclick="openSettings()" title="同期の状態（クリックでデータ管理）" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;cursor:pointer;">☁ 同期: <span id="api-status-text">接続済み</span></div>
     <div style="display:inline-flex;align-items:center;gap:2px;margin-right:8px;border:1px solid rgba(255,255,255,0.3);border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.10);">
       <button onclick="changeFontScale(-0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:26px;padding:6px 14px;cursor:pointer;font-weight:bold;" title="文字を小さく">A−</button>
       <span id="font-scale-label" style="color:#ffe;font-family:'DotGothic16',monospace;font-size:20px;padding:0 6px;min-width:56px;text-align:center;">100%</span>
@@ -4129,16 +4129,17 @@
             <span style="flex:1;"><span style="font-size:1.2em;">売</span>上表<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">請求書データから売上集計</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
-          <button onclick="openOrderNumEditScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#8e44ad 0%,#6c3483 100%);border:3px solid #5b2c6f;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #5b2c6f;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #5b2c6f;letter-spacing:2px;">
-            <span style="font-size:32px;line-height:1;">🔢</span>
-            <span style="flex:1;"><span style="font-size:1.2em;">受</span>注番号の変更<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">案件・請求書の番号を後から変更</div></span>
-            <span style="font-size:23px;">▶</span>
-          </button>
-          <button onclick="openDupCleanupScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#e67e22 0%,#b3650f 100%);border:3px solid #7e4906;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #7e4906;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #7e4906;letter-spacing:2px;">
-            <span style="font-size:32px;line-height:1;">🔁</span>
-            <span style="flex:1;"><span style="font-size:1.2em;">重</span>複の整理<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">同じ内容が二重計上されていないか確認・整理</div></span>
-            <span style="font-size:23px;">▶</span>
-          </button>
+          <!-- 低頻度のメンテ操作は小型セカンダリ枠に格下げ（視覚階層づけ・2026-07-11） -->
+          <div style="display:flex;gap:10px;">
+            <button onclick="openOrderNumEditScreen()" title="案件・請求書の番号を後から変更"
+              style="flex:1;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#6c3483;border:2px solid #8e44ad;border-radius:5px;padding:11px 6px;cursor:pointer;box-shadow:0 2px 0 #5b2c6f;white-space:nowrap;">
+              🔢 受注番号の変更
+            </button>
+            <button onclick="openDupCleanupScreen()" title="同じ内容が二重計上されていないか確認・整理"
+              style="flex:1;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#b3650f;border:2px solid #e67e22;border-radius:5px;padding:11px 6px;cursor:pointer;box-shadow:0 2px 0 #7e4906;white-space:nowrap;">
+              🔁 重複の整理
+            </button>
+          </div>
         </div>
 
       </div>
@@ -4146,38 +4147,6 @@
     </div><!-- /tab-1 -->
 
     <!-- ========== TAB 2: スケジュール ========== -->
-    <div id="tab-2" class="tab-panel" style="display:none;">
-
-      <!-- 月カレンダーヘッダー -->
-      <div style="background:#2c3e50;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-        <button onclick="scheduleChangeMonth(-1)" style="font-family:'DotGothic16',monospace;font-size:13px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;">◀</button>
-        <div id="sch-month-label" style="font-size:14px;color:white;letter-spacing:2px;"></div>
-        <button onclick="scheduleChangeMonth(1)" style="font-family:'DotGothic16',monospace;font-size:13px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:4px 10px;border-radius:3px;cursor:pointer;">▶</button>
-      </div>
-
-      <!-- 曜日ヘッダー -->
-      <div class="sch-dow-row">
-        <div class="sch-dow sun">日</div>
-        <div class="sch-dow">月</div><div class="sch-dow">火</div>
-        <div class="sch-dow">水</div><div class="sch-dow">木</div>
-        <div class="sch-dow">金</div>
-        <div class="sch-dow sat">土</div>
-      </div>
-
-      <!-- カレンダーグリッド -->
-      <div id="sch-grid" class="sch-grid"></div>
-
-      <!-- 選択日の案件リスト -->
-      <div id="sch-day-panel" style="display:none;border-top:2px solid var(--panel-border);">
-        <div class="wsd-section-head wsd-sec-blue" style="display:flex;justify-content:space-between;align-items:center;">
-          <span id="sch-day-label">案件</span>
-          <button onclick="document.getElementById('sch-day-panel').style.display='none'"
-            style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:2px 8px;border-radius:2px;cursor:pointer;">✕ 閉じる</button>
-        </div>
-        <div id="sch-day-list" style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;background:var(--panel-bg);"></div>
-      </div>
-
-    </div><!-- /tab-2 -->
 
     <!-- ========== TAB 3: 管理室 ========== -->
     <div id="tab-3" class="tab-panel" style="display:none;">
@@ -4962,11 +4931,11 @@
               <div id="inv-order-edit" style="display:none;align-items:center;gap:4px;">
                 <div id="inv-order-prefix-group" style="display:inline-flex;gap:2px;">
                   <button type="button" class="inv-order-pfx-btn" data-prefix="T" onclick="selectInvOrderPrefix('T')" title="技術部（撮影・音声）"
-                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 8px;border-radius:3px;cursor:pointer;">T</button>
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">T 技術</button>
                   <button type="button" class="inv-order-pfx-btn" data-prefix="E" onclick="selectInvOrderPrefix('E')" title="編集"
-                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 8px;border-radius:3px;cursor:pointer;">E</button>
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
                   <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
-                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 8px;border-radius:3px;cursor:pointer;">P</button>
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
                 </div>
                 <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
                   style="width:74px;font-family:'DotGothic16',monospace;font-size:12px;border:1px solid #aaa;border-radius:3px;padding:2px 6px;text-align:right;">
@@ -6226,11 +6195,11 @@
           <label class="wsd-label" style="white-space:nowrap;">受注番号</label>
           <div id="np-prefix-group" style="display:inline-flex;gap:4px;">
             <button type="button" class="np-prefix-btn selected" data-prefix="T" onclick="selectOrderPrefix('T')" title="技術部（撮影・音声）"
-              style="font-family:'DotGothic16',monospace;font-size:14px;background:#27ae60;color:white;border:2px solid #1a7a40;padding:5px 14px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;">T</button>
+              style="font-family:'DotGothic16',monospace;font-size:14px;background:#27ae60;color:white;border:2px solid #1a7a40;padding:5px 10px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;white-space:nowrap;">T 技術</button>
             <button type="button" class="np-prefix-btn" data-prefix="E" onclick="selectOrderPrefix('E')" title="編集"
-              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 14px;border-radius:3px;cursor:pointer;">E</button>
+              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
             <button type="button" class="np-prefix-btn" data-prefix="P" onclick="selectOrderPrefix('P')" title="制作（演出）"
-              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 14px;border-radius:3px;cursor:pointer;">P</button>
+              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <input id="np-num" class="wsd-input" type="number" style="width:90px;"
@@ -8525,8 +8494,6 @@
   setInterval(updateClock, 1000);
 
   // ===== スケジュール =====
-  let schYear  = new Date().getFullYear();
-  let schMonth = new Date().getMonth(); // 0-based
 
   // wsDataから日付をパースして案件を返す
   function getEventsForDate(y, m, d) {
@@ -8542,123 +8509,6 @@
       }
     });
     return results;
-  }
-
-  function renderSchedule() {
-    const label = document.getElementById('sch-month-label');
-    if (!label) return;
-    label.textContent = `${schYear}年 ${schMonth + 1}月`;
-
-    const grid  = document.getElementById('sch-grid');
-    grid.innerHTML = '';
-
-    const firstDay = new Date(schYear, schMonth, 1).getDay();
-    const lastDate = new Date(schYear, schMonth + 1, 0).getDate();
-    const today    = new Date();
-    const typeMap  = { 'TV':'type-tv','CM':'type-cm','PV':'type-pv','イベント':'type-ev','WEB':'type-web' };
-
-    // 前月の空マス
-    for (let i = 0; i < firstDay; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'sch-cell other-month';
-      const prevLast = new Date(schYear, schMonth, 0).getDate();
-      const pDay = prevLast - firstDay + i + 1;
-      cell.innerHTML = `<div class="sch-day-num">${pDay}</div>`;
-      grid.appendChild(cell);
-    }
-
-    // 当月
-    for (let d = 1; d <= lastDate; d++) {
-      const dow   = new Date(schYear, schMonth, d).getDay();
-      const isToday = schYear === today.getFullYear() && schMonth === today.getMonth() && d === today.getDate();
-      const cell  = document.createElement('div');
-      const dowClass = dow === 0 ? ' sun' : dow === 6 ? ' sat' : '';
-      cell.className = `sch-cell${dowClass}${isToday ? ' today' : ''}`;
-      cell.dataset.day = d;
-
-      const numEl = document.createElement('div');
-      numEl.className = 'sch-day-num';
-      numEl.textContent = d;
-      cell.appendChild(numEl);
-
-      const events = getEventsForDate(schYear, schMonth, d);
-      if (events.length) {
-        const wrap = document.createElement('div');
-        wrap.className = 'sch-dot-wrap';
-        events.slice(0, 2).forEach(ev => {
-          const dot = document.createElement('div');
-          // 自分が関わる案件は紫、それ以外はグレー
-          if (isUserInEvent(ev)) {
-            dot.className = 'sch-dot type-web';
-          } else {
-            dot.className = 'sch-dot';
-            dot.style.background = '#aaa';
-          }
-          dot.textContent = ev.title.slice(0, 5);
-          wrap.appendChild(dot);
-        });
-        if (events.length > 2) {
-          const more = document.createElement('div');
-          more.className = 'sch-dot';
-          more.style.background = '#999';
-          more.textContent = `+${events.length - 2}`;
-          wrap.appendChild(more);
-        }
-        cell.appendChild(wrap);
-      }
-
-      cell.onclick = () => showSchDay(d, events);
-      grid.appendChild(cell);
-    }
-
-    // 次月の空マス（6行になるよう埋める）
-    const total = firstDay + lastDate;
-    const rem   = total % 7 === 0 ? 0 : 7 - (total % 7);
-    for (let i = 1; i <= rem; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'sch-cell other-month';
-      cell.innerHTML = `<div class="sch-day-num">${i}</div>`;
-      grid.appendChild(cell);
-    }
-  }
-
-  function scheduleChangeMonth(delta) {
-    schMonth += delta;
-    if (schMonth < 0)  { schMonth = 11; schYear--; }
-    if (schMonth > 11) { schMonth = 0;  schYear++; }
-    document.getElementById('sch-day-panel').style.display = 'none';
-    renderSchedule();
-  }
-
-  function showSchDay(d, events) {
-    // 選択セルをハイライト
-    document.querySelectorAll('.sch-cell').forEach(c => c.classList.remove('selected'));
-    [...document.querySelectorAll('.sch-cell')].find(c => c.dataset.day == d)?.classList.add('selected');
-
-    const panel = document.getElementById('sch-day-panel');
-    const label = document.getElementById('sch-day-label');
-    const list  = document.getElementById('sch-day-list');
-    label.textContent = `${schMonth + 1}月${d}日の案件`;
-    list.innerHTML = '';
-
-    if (events.length === 0) {
-      list.innerHTML = '<div style="font-size:12px;color:#aaa;text-align:center;padding:10px;">この日の案件はありません</div>';
-    } else {
-      events.forEach(ev => {
-        const typeColor = { 'TV':'#2980b9','CM':'#e74c3c','PV':'#27ae60','イベント':'#e67e22','WEB':'#8e44ad' };
-        const card = document.createElement('div');
-        card.className = 'sch-event-card';
-        card.style.borderLeftColor = typeColor[ev.type] || '#8e44ad';
-        card.innerHTML = `
-          <div class="sch-event-title">${escapeHtml(ev.num)} ${escapeHtml(ev.title)}</div>
-          <div class="sch-event-meta">🏢 ${escapeHtml(ev.company)}　📺 ${escapeHtml(ev.type)}　🎯 ${escapeHtml(ev.orderType)}</div>
-          ${ev.crewC ? `<div class="sch-event-meta" style="margin-top:2px;">👤 C: ${escapeHtml(ev.crewC)}${ev.crewA ? ' / A: '+escapeHtml(ev.crewA) : ''}</div>` : ''}
-        `;
-        card.onclick = () => { setTab(0); setTimeout(() => openWS(ev.num), 300); };
-        list.appendChild(card);
-      });
-    }
-    panel.style.display = 'block';
   }
 
   // タブ切り替え時にスケジュールを描画
@@ -8817,7 +8667,6 @@
     });
     if (idx === 0) { renderHomeCal(); adjustHomeCalScale(); }
     if (idx === 1) refreshHomeView(true);
-    if (idx === 2) renderSchedule();
     if (idx === 3) renderInvCards();
     if (idx === 5) { initSumoSelects(); adjustSumoScale(); }
     // SUMO以外へ移動したら残留アニメ（座布団・力士）を掃除
@@ -9099,8 +8948,6 @@
     document.querySelectorAll('#home-sch-grid .sch-cell').forEach(c => c.classList.remove('selected'));
   }
 
-  // スケジュール初期描画（タブが開かれたとき用に準備）
-  // ※ tab-2が表示されたときに呼ばれるので起動時は不要
 
   // ホーム画面から直接 見積書・請求書 作成画面を開く
   function openNewEstimate() {
