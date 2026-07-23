@@ -3865,6 +3865,8 @@
 
     <!-- 部署(T/E/P)フィルター：カレンダー・進行状況カード・受注ノートで共有（2026-07-11） -->
     <div class="dept-toggle-bar" style="margin:8px 15px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+    <!-- スタッフ絞り込み（ホームのみ・未選択＝全員・2026-07-12） -->
+    <div class="staff-toggle-bar" style="margin:2px 15px 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"></div>
 
     <!-- ホームスケジュール（スケジュールタブと同じ表示） -->
     <div id="home-cal-section" style="margin:4px 15px 12px;">
@@ -8853,7 +8855,7 @@
       cell.appendChild(numEl);
 
       const allEvents = getEventsForDate(homeSchYear, homeSchMonth, d);
-      const events = allEvents.filter(ev => deptPass(ev.num)); // 部署(T/E/P)フィルター
+      const events = allEvents.filter(ev => deptPass(ev.num) && staffPass(ev.num)); // 部署＋スタッフ絞り込み
       if (events.length) {
         const wrap = document.createElement('div');
         wrap.className = 'sch-dot-wrap';
@@ -15427,6 +15429,40 @@ ${tableHTML}
             border:2px solid ${on ? d.color : '#c8ccd0'};background:${on ? d.color : '#eef0f2'};color:${on ? '#fff' : '#9aa0a6'};box-shadow:${on ? '0 2px 0 ' + d.color : 'none'};">${on ? '✓ ' : ''}${d.p} ${d.label}</button>`;
         }).join('');
     });
+    try { renderStaffToggles(); } catch (e) {}
+  }
+
+  // ===== スタッフ絞り込み（ホームのみ・2026-07-12）=====
+  // 未選択＝全員表示。名前をタップで「その人が関わる案件のみ」（複数選択はOR）。端末に記憶。
+  function getStaffFilter() {
+    try { const v = JSON.parse(localStorage.getItem('staff_filter') || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function staffPass(num) {
+    const sel = getStaffFilter();
+    if (!sel.length) return true; // 未選択＝全員
+    let on = []; try { on = _caseStaffNames(num) || []; } catch (e) { return true; }
+    return sel.some(n => on.indexOf(n) >= 0);
+  }
+  function toggleStaffHome(name) {
+    const sel = getStaffFilter();
+    const i = sel.indexOf(name);
+    if (i >= 0) sel.splice(i, 1); else sel.push(name);
+    try { localStorage.setItem('staff_filter', JSON.stringify(sel)); } catch (e) {}
+    try { const t0 = document.getElementById('tab-0'); if (t0 && t0.style.display !== 'none') sortWsCardsByDate(); } catch (e) {}
+    renderStaffToggles();
+  }
+  function renderStaffToggles() {
+    const sel = getStaffFilter();
+    const names = (typeof CREW_NAMES !== 'undefined') ? CREW_NAMES : [];
+    document.querySelectorAll('.staff-toggle-bar').forEach(bar => {
+      bar.innerHTML = `<span style="font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">スタッフで絞る<span style="color:#b0b6bb;">${sel.length ? '' : '（未選択＝全員）'}</span></span>` +
+        names.map(n => { const on = sel.indexOf(n) >= 0;
+          const col = (typeof _dashStaffColor === 'function') ? _dashStaffColor(n) : '#34495e';
+          return `<button type="button" onclick="toggleStaffHome('${n}')"
+            style="font-family:'DotGothic16',monospace;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;
+            border:2px solid ${on ? col : '#c8ccd0'};background:${on ? col : '#eef0f2'};color:${on ? '#fff' : '#9aa0a6'};box-shadow:${on ? '0 2px 0 ' + col : 'none'};">${on ? '✓ ' : ''}${n}</button>`;
+        }).join('');
+    });
   }
   // 1案件 → 表示用レコード（projects_saved + getWsDisplayData を流用）
   function _orderNoteRow(p) {
@@ -17453,7 +17489,7 @@ ${tableHTML}
     if (!container) return;
 
     // 既存のセクション/トグル/旧セパレータを除去
-    container.querySelectorAll('.ws-section-header, .ws-end-toggle, .ws-end-container, .ws-month-divider').forEach(el => el.remove());
+    container.querySelectorAll('.ws-section-header, .ws-end-toggle, .ws-end-container, .ws-month-divider, .ws-bill-month').forEach(el => el.remove());
 
     // ⚠️ 終了案件カードはパネル外の #ws-end-section に移動済みなので、
     //    そこからも収集しないと2回目以降の再描画で endSection.innerHTML='' により破棄されてしまう。
@@ -17482,7 +17518,7 @@ ${tableHTML}
     const finished = [];   // 案件終了（progress 4 / 請求書発行済み）
     cards.forEach(card => {
       const num = card.dataset.wsnum;
-      if (!deptPass(num)) { card.style.display = 'none'; return; } // 部署(T/E/P)フィルターで非表示
+      if (!deptPass(num) || !staffPass(num)) { card.style.display = 'none'; return; } // 部署＋スタッフ絞り込みで非表示
       card.style.display = '';
       const p = calcWsProgress(num);
       if (p >= 4) finished.push(card);
