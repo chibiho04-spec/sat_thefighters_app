@@ -218,6 +218,7 @@ const USER_STAFF = {
 | media | メディア | ID | 既存 |
 | staff | スタッフ | キー | 既存 |
 | simpleWS | 簡易ワークシート | id | 2026-06-06 |
+| config | 設定 | キー | 2026-07-12（カスタム受注分類などの全端末共有設定。キー例: orderTypes） |
 
 ## 技術的注意点
 

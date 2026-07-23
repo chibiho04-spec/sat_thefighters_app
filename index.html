@@ -6293,16 +6293,8 @@
 
         <div class="wsd-field-row">
           <label class="wsd-label">🎯 受注分類</label>
-          <div class="np-btn-group" id="np-order-group">
-            <button class="np-select-btn" onclick="selectNp('order','撮影')">撮影</button>
-            <button class="np-select-btn" onclick="selectNp('order','編集')">編集</button>
-            <button class="np-select-btn" onclick="selectNp('order','撮影・編集')">撮影・編集</button>
-            <button class="np-select-btn" onclick="selectNp('order','プロデュース')">プロデュース</button>
-            <button class="np-select-btn" onclick="selectNp('order','企画・演出')">企画・演出</button>
-            <button class="np-select-btn" onclick="selectNp('order','スタッフ派遣')">スタッフ派遣</button>
-            <button class="np-select-btn" onclick="selectNp('order','機材レンタル')">機材レンタル</button>
-            <button class="np-select-btn" onclick="selectNp('order','スチール撮影')">スチール撮影</button>
-          </div>
+          <!-- 固定8種＋カスタム分類＋「＋追加」を _renderNpOrderButtons で動的生成（カスタムは全員に同期・2026-07-12） -->
+          <div class="np-btn-group" id="np-order-group"></div>
           <input id="np-order" class="wsd-input" style="margin-top:6px;" type="text" placeholder="または直接入力...">
         </div>
 
@@ -7253,7 +7245,8 @@
       if (_gasUrlOne()) {
         // 起動取り込み。結果を集めて同期状態（上部バー）に反映（合言葉エラー等を即表示）
         Promise.allSettled(SYNC_ENABLED.map(k => pullKind(k))).then(results => {
-          const errs = results.filter(r => r.status === 'rejected').map(r => String((r.reason && r.reason.message) || r.reason));
+          const errs = results.filter(r => r.status === 'rejected').map(r => String((r.reason && r.reason.message) || r.reason))
+            .filter(m => m.indexOf('unknown kind: config') < 0); // GAS再デプロイ前のconfig未対応は無視（2026-07-12）
           try { _noteSyncResult(errs); } catch (e) {}
         });
         // 作業日報から月間勤務時間・残業時間を取り込む（ログイン中ユーザーのみ）
@@ -11185,7 +11178,7 @@
           }
           if (res && res.ok) { pendingClear(item.kind, item.num); ok++; }
           else { fail++; }
-        } catch (e) { console.warn('retrySyncPending item failed', item, e); fail++; errs.push(String(e && e.message || e)); }
+        } catch (e) { console.warn('retrySyncPending item failed', item, e); fail++; const m = String(e && e.message || e); if (m.indexOf('unknown kind: config') < 0) errs.push(m); }
       }
     } finally { _retryingPending = false; }
     updatePendingDisplay();
@@ -11762,6 +11755,14 @@
       toRow: (rec) => _jsonToRow(rec, 'id', 'id'),
       fromRow: (row) => { const r = _jsonFromRow(row); r.id = String(row['id'] || r.id || ''); return r; },
       redraw: () => { try { _rerenderIfOpen('simple-ws-list-screen', renderSimpleWSList); } catch(e) {} }
+    },
+    config: { // 全端末共有の設定（カスタム受注分類など・2026-07-12）
+      keyField: 'キー', keyHeader: 'キー',
+      loadLocal: () => _loadConfigRecords(),
+      saveLocal: (list) => _saveConfigRecords(list),
+      toRow: (rec) => _jsonToRow(rec, 'キー', 'キー'),
+      fromRow: (row) => { const r = _jsonFromRow(row); r['キー'] = String(row['キー'] || r['キー'] || ''); return r; },
+      redraw: () => { try { _renderNpOrderButtons(); } catch(e) {} }
     }
   };
 
@@ -11862,7 +11863,7 @@
     try { refreshHomeView(true); } catch (e) {}
   }
 
-  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip', 'order', 'child', 'simpleWS']; // 配線済み kind
+  let SYNC_ENABLED = ['staff', 'invoice', 'client', 'product', 'media', 'equip', 'order', 'child', 'simpleWS', 'config']; // 配線済み kind
   function _gasUrlOne() { if (window.DEMO_MODE) return ''; return (localStorage.getItem('gas_url') || '').trim(); }
 
   async function pullKind(kind) {
@@ -11899,8 +11900,8 @@
     const url = _gasUrlOne();
     if (!url) { _setSyncStatus('fail', '同期URL未設定'); return { ok: false, reason: 'no-url' }; }
     let pulled = 0, pushed = 0; const errs = [];
-    for (const kind of SYNC_ENABLED) { try { const r = await pullKind(kind); pulled += (r.pulled || 0); } catch (e) { errs.push(String(e && e.message || e)); console.warn('pull', kind, e); } }
-    for (const kind of SYNC_ENABLED) { try { const r = await pushKind(kind); pushed += (r.updated || 0) + (r.added || 0); } catch (e) { errs.push(String(e && e.message || e)); console.warn('push', kind, e); } }
+    for (const kind of SYNC_ENABLED) { try { const r = await pullKind(kind); pulled += (r.pulled || 0); } catch (e) { const m = String(e && e.message || e); if (m.indexOf('unknown kind: config') < 0) errs.push(m); console.warn('pull', kind, e); } }
+    for (const kind of SYNC_ENABLED) { try { const r = await pushKind(kind); pushed += (r.updated || 0) + (r.added || 0); } catch (e) { const m = String(e && e.message || e); if (m.indexOf('unknown kind: config') < 0) errs.push(m); console.warn('push', kind, e); } }
     _noteSyncResult(errs);
     // ダッシュボードが開いていれば最新データで再描画
     try { const _d = document.getElementById('dashboard-screen'); if (_d && _d.classList.contains('dash-show')) renderDashboard(); } catch (e) {}
@@ -16175,6 +16176,58 @@ ${tableHTML}
     document.getElementById('np-num-preview').textContent = '→ ' + _npPrefix + next;
   }
 
+  // ===== カスタム受注分類（全端末共有・kind:config で同期・2026-07-12）=====
+  function _loadConfigRecords() { try { const v = JSON.parse(localStorage.getItem('app_config_records') || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function _saveConfigRecords(list) { try { localStorage.setItem('app_config_records', JSON.stringify(list || [])); } catch (e) {} }
+  function getCustomOrderTypes() {
+    const r = _loadConfigRecords().find(x => String(x['キー']) === 'orderTypes');
+    return (r && Array.isArray(r.list)) ? r.list : [];
+  }
+  function _saveCustomOrderTypes(list) {
+    const recs = _loadConfigRecords().filter(x => String(x['キー']) !== 'orderTypes');
+    const rec = { 'キー': 'orderTypes', list: list, _updatedAt: new Date().toISOString() };
+    recs.push(rec);
+    _saveConfigRecords(recs);
+    // 全員へ同期送信。失敗時は未送信キューに積んで自動再送（GAS未対応の間は再デプロイ後に反映）
+    try {
+      if (_gasUrlOne() && typeof pushKind === 'function') {
+        pushKind('config', [rec]).then(() => pendingClear('config', 'orderTypes')).catch(() => pendingAdd('config', 'orderTypes'));
+      } else { pendingAdd('config', 'orderTypes'); }
+    } catch (e) {}
+  }
+  const NP_ORDER_PRESETS = ['撮影','編集','撮影・編集','プロデュース','企画・演出','スタッフ派遣','機材レンタル','スチール撮影'];
+  function addCustomOrderType() {
+    let name = (prompt('新しい受注分類の名前（例：配信、MA など）\n※追加すると全員のボタンに同期されます') || '').trim();
+    if (!name) return;
+    name = name.replace(/[／<>"'`\\]/g, ''); // 区切り文字「／」とタグ・引用符は使用不可（保存形式と表示を壊すため）
+    if (!name) return;
+    if (name.length > 12) { alert('12文字以内にしてください'); return; }
+    const list = getCustomOrderTypes();
+    if (NP_ORDER_PRESETS.indexOf(name) >= 0 || list.indexOf(name) >= 0) { alert('「' + name + '」は既にあります'); return; }
+    list.push(name);
+    _saveCustomOrderTypes(list);
+    _renderNpOrderButtons();
+  }
+  function removeCustomOrderType(name) {
+    if (!confirm('追加した受注分類「' + name + '」を削除しますか？\n（全員のボタンからも消えます。登録済み案件のデータは変わりません）')) return;
+    _saveCustomOrderTypes(getCustomOrderTypes().filter(n => n !== name));
+    _renderNpOrderButtons();
+  }
+  // 受注分類ボタン群を描画：固定8種＋カスタム（✕付き）＋「＋追加」
+  function _renderNpOrderButtons() {
+    const g = document.getElementById('np-order-group');
+    if (!g) return;
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
+    const btn = v => `<button class="np-select-btn" onclick="selectNp('order','${v}')">${esc(v)}</button>`;
+    const custom = getCustomOrderTypes().map(v =>
+      `<span style="position:relative;display:inline-flex;">${btn(v)}` +
+      `<button type="button" title="この分類を削除（全員から消えます）" onclick="removeCustomOrderType('${v}')"
+        style="position:absolute;top:-7px;right:-7px;width:18px;height:18px;line-height:1;border-radius:50%;border:1px solid #c0392b;background:#fff;color:#c0392b;font-size:10px;cursor:pointer;padding:0;">✕</button></span>`).join('');
+    g.innerHTML = NP_ORDER_PRESETS.map(btn).join('') + custom +
+      `<button type="button" onclick="addCustomOrderType()" title="受注分類を追加（全員に同期されます）"
+        style="font-family:'DotGothic16',monospace;font-size:13px;padding:6px 12px;border:2px dashed #27ae60;background:#f2fbf5;color:#1a7a40;border-radius:4px;cursor:pointer;">＋ 追加</button>`;
+  }
+
   // 受付担当ボタンを全社員(CREW_NAMES)から生成（森田・上地・松田含む・今後の増員に自動追従）
   function _renderNpStaffButtons() {
     const g = document.getElementById('np-staff-group');
@@ -16185,6 +16238,7 @@ ${tableHTML}
 
   function openNewProject() {
     _renderNpStaffButtons(); // 受付担当を全社員から描画
+    _renderNpOrderButtons(); // 受注分類（固定＋カスタム＋追加ボタン）を描画
     selectOrderPrefix('T'); // デフォルトは T（番号もリセット）
 
     // 取引先オートコンプリート（初回のみアタッチ）
