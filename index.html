@@ -8863,8 +8863,7 @@
           const dot = document.createElement('div');
           dot.className = 'sch-dot';
           dot.style.background = _onPrefixColor(ev.num); // 部署色（T青/E緑/P紫）
-          // 自分が参加している案件は白枠でさらに強調
-          if (isUserInEvent(ev)) { dot.style.border = '2px solid #fff'; dot.style.boxShadow = '0 0 0 1.5px ' + _onPrefixColor(ev.num); }
+          // 自分の案件の白枠強調は廃止（スタッフ名フィルターで代替・2026-07-12）
           dot.textContent = ev.title.slice(0, 5);
           wrap.appendChild(dot);
         });
