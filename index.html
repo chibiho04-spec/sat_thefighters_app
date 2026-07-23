@@ -4955,6 +4955,8 @@
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
                   <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
+                  <button type="button" class="inv-order-pfx-btn" data-prefix="B" onclick="selectInvOrderPrefix('B')" title="ボルト"
+                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">B ボルト</button>
                 </div>
                 <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
                   style="width:74px;font-family:'DotGothic16',monospace;font-size:12px;border:1px solid #aaa;border-radius:3px;padding:2px 6px;text-align:right;">
@@ -6227,6 +6229,8 @@
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
             <button type="button" class="np-prefix-btn" data-prefix="P" onclick="selectOrderPrefix('P')" title="制作（演出）"
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
+            <button type="button" class="np-prefix-btn" data-prefix="B" onclick="selectOrderPrefix('B')" title="ボルト"
+              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">B ボルト</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <input id="np-num" class="wsd-input" type="number" style="width:90px;"
@@ -6234,7 +6238,7 @@
             <span id="np-num-preview" style="font-size:12px;color:#888;">→ T26001</span>
           </div>
           <div style="flex-basis:100%;font-size:11px;color:#888;line-height:1.5;">
-            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）　※番号は年ごとに自動でリセット
+            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）／<b style="color:#e67e22;">B</b>＝ボルト　※番号は年ごとに自動でリセット
           </div>
         </div>
         <div class="wsd-field-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px;">
@@ -9056,7 +9060,7 @@
   // 「受注番号の後変更」の対象にする番号か。受注番号(T/E/P)・旧INV-請求書・退避中の0000系のみ。
   // 納品書(DLV-)・見積書(EST-)は別系統なので対象外。
   function _isRenumberable(num) {
-    return /^([TEP]\d|INV-\d|0\d{3})/.test(String(num || ''));
+    return /^([TEPB]\d|INV-\d|0\d{3})/.test(String(num || ''));
   }
 
   // 受注番号の入力ダイアログ（新規案件と同じ T/E/P ボタン＋番号＋プレビュー）。
@@ -9064,7 +9068,7 @@
   function _orderNumInputDialog(currentNum) {
     return new Promise(resolve => {
       const cur = String(currentNum || '');
-      const m = cur.match(/^([TEP])(\d+)$/i);
+      const m = cur.match(/^([TEPB])(\d+)$/i);
       let prefix = m ? m[1].toUpperCase() : 'T';
       const digits0 = m ? m[2] : (cur.replace(/[^0-9]/g, ''));
       const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
@@ -9077,13 +9081,13 @@
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
             '<span style="font-size:13px;color:#888;">受注番号</span>' +
             '<div id="_oni-prefix" style="display:inline-flex;gap:3px;">' +
-              ['T','E','P'].map(p => '<button type="button" data-p="' + p + '" style="font-family:inherit;font-size:14px;font-weight:bold;padding:5px 13px;border-radius:3px;cursor:pointer;border:2px solid #27ae60;background:#fff;color:#27ae60;">' + p + '</button>').join('') +
+              ['T','E','P','B'].map(p => '<button type="button" data-p="' + p + '" style="font-family:inherit;font-size:14px;font-weight:bold;padding:5px 13px;border-radius:3px;cursor:pointer;border:2px solid #27ae60;background:#fff;color:#27ae60;">' + p + '</button>').join('') +
             '</div>' +
             '<input id="_oni-num" type="text" inputmode="numeric" value="' + esc(digits0) + '" placeholder="26050" ' +
               'style="width:96px;font-family:inherit;font-size:15px;border:1px solid #aaa;border-radius:3px;padding:5px 8px;text-align:right;">' +
             '<span style="font-size:13px;color:#555;">→ <b id="_oni-preview" style="color:#8e44ad;font-size:16px;">—</b></span>' +
           '</div>' +
-          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）</div>' +
+          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）／B=ボルト</div>' +
           '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
             '<button id="_oni-cancel" type="button" style="font-family:inherit;font-size:13px;background:#eee;color:#555;border:2px solid #bbb;border-radius:5px;padding:8px 16px;cursor:pointer;">キャンセル</button>' +
             '<button id="_oni-ok" type="button" style="font-family:inherit;font-size:14px;font-weight:bold;background:#8e44ad;color:#fff;border:2px solid #6c3483;border-radius:5px;padding:8px 20px;cursor:pointer;">変更する</button>' +
@@ -9219,7 +9223,7 @@
     if (!newNum) { alert('番号を入力してください。'); return null; }
     if (newNum === oldNum) return null;
     // 形式チェック：受注番号は接頭辞(T/E/P)＋数字のみ許可（「1」等の不正番号を防止）
-    if (!/^[TEP]\d+$/.test(newNum)) { alert('受注番号は T/E/P ＋ 数字の形式にしてください（例 T26050）。'); return null; }
+    if (!/^[TEPB]\d+$/.test(newNum)) { alert('受注番号は T/E/P/B ＋ 数字の形式にしてください（例 T26050）。'); return null; }
 
     // 請求済み/入金済み確認
     try {
@@ -9430,7 +9434,7 @@
     const ro       = document.getElementById('inv-order-readonly');
     const input    = document.getElementById('inv-order-num');
     if (!editWrap || !ro || !input) return;
-    const m = String(num || '').match(/^([TEP])(\d+)$/i);
+    const m = String(num || '').match(/^([TEPB])(\d+)$/i);
     if (editable && m) {
       editWrap.style.display = 'flex';
       ro.style.display = 'none';
@@ -9650,7 +9654,7 @@
       // 2) 最新を取り込み（相手の num はそのまま保持される＝相手データ非破壊）
       await Promise.all([ pullKind('order').catch(() => {}), pullKind('invoice').catch(() => {}) ]);
       // 3) 空き番号を採り、退避した「自分の内容」を新番号で保存＋押し直し
-      const pfx = (String(num).match(/^[TEP]/i) || ['T'])[0].toUpperCase();
+      const pfx = (String(num).match(/^[TEPB]/i) || ['T'])[0].toUpperCase();
       const free = pfx + getNextOrderNum(pfx);
       try { const idn = document.getElementById('inv-detail-num'); if (idn && idn.textContent === num) idn.textContent = free; } catch (_) {}
       if (rawMine !== null) {
@@ -9688,7 +9692,7 @@
       // 3) 最新を取り込み
       await Promise.all([ pullKind('order').catch(() => {}), pullKind('invoice').catch(() => {}) ]);
       // 4) 空き番号を採り、退避した「自分の内容」を新番号で登録＋押し直し
-      const pfx = (String(num).match(/^[TEP]/i) || ['T'])[0].toUpperCase();
+      const pfx = (String(num).match(/^[TEPB]/i) || ['T'])[0].toUpperCase();
       const free = pfx + getNextOrderNum(pfx);
       if (mine) {
         mine.num = free; mine._updatedAt = new Date().toISOString();
@@ -10012,7 +10016,7 @@
     }
     // 新規の単独書類：受注番号の妥当性と重複をチェック
     if (_invIsNew) {
-      if (!/^[TEP]\d+$/i.test(num)) {
+      if (!/^[TEPB]\d+$/i.test(num)) {
         alert('受注番号を入力してください（例：T26046）。');
         return;
       }
@@ -10025,7 +10029,7 @@
         _verifyOrderNumFreeRemote(num, _invOrderPrefix).then(chk => {
           if (!chk.ok) {
             const inp = document.getElementById('inv-order-num');
-            if (inp) { inp.value = chk.free.replace(/^[TEP]/i, ''); _applyInvOrderNum(); }
+            if (inp) { inp.value = chk.free.replace(/^[TEPB]/i, ''); _applyInvOrderNum(); }
             alert(`受注番号「${num}」は他の端末で既に使われています。\n空いている「${chk.free}」に自動変更しました。\n内容を確認して、もう一度「保存」を押してください。`);
           } else {
             _invRemoteChecked = true;
@@ -13444,7 +13448,7 @@
       Object.keys(localStorage).forEach(k => {
         if (k.indexOf('inv_') !== 0) return;
         const num = k.slice(4);
-        if (!/^(INV-\d|[TEP]\d|0\d{3})/.test(num)) return; // INV-/T/E/P受注番号/退避中の0000系のみ（EST-/DLV-は除外）
+        if (!/^(INV-\d|[TEPB]\d|0\d{3})/.test(num)) return; // INV-/T/E/P受注番号/退避中の0000系のみ（EST-/DLV-は除外）
         if (seen.has(num)) return; seen.add(num);
         // 削除済みは除外：単独請求書の削除(deleted_inv)に加え、ワークシートから削除した案件(deletedWS)の
         // 残存 inv_ レコードも除外する（削除した古い案件が売上表/PDFに漏れ出す不具合の対策・2026-07-08）
@@ -15402,27 +15406,28 @@ ${tableHTML}
     if (p === 'T') return '#2980b9';
     if (p === 'E') return '#27ae60';
     if (p === 'P') return '#8e44ad';
+    if (p === 'B') return '#e67e22';
     return '#7f8c8d';
   }
 
   // ===== 部署(T/E/P)フィルター：ホーム・カレンダー・受注ノートで共有（2026-07-11）=====
-  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9', dark:'#1a5c8a' }, { p:'E', label:'編集', color:'#27ae60', dark:'#1a7a40' }, { p:'P', label:'制作', color:'#8e44ad', dark:'#5b2c6f' } ];
+  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9', dark:'#1a5c8a' }, { p:'E', label:'編集', color:'#27ae60', dark:'#1a7a40' }, { p:'P', label:'制作', color:'#8e44ad', dark:'#5b2c6f' }, { p:'B', label:'ボルト', color:'#e67e22', dark:'#b9611b' } ];
   function getDeptFilter() {
     try { const v = JSON.parse(localStorage.getItem('dept_filter') || 'null');
-      if (v && typeof v === 'object') return { T: v.T !== false, E: v.E !== false, P: v.P !== false }; } catch (e) {}
-    return { T: true, E: true, P: true }; // 既定は全部ON
+      if (v && typeof v === 'object') return { T: v.T !== false, E: v.E !== false, P: v.P !== false, B: v.B !== false }; } catch (e) {}
+    return { T: true, E: true, P: true, B: true }; // 既定は全部ON
   }
   function _saveDeptFilter(f) { try { localStorage.setItem('dept_filter', JSON.stringify(f)); } catch (e) {} }
   // 受注番号がフィルターを通るか（頭文字がT/E/Pのとき該当ONのみ。非T/E/Pは常に表示）
   function deptPass(num) {
     const p = String(num || '').charAt(0).toUpperCase();
-    if (p !== 'T' && p !== 'E' && p !== 'P') return true;
+    if (p !== 'T' && p !== 'E' && p !== 'P' && p !== 'B') return true;
     return !!getDeptFilter()[p];
   }
   function toggleDept(p) {
     const f = getDeptFilter();
     f[p] = !f[p];
-    if (!f.T && !f.E && !f.P) f[p] = true; // 全部OFF（何も見えない）は防ぐ＝最後の1つは戻す
+    if (!f.T && !f.E && !f.P && !f.B) f[p] = true; // 全部OFF（何も見えない）は防ぐ＝最後の1つは戻す
     _saveDeptFilter(f);
     renderDeptToggles();
     try { const t0 = document.getElementById('tab-0'); if (t0 && t0.style.display !== 'none') sortWsCardsByDate(); } catch (e) {} // sortWsCardsByDate は内部で renderHomeCal も呼ぶ
@@ -15541,7 +15546,7 @@ ${tableHTML}
     try { renderDeptToggles(); } catch (e) {}
     // 並び替え
     const sort = document.getElementById('order-note-sort')?.value || 'tep';
-    const prefRank = n => { const p = String(n).charAt(0).toUpperCase(); return p === 'T' ? 0 : p === 'E' ? 1 : p === 'P' ? 2 : 9; };
+    const prefRank = n => { const p = String(n).charAt(0).toUpperCase(); return p === 'T' ? 0 : p === 'E' ? 1 : p === 'P' ? 2 : p === 'B' ? 3 : 9; };
     const cmpNum = (a, b) => String(a.num).localeCompare(String(b.num), 'ja', { numeric: true });
     if (sort === 'tep') {
       rows.sort((a, b) => (prefRank(a.num) - prefRank(b.num)) || cmpNum(a, b));
@@ -16398,7 +16403,7 @@ ${tableHTML}
         if (_bubble) _bubble.innerHTML = `🔄 受注番号を確認中…<span class="blink">█</span>`;
         const chk = await _verifyOrderNumFreeRemote(num, _npPrefix);
         if (!chk.ok) {
-          document.getElementById('np-num').value = chk.free.replace(/^[TEP]/i, '');
+          document.getElementById('np-num').value = chk.free.replace(/^[TEPB]/i, '');
           const _pv = document.getElementById('np-num-preview'); if (_pv) _pv.textContent = '→ ' + chk.free;
           if (_bubble) _bubble.innerHTML = `⚠️ 番号を変更しました<span class="blink">█</span>`;
           alert(`受注番号「${num}」は他の端末で既に使われています。\n空いている「${chk.free}」に自動変更しました。\n内容を確認して、もう一度「登録」を押してください。`);
