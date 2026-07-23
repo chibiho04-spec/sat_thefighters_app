@@ -163,9 +163,13 @@ const USER_STAFF = {
 起動時取り込み＋編集後自動送信＋失敗分は `sync_pending` キューで自動再送
 （起動時・5分ごと・ネット復帰時。2026-06-12追加）。GitHub Pages でホスティング済み。
 
+### Googleログイン（OAuth）— 開通済み・稼働中（2026-07 確認）
+- 実装済み＋Google Cloud Console のオリジン登録も完了済みで、スタッフはGoogleアカウントでログイン可能。
+  以前の「origin_mismatch でオリジン登録待ち」メモは**解消済み（陳腐化していたため削除）**。
+- スタッフ追加の手順：`STAFF_EMAILS`（index.html 7675付近）に `'メール': 'スタッフキー'` を1行足すだけ。
+  クライアントID＝index.html 7669（GOOGLE_CLIENT_ID）。PINログイン（`USERS`、既定PIN 0000）とは別系統で併用可。
+
 ### 将来の予定
-- Googleログイン（OAuth）— 実装済みだが Google Cloud Console の「承認済みJavaScript生成元」への
-  オリジン登録待ち（error 400: origin_mismatch）。ユーザー側の設定作業
 - 案件ステータス管理（受注中/撮影前/編集中/完了/請求済）— 未実装（請求済/入金済は実装済み）
 - SUMOトーナメント機能 — 未実装（単発対戦のみ実装済み）
 - 経験値・レベルアップシステム — 未実装（表示は固定値）
