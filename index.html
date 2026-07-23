@@ -15426,13 +15426,13 @@ ${tableHTML}
       bar.innerHTML = '<span style="display:inline-block;width:7em;flex-shrink:0;font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">部署で絞る</span>' +
         _DEPTS.map(d => { const on = f[d.p];
           // ゲーム風の立体ボタン（アプリ内の主要ボタンと同じ：濃い縁取り＋ズレ影＋グラデ＋文字影）
-          return `<button type="button" onclick="toggleDept('${d.p}')" title="${d.label}"
+          return `<button type="button" onclick="toggleDept('${d.p}')"
             onmousedown="this.style.transform='translate(2px,2px)';this.style.boxShadow='none';"
             onmouseup="this.style.transform='';this.style.boxShadow='';"
             onmouseleave="this.style.transform='';this.style.boxShadow='';"
             style="font-family:'DotGothic16',monospace;font-size:15px;padding:8px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;letter-spacing:1px;flex:1;max-width:140px;
             ${on
-              ? `border:3px solid ${d.dark};background:linear-gradient(180deg,${d.color} 0%,${d.dark} 100%);color:#fff;text-shadow:1px 1px 0 ${d.dark};box-shadow:3px 3px 0 ${d.dark};`
+              ? `border:3px solid ${d.dark};background:${d.color};color:#fff;text-shadow:1px 1px 0 ${d.dark};box-shadow:3px 3px 0 ${d.dark};`
               : `border:3px solid #c8ccd0;background:#eef0f2;color:#9aa0a6;box-shadow:3px 3px 0 #c8ccd0;`}">${on ? '✓ ' : ''}${d.p} ${d.label}</button>`;
         }).join('');
     });
