@@ -5394,6 +5394,9 @@
         </div>
         <div id="wl-count" style="color:#666;"></div>
       </div>
+
+      <!-- 部署で絞る -->
+      <div class="dept-toggle-bar" style="margin-top:8px;"></div>
     </div>
 
     <!-- 一覧 -->
@@ -5456,11 +5459,14 @@
     </div>
 
     <!-- 検索 -->
-    <div style="padding:10px 12px;flex-shrink:0;">
+    <div style="padding:10px 12px 0;flex-shrink:0;">
       <input id="doc-list-search" type="text" class="wsd-input" placeholder="🔍 受注No・件名・取引先で検索..."
         oninput="renderDocList()"
         style="width:100%;font-size:13px;padding:8px;">
     </div>
+
+    <!-- 部署で絞る -->
+    <div class="dept-toggle-bar" style="padding:8px 12px 4px;flex-shrink:0;"></div>
 
     <!-- 一覧 -->
     <div id="doc-list-items" class="wsd-scroll" style="padding:4px 8px 20px;">
@@ -13170,12 +13176,15 @@
     const q = (document.getElementById('doc-list-search')?.value || '').trim().toLowerCase();
     let _deletedInvs = [];
     try { _deletedInvs = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
-    const all = _collectDocItems().filter(it => !_deletedInvs.includes(String(it.num)));
+    const all = _collectDocItems()
+      .filter(it => !_deletedInvs.includes(String(it.num)))
+      .filter(it => (typeof deptPass === 'function' ? deptPass(it.num) : true));
     const items = q ? all.filter(it =>
       String(it.num).toLowerCase().includes(q) ||
       String(it.title).toLowerCase().includes(q) ||
       String(it.company).toLowerCase().includes(q)
     ) : all;
+    try { if (typeof renderDeptToggles === 'function') renderDeptToggles(); } catch(e) {}
 
     document.getElementById('doc-list-count-label').textContent =
       `作成済の${_theme.listLabel}（${items.length}件）`;
@@ -15418,6 +15427,8 @@ ${tableHTML}
     renderDeptToggles();
     try { const t0 = document.getElementById('tab-0'); if (t0 && t0.style.display !== 'none') sortWsCardsByDate(); } catch (e) {} // sortWsCardsByDate は内部で renderHomeCal も呼ぶ
     try { const on = document.getElementById('order-note-screen'); if (on && on.style.transform !== 'translateX(100%)') renderOrderNoteList(); } catch (e) {}
+    try { const dl = document.getElementById('doc-list-screen'); if (dl && dl.style.transform !== 'translateX(100%)') renderDocList(); } catch (e) {}
+    try { const wl = document.getElementById('worksheet-list-screen'); if (wl && wl.style.transform !== 'translateX(100%)') renderWorksheetList(); } catch (e) {}
   }
   // すべての .dept-toggle-bar に T/E/P トグルを描画（ホーム・受注ノート共通）
   function renderDeptToggles() {
@@ -15593,6 +15604,7 @@ ${tableHTML}
   function renderWorksheetList() {
     const container = document.getElementById('wl-list');
     if (!container) return;
+    try { if (typeof renderDeptToggles === 'function') renderDeptToggles(); } catch(e) {}
 
     // 全ワークシート番号を収集（projects_saved + ws_${num} + 静的カード）
     const numSet = new Set();
@@ -15620,6 +15632,9 @@ ${tableHTML}
     } else {
       nums = nums.filter(n => deletedSet.has(n));
     }
+
+    // 部署(T/E/P)フィルタ
+    if (typeof deptPass === 'function') nums = nums.filter(n => deptPass(n));
 
     // 検索フィルタ
     const q = (document.getElementById('wl-search-input')?.value || '').trim().toLowerCase();
