@@ -4955,7 +4955,7 @@
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
                   <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
-                  <button type="button" class="inv-order-pfx-btn" data-prefix="B" onclick="selectInvOrderPrefix('B')" title="ボルト"
+                  <button type="button" class="inv-order-pfx-btn" data-prefix="B" onclick="selectInvOrderPrefix('B')" title="ボルト（BORT・実験ビジュアルチーム）"
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">B ボルト</button>
                 </div>
                 <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
@@ -6229,7 +6229,7 @@
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
             <button type="button" class="np-prefix-btn" data-prefix="P" onclick="selectOrderPrefix('P')" title="制作（演出）"
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
-            <button type="button" class="np-prefix-btn" data-prefix="B" onclick="selectOrderPrefix('B')" title="ボルト"
+            <button type="button" class="np-prefix-btn" data-prefix="B" onclick="selectOrderPrefix('B')" title="ボルト（BORT・実験ビジュアルチーム）"
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">B ボルト</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
@@ -6238,7 +6238,7 @@
             <span id="np-num-preview" style="font-size:12px;color:#888;">→ T26001</span>
           </div>
           <div style="flex-basis:100%;font-size:11px;color:#888;line-height:1.5;">
-            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）／<b style="color:#e67e22;">B</b>＝ボルト　※番号は年ごとに自動でリセット
+            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）／<b style="color:#1a1a1a;">B</b>＝ボルト（BORT）　※番号は年ごとに自動でリセット
           </div>
         </div>
         <div class="wsd-field-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px;">
@@ -9087,7 +9087,7 @@
               'style="width:96px;font-family:inherit;font-size:15px;border:1px solid #aaa;border-radius:3px;padding:5px 8px;text-align:right;">' +
             '<span style="font-size:13px;color:#555;">→ <b id="_oni-preview" style="color:#8e44ad;font-size:16px;">—</b></span>' +
           '</div>' +
-          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）／B=ボルト</div>' +
+          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）／B=ボルト（BORT）</div>' +
           '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
             '<button id="_oni-cancel" type="button" style="font-family:inherit;font-size:13px;background:#eee;color:#555;border:2px solid #bbb;border-radius:5px;padding:8px 16px;cursor:pointer;">キャンセル</button>' +
             '<button id="_oni-ok" type="button" style="font-family:inherit;font-size:14px;font-weight:bold;background:#8e44ad;color:#fff;border:2px solid #6c3483;border-radius:5px;padding:8px 20px;cursor:pointer;">変更する</button>' +
@@ -15406,12 +15406,12 @@ ${tableHTML}
     if (p === 'T') return '#2980b9';
     if (p === 'E') return '#27ae60';
     if (p === 'P') return '#8e44ad';
-    if (p === 'B') return '#e67e22';
+    if (p === 'B') return '#1a1a1a';
     return '#7f8c8d';
   }
 
   // ===== 部署(T/E/P)フィルター：ホーム・カレンダー・受注ノートで共有（2026-07-11）=====
-  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9', dark:'#1a5c8a' }, { p:'E', label:'編集', color:'#27ae60', dark:'#1a7a40' }, { p:'P', label:'制作', color:'#8e44ad', dark:'#5b2c6f' }, { p:'B', label:'ボルト', color:'#e67e22', dark:'#b9611b' } ];
+  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9', dark:'#1a5c8a' }, { p:'E', label:'編集', color:'#27ae60', dark:'#1a7a40' }, { p:'P', label:'制作', color:'#8e44ad', dark:'#5b2c6f' }, { p:'B', label:'ボルト', color:'#1a1a1a', dark:'#000000' } ];
   function getDeptFilter() {
     try { const v = JSON.parse(localStorage.getItem('dept_filter') || 'null');
       if (v && typeof v === 'object') return { T: v.T !== false, E: v.E !== false, P: v.P !== false, B: v.B !== false }; } catch (e) {}
