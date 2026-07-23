@@ -3863,10 +3863,11 @@
 
     </div>
 
-    <!-- 部署(T/E/P)フィルター：カレンダー・進行状況カード・受注ノートで共有（2026-07-11） -->
-    <div class="dept-toggle-bar" style="margin:8px 15px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
-    <!-- スタッフ絞り込み（ホームのみ・未選択＝全員・2026-07-12） -->
-    <div class="staff-toggle-bar" style="margin:2px 15px 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"></div>
+    <!-- 絞り込みパネル：部署(共有)＋スタッフ(ホームのみ)を1枚に格納（ごちゃつき防止・2026-07-12） -->
+    <div style="margin:8px 15px 10px;background:#fffbf0;border:3px solid var(--panel-border);border-radius:4px;padding:10px 12px;display:flex;flex-direction:column;gap:9px;">
+      <div class="dept-toggle-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+      <div class="staff-toggle-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+    </div>
 
     <!-- ホームスケジュール（スケジュールタブと同じ表示） -->
     <div id="home-cal-section" style="margin:4px 15px 12px;">
@@ -15421,14 +15422,15 @@ ${tableHTML}
   function renderDeptToggles() {
     const f = getDeptFilter();
     document.querySelectorAll('.dept-toggle-bar').forEach(bar => {
-      bar.innerHTML = '<span style="font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">部署で絞る</span>' +
+      // ラベルは固定幅（スタッフ行と左端を揃える）
+      bar.innerHTML = '<span style="display:inline-block;width:7em;flex-shrink:0;font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">部署で絞る</span>' +
         _DEPTS.map(d => { const on = f[d.p];
           // ゲーム風の立体ボタン（アプリ内の主要ボタンと同じ：濃い縁取り＋ズレ影＋グラデ＋文字影）
           return `<button type="button" onclick="toggleDept('${d.p}')" title="${d.label}"
             onmousedown="this.style.transform='translate(2px,2px)';this.style.boxShadow='none';"
             onmouseup="this.style.transform='';this.style.boxShadow='';"
             onmouseleave="this.style.transform='';this.style.boxShadow='';"
-            style="font-family:'DotGothic16',monospace;font-size:16px;padding:9px 18px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;letter-spacing:2px;flex:1;max-width:150px;
+            style="font-family:'DotGothic16',monospace;font-size:15px;padding:8px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;letter-spacing:1px;flex:1;max-width:140px;
             ${on
               ? `border:3px solid ${d.dark};background:linear-gradient(180deg,${d.color} 0%,${d.dark} 100%);color:#fff;text-shadow:1px 1px 0 ${d.dark};box-shadow:3px 3px 0 ${d.dark};`
               : `border:3px solid #c8ccd0;background:#eef0f2;color:#9aa0a6;box-shadow:3px 3px 0 #c8ccd0;`}">${on ? '✓ ' : ''}${d.p} ${d.label}</button>`;
@@ -15460,13 +15462,18 @@ ${tableHTML}
     const sel = getStaffFilter();
     const names = (typeof CREW_NAMES !== 'undefined') ? CREW_NAMES : [];
     document.querySelectorAll('.staff-toggle-bar').forEach(bar => {
-      bar.innerHTML = `<span style="font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">スタッフで絞る<span style="color:#b0b6bb;">${sel.length ? '' : '（未選択＝全員）'}</span></span>` +
+      // ラベルは部署行と同じ固定幅＝左端が揃う。ボタンは部署ボタンの縮小版（同じ角丸・縁取り・ズレ影の規格）
+      bar.innerHTML = `<span style="display:inline-block;width:7em;flex-shrink:0;font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">スタッフで絞る</span>` +
         names.map(n => { const on = sel.indexOf(n) >= 0;
           const col = (typeof _dashStaffColor === 'function') ? _dashStaffColor(n) : '#34495e';
           return `<button type="button" onclick="toggleStaffHome('${n}')"
-            style="font-family:'DotGothic16',monospace;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;
-            border:2px solid ${on ? col : '#c8ccd0'};background:${on ? col : '#eef0f2'};color:${on ? '#fff' : '#9aa0a6'};box-shadow:${on ? '0 2px 0 ' + col : 'none'};">${on ? '✓ ' : ''}${n}</button>`;
-        }).join('');
+            onmousedown="this.style.transform='translate(2px,2px)';this.style.boxShadow='none';"
+            onmouseup="this.style.transform='';this.style.boxShadow='';"
+            onmouseleave="this.style.transform='';this.style.boxShadow='';"
+            style="font-family:'DotGothic16',monospace;font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;
+            border:2px solid ${on ? col : '#c8ccd0'};background:${on ? col : '#eef0f2'};color:${on ? '#fff' : '#9aa0a6'};box-shadow:${on ? '2px 2px 0 rgba(0,0,0,0.22)' : '2px 2px 0 #d5d9dd'};">${on ? '✓ ' : ''}${n}</button>`;
+        }).join('') +
+        (sel.length ? '' : '<span style="font-size:11px;color:#b0b6bb;white-space:nowrap;">未選択＝全員</span>');
     });
   }
   // 1案件 → 表示用レコード（projects_saved + getWsDisplayData を流用）
