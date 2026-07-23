@@ -803,6 +803,19 @@
   .ws-card-hidden {
     display: none !important;
   }
+  /* 請求処理中の月見出し（タップで開閉）2026-07-11 */
+  .ws-bill-month {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: 'DotGothic16', monospace; font-size: 13px; font-weight: bold;
+    color: #6c3483; background: #f3e9fb;
+    padding: 8px 14px; margin: 6px 0 2px;
+    border-left: 5px solid #8e44ad; border-radius: 3px;
+    cursor: pointer; letter-spacing: 1px; width: 100%; box-sizing: border-box;
+  }
+  .ws-bill-month:active { transform: translate(0, 1px); }
+  .ws-bill-month .ws-section-count { background: #8e44ad; color: #fff; }
+  .ws-bill-arrow { margin-left: 6px; font-size: 12px; }
   .ws-card:active {
     transform: translate(2px, 2px);
     box-shadow: none;
@@ -3850,6 +3863,9 @@
 
     </div>
 
+    <!-- 部署(T/E/P)フィルター：カレンダー・進行状況カード・受注ノートで共有（2026-07-11） -->
+    <div class="dept-toggle-bar" style="margin:8px 15px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+
     <!-- ホームスケジュール（スケジュールタブと同じ表示） -->
     <div id="home-cal-section" style="margin:4px 15px 12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;background:#2c3e50;padding:8px 14px;border-radius:4px 4px 0 0;">
@@ -5407,6 +5423,8 @@
         <option value="company">取引先 名前順</option>
       </select>
     </div>
+    <!-- 部署(T/E/P)フィルター（ホームと共有）2026-07-11 -->
+    <div class="dept-toggle-bar" style="padding:8px 12px;background:#eef1f4;border-bottom:2px solid #d6dbe0;flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
     <div id="order-note-list" class="wsd-scroll" style="padding:6px 8px 20px;"></div>
   </div><!-- /order-note-screen -->
 
@@ -6233,14 +6251,8 @@
 
         <div class="wsd-field-row">
           <label class="wsd-label">👤 受付担当</label>
+          <!-- 全社員(CREW_NAMES)から動的生成。openNewProject で描画（2026-07-11） -->
           <div class="np-btn-group" id="np-staff-group">
-            <button class="np-select-btn" onclick="selectNp('staff','川崎')">川崎</button>
-            <button class="np-select-btn" onclick="selectNp('staff','川野')">川野</button>
-            <button class="np-select-btn" onclick="selectNp('staff','平岡')">平岡</button>
-            <button class="np-select-btn" onclick="selectNp('staff','玻座真')">玻座真</button>
-            <button class="np-select-btn" onclick="selectNp('staff','新崎')">新崎</button>
-            <button class="np-select-btn" onclick="selectNp('staff','上原')">上原</button>
-            <button class="np-select-btn" onclick="selectNp('staff','城間')">城間</button>
           </div>
           <input id="np-staff" class="wsd-input" style="margin-top:6px;" type="text" placeholder="または直接入力...">
         </div>
@@ -8808,6 +8820,7 @@
   let homeSchMonth = new Date().getMonth();
 
   function renderHomeCal() {
+    try { renderDeptToggles(); } catch (e) {} // 部署フィルターのトグルバーを更新
     const label = document.getElementById('home-sch-month-label');
     const grid  = document.getElementById('home-sch-grid');
     if (!label || !grid) return;
@@ -8839,19 +8852,17 @@
       numEl.textContent = d;
       cell.appendChild(numEl);
 
-      const events = getEventsForDate(homeSchYear, homeSchMonth, d);
+      const allEvents = getEventsForDate(homeSchYear, homeSchMonth, d);
+      const events = allEvents.filter(ev => deptPass(ev.num)); // 部署(T/E/P)フィルター
       if (events.length) {
         const wrap = document.createElement('div');
         wrap.className = 'sch-dot-wrap';
         events.slice(0, 4).forEach(ev => {
           const dot = document.createElement('div');
-          // 自分が関わる案件は紫、それ以外はグレー
-          if (isUserInEvent(ev)) {
-            dot.className = 'sch-dot type-web';
-          } else {
-            dot.className = 'sch-dot';
-            dot.style.background = '#aaa';
-          }
+          dot.className = 'sch-dot';
+          dot.style.background = _onPrefixColor(ev.num); // 部署色（T青/E緑/P紫）
+          // 自分が参加している案件は白枠でさらに強調
+          if (isUserInEvent(ev)) { dot.style.border = '2px solid #fff'; dot.style.boxShadow = '0 0 0 1.5px ' + _onPrefixColor(ev.num); }
           dot.textContent = ev.title.slice(0, 5);
           wrap.appendChild(dot);
         });
@@ -15381,6 +15392,42 @@ ${tableHTML}
     if (p === 'P') return '#8e44ad';
     return '#7f8c8d';
   }
+
+  // ===== 部署(T/E/P)フィルター：ホーム・カレンダー・受注ノートで共有（2026-07-11）=====
+  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9' }, { p:'E', label:'編集', color:'#27ae60' }, { p:'P', label:'制作', color:'#8e44ad' } ];
+  function getDeptFilter() {
+    try { const v = JSON.parse(localStorage.getItem('dept_filter') || 'null');
+      if (v && typeof v === 'object') return { T: v.T !== false, E: v.E !== false, P: v.P !== false }; } catch (e) {}
+    return { T: true, E: true, P: true }; // 既定は全部ON
+  }
+  function _saveDeptFilter(f) { try { localStorage.setItem('dept_filter', JSON.stringify(f)); } catch (e) {} }
+  // 受注番号がフィルターを通るか（頭文字がT/E/Pのとき該当ONのみ。非T/E/Pは常に表示）
+  function deptPass(num) {
+    const p = String(num || '').charAt(0).toUpperCase();
+    if (p !== 'T' && p !== 'E' && p !== 'P') return true;
+    return !!getDeptFilter()[p];
+  }
+  function toggleDept(p) {
+    const f = getDeptFilter();
+    f[p] = !f[p];
+    if (!f.T && !f.E && !f.P) f[p] = true; // 全部OFF（何も見えない）は防ぐ＝最後の1つは戻す
+    _saveDeptFilter(f);
+    renderDeptToggles();
+    try { const t0 = document.getElementById('tab-0'); if (t0 && t0.style.display !== 'none') sortWsCardsByDate(); } catch (e) {} // sortWsCardsByDate は内部で renderHomeCal も呼ぶ
+    try { const on = document.getElementById('order-note-screen'); if (on && on.style.transform !== 'translateX(100%)') renderOrderNoteList(); } catch (e) {}
+  }
+  // すべての .dept-toggle-bar に T/E/P トグルを描画（ホーム・受注ノート共通）
+  function renderDeptToggles() {
+    const f = getDeptFilter();
+    document.querySelectorAll('.dept-toggle-bar').forEach(bar => {
+      bar.innerHTML = '<span style="font-size:12px;color:#7a7a7a;white-space:nowrap;letter-spacing:1px;">部署で絞る</span>' +
+        _DEPTS.map(d => { const on = f[d.p];
+          return `<button type="button" onclick="toggleDept('${d.p}')" title="${d.label}"
+            style="font-family:'DotGothic16',monospace;font-size:13px;padding:5px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:bold;letter-spacing:1px;
+            border:2px solid ${on ? d.color : '#c8ccd0'};background:${on ? d.color : '#eef0f2'};color:${on ? '#fff' : '#9aa0a6'};box-shadow:${on ? '0 2px 0 ' + d.color : 'none'};">${on ? '✓ ' : ''}${d.p} ${d.label}</button>`;
+        }).join('');
+    });
+  }
   // 1案件 → 表示用レコード（projects_saved + getWsDisplayData を流用）
   function _orderNoteRow(p) {
     const num = String((p && p.num) || '');
@@ -15429,6 +15476,9 @@ ${tableHTML}
         r.staff.toLowerCase().includes(q)
       );
     }
+    // 部署(T/E/P)フィルター（ホームと共有）2026-07-11
+    rows = rows.filter(r => deptPass(r.num));
+    try { renderDeptToggles(); } catch (e) {}
     // 並び替え
     const sort = document.getElementById('order-note-sort')?.value || 'tep';
     const prefRank = n => { const p = String(n).charAt(0).toUpperCase(); return p === 'T' ? 0 : p === 'E' ? 1 : p === 'P' ? 2 : 9; };
@@ -16077,7 +16127,16 @@ ${tableHTML}
     document.getElementById('np-num-preview').textContent = '→ ' + _npPrefix + next;
   }
 
+  // 受付担当ボタンを全社員(CREW_NAMES)から生成（森田・上地・松田含む・今後の増員に自動追従）
+  function _renderNpStaffButtons() {
+    const g = document.getElementById('np-staff-group');
+    if (!g || typeof CREW_NAMES === 'undefined') return;
+    g.innerHTML = CREW_NAMES.map(n =>
+      `<button class="np-select-btn" onclick="selectNp('staff','${n}')">${n}</button>`).join('');
+  }
+
   function openNewProject() {
+    _renderNpStaffButtons(); // 受付担当を全社員から描画
     selectOrderPrefix('T'); // デフォルトは T（番号もリセット）
 
     // 取引先オートコンプリート（初回のみアタッチ）
@@ -17423,6 +17482,8 @@ ${tableHTML}
     const finished = [];   // 案件終了（progress 4 / 請求書発行済み）
     cards.forEach(card => {
       const num = card.dataset.wsnum;
+      if (!deptPass(num)) { card.style.display = 'none'; return; } // 部署(T/E/P)フィルターで非表示
+      card.style.display = '';
       const p = calcWsProgress(num);
       if (p >= 4) finished.push(card);
       else if (p === 3) billing.push(card);
@@ -17454,10 +17515,35 @@ ${tableHTML}
     billingHeader.className = 'ws-section-header billing';
     billingHeader.innerHTML = `<span>💴 請求処理中</span><span class="ws-section-count">${billing.length}</span>`;
     container.appendChild(billingHeader);
+    // 月ごとにグルーピング（見出しタップで開閉。既定は最新月だけ開く・2026-07-11）
+    const billGroups = {};
     billing.forEach(c => {
-      c.classList.remove('ws-card-finished', 'ws-card-hidden');
-      _ensureBillBtn(c);
-      container.appendChild(c);
+      const dd = getDate(c.dataset.wsnum);
+      const key = dd ? (dd.first.getFullYear() + '-' + String(dd.first.getMonth() + 1).padStart(2, '0')) : '日付未設定';
+      (billGroups[key] = billGroups[key] || []).push(c);
+    });
+    const billKeys = Object.keys(billGroups).sort((a, b) =>
+      (a === '日付未設定' ? 1 : 0) - (b === '日付未設定' ? 1 : 0) || b.localeCompare(a)); // 新しい月が上・日付未設定は末尾
+    billKeys.forEach((key, i) => {
+      const saved = localStorage.getItem('bill_month_open_' + key);
+      const open = saved != null ? (saved === '1') : (i === 0); // 既定：最新月だけ開く
+      const label = key === '日付未設定' ? '日付未設定' : (key.split('-')[0] + '年' + Number(key.split('-')[1]) + '月');
+      const mh = document.createElement('div');
+      mh.className = 'ws-bill-month';
+      mh.innerHTML = `<span>📅 ${label}</span><span><span class="ws-section-count">${billGroups[key].length}</span> <span class="ws-bill-arrow">${open ? '▲' : '▼'}</span></span>`;
+      mh.addEventListener('click', () => {
+        const willOpen = mh.querySelector('.ws-bill-arrow').textContent !== '▲';
+        billGroups[key].forEach(c => c.classList.toggle('ws-card-hidden', !willOpen));
+        mh.querySelector('.ws-bill-arrow').textContent = willOpen ? '▲' : '▼';
+        localStorage.setItem('bill_month_open_' + key, willOpen ? '1' : '0');
+      });
+      container.appendChild(mh);
+      billGroups[key].forEach(c => {
+        c.classList.remove('ws-card-finished');
+        c.classList.toggle('ws-card-hidden', !open);
+        _ensureBillBtn(c);
+        container.appendChild(c);
+      });
     });
 
     // 「終了案件」はパネル外に描画。件数0でも常にボタンを表示。カードは折りたたみ。
