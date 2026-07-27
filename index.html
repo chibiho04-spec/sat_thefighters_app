@@ -6854,6 +6854,16 @@
           <label>商品コード（任意）</label>
           <input id="inv-modal-code" type="text" placeholder="例）Z020">
         </div>
+        <div class="inv-field">
+          <label>文字色</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:4px 0;">
+            <input id="inv-modal-red" type="checkbox" style="width:18px;height:18px;flex-shrink:0;cursor:pointer;">
+            <span style="color:#c0392b;font-weight:bold;">この行を赤文字にする</span>
+          </label>
+          <div style="font-size:11px;color:#999;margin-top:2px;line-height:1.5;">
+            印刷・PDFでこの行（項目・数量・単価・金額）が赤字になります。追加費用の目印などにどうぞ。
+          </div>
+        </div>
       </div>
       <div class="inv-modal-amount">金額　<b id="inv-modal-amount">¥0</b></div>
       <div class="inv-modal-foot">
@@ -9802,7 +9812,7 @@
       const taxable = taxEl ? (taxEl.value === '1') : true;
       const outsource = outsourceEl ? !!outsourceEl.checked : false;
       if (!name && !price) return;
-      lines.push({ code, name, qty, unit, price, taxable, outsource, note: (tr.dataset.note || ''), spacer:false });
+      lines.push({ code, name, qty, unit, price, taxable, outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || ''), spacer:false });
     });
     return lines;
   }
@@ -9845,7 +9855,7 @@
       // 品目名・単位・区分は残し、数量・単価は空にする
       lines: c.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
                                  qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource,
-                                 note: l.note || '', spacer: !!l.spacer })),
+                                 red: !!l.red, note: l.note || '', spacer: !!l.spacer })),
       // 外注先名は残し、金額は空に
       outsourceList: (Array.isArray(c.outsourceList) ? c.outsourceList : []).map(o => ({
                                  name: o.name || '', cost: '', taxable: !!o.taxable })),
@@ -10217,6 +10227,7 @@
         return;
       }
       tr.dataset.note = line.note || '';
+      if (line.red) tr.dataset.red = '1'; // 赤文字フラグ（行全体）を復元
       tr.innerHTML = `
         <td class="inv-td inv-td-code">${line.code}</td>
         <td class="inv-td inv-td-name">
@@ -10294,7 +10305,7 @@
                             : (taxTextEl ? taxTextEl.textContent.trim() !== '非課税' : true);
       const outsource = outEl ? !!outEl.checked
                               : (outTextEl ? outTextEl.textContent.trim() === '✓' : false);
-      out.push({ code, name, unit, qty, price, taxable, outsource, note: (tr.dataset.note || ''), spacer:false });
+      out.push({ code, name, unit, qty, price, taxable, outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || ''), spacer:false });
     });
     return out;
   }
@@ -10326,6 +10337,8 @@
         ? '<span class="inv-card-badge tax-off">非課税</span>'
         : '<span class="inv-card-badge">課税</span>';
       const outBadge = ''; // 外注列は廃止（外注費はワークシートで管理）
+      const redBadge = l.red ? '<span class="inv-card-badge" style="background:#c0392b;color:#fff;border-color:#c0392b;">赤文字</span>' : '';
+      const redStyle = l.red ? 'color:#c0392b;' : ''; // 印刷で行全体が赤になるのを画面でも示す
       const codeBadge = l.code ? `<span class="inv-card-badge">${_esc(l.code)}</span>` : '';
       const noteLine = l.note ? `<div class="inv-card-note" style="font-size:11px;color:#888;margin-top:3px;">📝 ${_esc(l.note)}</div>` : '';
       const delBtn  = _invReadonly ? '' :
@@ -10334,15 +10347,15 @@
         <div class="inv-card" data-idx="${i}">
           ${dragH}
           <button type="button" class="inv-card-body" onclick="openInvLineModal(${i})">
-            <div class="inv-card-name${nameCls}">${nameTxt}</div>
+            <div class="inv-card-name${nameCls}" style="${redStyle}">${nameTxt}</div>
             <div class="inv-card-sub">
-              <span>¥${(l.price||0).toLocaleString()} × ${l.qty || 0}${_esc(l.unit||'')}</span>
-              ${taxBadge}${outBadge}${codeBadge}
+              <span style="${redStyle}">¥${(l.price||0).toLocaleString()} × ${l.qty || 0}${_esc(l.unit||'')}</span>
+              ${taxBadge}${outBadge}${redBadge}${codeBadge}
             </div>
             ${noteLine}
           </button>
           <div class="inv-card-right">
-            <div class="inv-card-amount">¥${amt.toLocaleString()}</div>
+            <div class="inv-card-amount" style="${redStyle}">¥${amt.toLocaleString()}</div>
             ${delBtn}
           </div>
         </div>`;
@@ -10434,12 +10447,12 @@
     const isNew = (idx === null || idx === undefined);
     // readonly時は新規追加不可
     if (_invReadonly && isNew) return;
-    const l = isNew ? { code:'', name:'', unit:'日', qty:1, price:0, taxable:true, outsource:false }
+    const l = isNew ? { code:'', name:'', unit:'日', qty:1, price:0, taxable:true, outsource:false, red:false }
                     : (rows[idx] || {});
     // フォームに値をセット
     document.getElementById('inv-modal-index').value = isNew ? '' : String(idx);
     document.getElementById('inv-modal-title').textContent = _invReadonly ? '明細を確認' : (isNew ? '通常行を追加' : '明細を編集');
-    const fields = ['inv-modal-name','inv-modal-qty','inv-modal-unit','inv-modal-price','inv-modal-tax','inv-modal-code'];
+    const fields = ['inv-modal-name','inv-modal-qty','inv-modal-unit','inv-modal-price','inv-modal-tax','inv-modal-code','inv-modal-red'];
     fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = _invReadonly; });
     document.getElementById('inv-modal-name').value  = l.name || '';
     document.getElementById('inv-modal-qty').value   = (l.qty != null ? l.qty : 1);
@@ -10447,6 +10460,7 @@
     document.getElementById('inv-modal-price').value = (l.price != null ? l.price : 0);
     document.getElementById('inv-modal-tax').value   = (l.taxable === false ? '0' : '1');
     document.getElementById('inv-modal-code').value  = l.code || '';
+    { const rEl = document.getElementById('inv-modal-red'); if (rEl) rEl.checked = !!l.red; }
     { const nEl = document.getElementById('inv-modal-note'); if (nEl) { nEl.value = l.note || ''; nEl.disabled = _invReadonly; } }
     // 保存ボタン：readonly時は非表示
     const saveBtn = document.querySelector('#inv-line-modal .inv-modal-save');
@@ -10476,6 +10490,7 @@
       taxable:   document.getElementById('inv-modal-tax').value === '1',
       code:  document.getElementById('inv-modal-code').value.trim(),
       outsource: false, // 外注列は廃止（外注費はワークシートで管理）
+      red:   !!document.getElementById('inv-modal-red')?.checked, // 行全体を赤文字にする（追加費用の目印など）
       note:  (document.getElementById('inv-modal-note')?.value || '').trim()
     };
     if (!data.name && !data.price) {
@@ -10521,6 +10536,7 @@
 
   function _writeInvLineRow(tr, d) {
     tr.dataset.note = d.note || '';
+    if (d.red) tr.dataset.red = '1'; else delete tr.dataset.red; // 赤文字フラグ（行全体）
     const codeEl = tr.querySelector('.inv-td-code');
     if (codeEl) codeEl.textContent = d.code || '';
     const set = (sel, v) => { const e = tr.querySelector(sel); if (e) e.value = v; };
@@ -10593,8 +10609,8 @@
     const invDate = document.getElementById('inv-screen-invdate').value;
     const title   = document.getElementById('inv-screen-title').value;
 
-    // 現在の明細を収集（saveInvDoc と同じ方法。taxable/outsource を落とすと
-    // 発行した瞬間に非課税行が課税扱いに戻ってしまうので必ず保持する）
+    // 現在の明細を収集（saveInvDoc と同じ方法。taxable/outsource/red を落とすと
+    // 発行した瞬間に非課税行が課税扱いに戻る・赤文字が黒に戻るので必ず保持する）
     const lines = [];
     document.querySelectorAll('.inv-line-row').forEach(tr => {
       const nameEl  = tr.querySelector('.inv-line-name') || tr.querySelector('.inv-td-name span');
@@ -10614,7 +10630,7 @@
       const taxable = taxEl ? (taxEl.value === '1') : true;
       const outsource = outsourceEl ? !!outsourceEl.checked : false;
       if (!name && !price) return;
-      lines.push({ code, name, qty, unit: unit || '日', price, taxable, outsource });
+      lines.push({ code, name, qty, unit: unit || '日', price, taxable, outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || '') });
     });
 
     // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き（値引きも保存）
@@ -14652,13 +14668,16 @@ ${tableHTML}
       if (!name) return;
       rowCount++;
       const bg = rowCount % 2 === 0 ? '#f9f9f9' : 'white';
+      // 赤文字フラグ：行全体（項目・数量・単位・単価・金額）を赤字で印刷する
+      const redRow = (tr.dataset.red === '1')
+        ? 'color:#c0392b;print-color-adjust:exact;-webkit-print-color-adjust:exact;' : '';
       linesHTML += `
-        <tr style="background:${bg};">
-          <td style="${tdS}">${name}</td>
-          <td style="${tdS}text-align:right;">${qty}</td>
-          <td style="${tdS}text-align:center;">${unit}</td>
-          <td style="${tdS}text-align:right;">${price ? '¥'+price : ''}</td>
-          <td style="${tdS}text-align:right;font-weight:bold;">${amt}</td>
+        <tr style="background:${bg};${redRow}">
+          <td style="${tdS}${redRow}">${name}</td>
+          <td style="${tdS}text-align:right;${redRow}">${qty}</td>
+          <td style="${tdS}text-align:center;${redRow}">${unit}</td>
+          <td style="${tdS}text-align:right;${redRow}">${price ? '¥'+price : ''}</td>
+          <td style="${tdS}text-align:right;font-weight:bold;${redRow}">${amt}</td>
           <td style="${tdS}text-align:left;font-size:7.5pt;">${noteCell}</td>
         </tr>`;
     });
