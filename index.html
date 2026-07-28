@@ -14988,6 +14988,14 @@ ${tableHTML}
     } catch { return [...defaultEquipMaster]; }
   }
 
+  // ダッシュボードに出す受注分類のキーワード。分類名にこのどれかが含まれれば対象。
+  // 分類を増やしてダッシュボードにも出したくなったら、ここに1語足すだけでよい。
+  const DASH_ORDER_WORDS = ['撮影', 'プロデュース', '企画', '演出', 'スタッフ派遣'];
+  function _dashOrderTypeOK(orderType) {
+    const s = String(orderType || '');
+    return DASH_ORDER_WORDS.some(w => s.indexOf(w) >= 0);
+  }
+
   // ダッシュボード対象＝撮影日が未来・未請求・撮影日程ありの案件（初日昇順）
   function getDashboardCases() {
     let deleted = []; try { deleted = getDeletedWS() || []; } catch (e) {}
@@ -15000,9 +15008,12 @@ ${tableHTML}
       if (!p || p.num == null || delSet.has(String(p.num))) return;
       const num = String(p.num);
       let d = {}; try { d = getWsDisplayData(num) || {}; } catch (e) { d = {}; }
-      // 【2026-07-10 ユーザー要望】受注分類に「撮影」を含む案件のみダッシュボードに表示
-      // （撮影／撮影・編集／スチール撮影 が対象。編集・プロデュース等の撮影を含まない案件は除外）
-      if (String(d.orderType || '').indexOf('撮影') < 0) return;
+      // 【2026-07-10 ユーザー要望 → 2026-07-28 対象を拡大】
+      // 受注分類が DASH_ORDER_WORDS のどれかを含む案件のみダッシュボードに表示。
+      // 現在の対象：撮影／撮影・編集／スチール撮影／プロデュース／企画・演出／スタッフ派遣
+      // 除外されるのは 編集・機材レンタル など（現場に人が出ない案件）。
+      // 「企画」「演出」は別々に持たせてあるので、片方だけの分類を追加しても拾える。
+      if (!_dashOrderTypeOK(d.orderType)) return;
       const dateStr = (d.date && d.date !== '日程未定') ? d.date : (p.date || '');
       let days = []; try { days = parseDateStr(dateStr) || []; } catch (e) {}
       if (!days.length) return; // 撮影日程なしは除外
