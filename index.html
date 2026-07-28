@@ -11029,18 +11029,30 @@
     // 請求書の印刷/PDF保存時に現在の明細を保存（発行はしない・内容消失の防止・2026-07-07 B案）
     _saveInvoiceOnPrint();
     const content = document.getElementById('print-content')?.innerHTML || '';
+    // 印刷ウィンドウのタイトル。無題だとブラウザのヘッダーに「about:blank」と出るため必ず入れる。
+    let printTitle = '印刷';
+    try {
+      const labels = { invoice: '請求書', estimate: '見積書', delivery: '納品書' };
+      const label = labels[(typeof _docMode !== 'undefined' ? _docMode : '')] || '';
+      const numTxt = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+      printTitle = [label, numTxt].filter(Boolean).join('_') || '印刷';
+    } catch (e) {}
     const win = window.open('', '_blank', 'width=800,height=1000');
     win.document.write(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
+<title>${escapeHtml(printTitle)}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  @page { size: A4; margin: 15mm; }
+  /* 余白を0にするとブラウザがヘッダー(URL/タイトル)・フッター(日付/ページ番号)を
+     描く場所が無くなるため、「about:blank」や日付が印刷されなくなる。
+     紙の余白は body の padding で確保する（見た目は従来と同じ15mm）。 */
+  @page { size: A4; margin: 0; }
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  body { margin: 0; padding: 0; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }
+  body { margin: 0; padding: 15mm; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }
   table { border-collapse: collapse; width: 100%; }
   /* 行は途中で割らない／表ヘッダーは各ページ先頭で繰り返す */
   tr { page-break-inside: avoid; break-inside: avoid; }
