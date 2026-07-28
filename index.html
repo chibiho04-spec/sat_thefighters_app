@@ -1420,7 +1420,10 @@
 
   .wsv-crew-row-item {
     display: grid;
-    grid-template-columns: 20px 32px 1fr;
+    /* 固定20px/32pxだと文字拡大時にアイコンと役職ラベルが重なる（2026-07-28 修正）。
+       行ごとに別グリッドなので auto にすると名前の位置が行ごとにずれる。
+       倍率に追従する固定幅にして、拡大しても揃ったまま重ならないようにする */
+    grid-template-columns: calc(20px * var(--fs-scale, 1)) calc(32px * var(--fs-scale, 1)) 1fr;
     align-items: center;
     gap: 6px;
     padding: 5px 0;
@@ -1660,7 +1663,10 @@
     color: #999;
     white-space: nowrap;
     flex-shrink: 0;
-    width: 80px;
+    /* 固定80pxだと文字拡大時にラベルがはみ出して値に重なる（2026-07-28 修正）。
+       文字サイズ倍率に追従させ、さらに min-width にして長いラベル
+       （例：💴 受注金額（税別））は必要なだけ広がれるようにする */
+    min-width: calc(80px * var(--fs-scale, 1));
   }
   .wsv-val {
     font-size: 13px;
