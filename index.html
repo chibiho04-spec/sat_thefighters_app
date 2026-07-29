@@ -1635,6 +1635,26 @@
   #home-sch-day-list .sch-event-meta  { font-size: 17px; line-height: 1.5; }
 
   /* ========== ワークシート閲覧パネル ========== */
+  /* ===== 受注ノート：請求/見積/納品の発行状況チェック（2026-07-29）===== */
+  .on-doc {
+    display: flex; align-items: flex-end; gap: 8px; flex-shrink: 0;
+  }
+  .on-doc-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .on-doc-lbl { font-size: 9px; color: #7f8c8d; white-space: nowrap; line-height: 1.2; }
+  .on-doc-box {
+    /* 文字サイズ倍率に追従（固定pxだと拡大時にラベルとずれる） */
+    width: calc(17px * var(--fs-scale, 1));
+    height: calc(17px * var(--fs-scale, 1));
+    border: 2px solid #cfd6dd; border-radius: 3px; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(11px * var(--fs-scale, 1)); line-height: 1; color: #fff; font-weight: bold;
+    box-sizing: border-box;
+  }
+  .on-doc-item:active .on-doc-box { transform: translateY(1px); }
+
   .wsv-section {
     margin: 8px 10px;
     background: white;
@@ -9981,6 +10001,9 @@
     // 明細行を現在の編集画面から収集（共通関数）
     const lines = _collectInvLines();
 
+    // 元になっている案件の番号（納品書番号に差し替える前に控える）
+    const _srcNum = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+
     // 新しい納品書番号を採番
     const newNum = generateNewInvNum('delivery');
     const today  = new Date().toLocaleDateString('ja-JP',
@@ -9999,10 +10022,19 @@
       zip:      (document.getElementById('inv-screen-zip')?.textContent  || '').trim(),
       addr:     (document.getElementById('inv-screen-addr')?.textContent || '').trim(),
       docMode:  'delivery',
+      delivered: true,
+      parentNum: _srcNum,   // どの案件から作った納品書かを残す（DLV-単体では元案件を辿れないため）
       savedAt:  new Date().toLocaleString('ja-JP'),
       _updatedAt: new Date().toISOString(),
     };
     saveInvStatus(newNum, status); // ← シートへの自動送信は saveInvStatus が内部で実施
+    // 元の案件側にも「納品書を作った」印を残す（受注ノートの発行状況チェックで使う）
+    if (_srcNum && _srcNum !== newNum) {
+      try {
+        const src = loadInvStatus(_srcNum) || {};
+        if (!src.delivered) { src.delivered = true; saveInvStatus(_srcNum, src); }
+      } catch (e) {}
+    }
 
     // 納品書モードで編集画面を開く（番号・宛先・明細をセット）
     document.getElementById('inv-screen-num').textContent  = newNum;
@@ -10073,6 +10105,11 @@
     status.zip      = (document.getElementById('inv-screen-zip')?.textContent  || '').trim();
     status.addr     = (document.getElementById('inv-screen-addr')?.textContent || '').trim();
     status.docMode  = _docMode || 'invoice';
+    // 受注ノートの発行状況チェック用の記録（2026-07-29）。
+    // 見積書と請求書は同じ inv_${num} を共有し docMode が上書きされてしまうため、
+    // 「一度でも作った」事実は消えない別フラグとして残す（後で請求書を保存しても消えない）。
+    if (status.docMode === 'estimate') status.estimated = true;
+    if (status.docMode === 'delivery') status.delivered = true;
     status.discount = parseFloat(document.getElementById('inv-discount')?.value || 0) || 0; // お値引きも保存（再表示・売上集計で使用）
     status.memo     = (document.getElementById('inv-screen-memo')?.value || '').trim(); // 備考も保存
     // 外注費リスト(outsourceExtraList/outsourceExtra)は書き換えない（UI撤去済み・2026-07-11）。
@@ -15582,6 +15619,44 @@ ${tableHTML}
       receivedAt: p.receivedAt || '',
     };
   }
+  // ===== 受注ノート：請求書・見積書・納品書の発行状況（2026-07-29）=====
+  // 請求は billed/paid（発行・入金の実データ）から自動判定＝表示のみ。
+  // 見積・納品は書類作成時に自動で立つほか、記録が無い過去の案件のためタップで手動ON/OFFできる。
+  function _orderDocFlags(num) {
+    let s = {};
+    try { s = loadInvStatus(num) || {}; } catch (e) { s = {}; }
+    return { billed: !!(s.billed || s.paid), estimated: !!s.estimated, delivered: !!s.delivered };
+  }
+  // 見積・納品の印をタップで切り替える。行のタップ（案件を開く）に伝播させない。
+  function toggleOrderDocFlag(ev, num, kind) {
+    try { if (ev) { ev.stopPropagation(); ev.preventDefault(); } } catch (e) {}
+    if (kind !== 'estimated' && kind !== 'delivered') return;
+    let s = {};
+    try { s = loadInvStatus(num) || {}; } catch (e) { s = {}; }
+    s[kind] = !s[kind];                      // 既存の明細・宛先はそのまま保持して1項目だけ反転
+    try { saveInvStatus(num, s); } catch (e) {} // 打刻＋シートへの送信は内部で実施
+    try { renderOrderNoteList(); } catch (e) {}
+  }
+  // 1案件ぶんの発行状況ブロック（件名の右の余白に置く）
+  function _orderDocChecks(num) {
+    const f = _orderDocFlags(num);
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    const numAttr = String(num).replace(/'/g, "\\'");
+    const item = (label, on, color, kind, tip) => {
+      const clickable = !!kind;
+      const onclick = clickable ? ` onclick="toggleOrderDocFlag(event,'${numAttr}','${kind}')"` : '';
+      return `<span class="on-doc-item" title="${esc(tip)}"${onclick} style="${clickable ? 'cursor:pointer;' : ''}">
+        <span class="on-doc-lbl">${esc(label)}</span>
+        <span class="on-doc-box${on ? ' on' : ''}" style="${on ? `border-color:${color};background:${color};` : ''}">${on ? '✓' : ''}</span>
+      </span>`;
+    };
+    return `<span class="on-doc">
+      ${item('請求', f.billed,    '#27ae60', '',          f.billed ? '請求書：発行済み' : '請求書：未発行（請求書画面で発行すると付きます）')}
+      ${item('見積', f.estimated, '#e67e22', 'estimated', '見積書：タップで切り替え（見積書を保存すると自動で付きます）')}
+      ${item('納品', f.delivered, '#2980b9', 'delivered', '納品書：タップで切り替え（納品書を作ると自動で付きます）')}
+    </span>`;
+  }
+
   // 撮影日程文字列 → 比較用の数値（最初の日付。無しは -1）
   function _shootKey(dateStr) {
     try {
@@ -15662,6 +15737,7 @@ ${tableHTML}
           <span style="display:block;font-weight:bold;color:#2c3e50;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.title)}</span>
           ${meta ? `<span style="display:block;color:#7f8c8d;font-size:11.5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${meta}</span>` : ''}
         </span>
+        ${_orderDocChecks(r.num)}
         <span style="flex-shrink:0;color:#bdc3c7;font-size:16px;">▶</span>
       </div>`;
     }).join('');
