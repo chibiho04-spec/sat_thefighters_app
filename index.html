@@ -8554,6 +8554,27 @@
   // ===== スケジュール =====
 
   // wsDataから日付をパースして案件を返す
+  // ===== 簡易ワークシートをカレンダー・ダッシュボードに載せる（2026-07-31）=====
+  // 簡易WSは受注番号・取引先・受注分類を持たない（{id:'sw…', date, user, content, equip, memo}）。
+  // id をそのまま num として扱い、「内容」を件名・「使用者」をクルーに見立てた共通の形に整える。
+  // id は 'sw' 始まりなので受注番号(T/E/P/B)とは衝突せず、部署フィルターは素通りする。
+  function _isSimpleWSNum(num) { return /^sw\d/i.test(String(num || '')); }
+  function _simpleWSRecords() {
+    try { return (loadSimpleWS() || []).filter(r => r && r.id && r.date); } catch (e) { return []; }
+  }
+  function _simpleWSById(id) {
+    try { return (loadSimpleWS() || []).find(r => String(r.id) === String(id)) || null; } catch (e) { return null; }
+  }
+  function _simpleWSAsEvent(rec) {
+    return {
+      num: String(rec.id),
+      title: String(rec.content || '').trim() || '簡易ワークシート',
+      company: '', type: '', orderType: '簡易ワークシート',
+      date: rec.date || '', crewC: rec.user || '', user: rec.user || '',
+      memo: rec.memo || '', _simple: true
+    };
+  }
+
   function getEventsForDate(y, m, d) {
     const deletedWS = (typeof getDeletedWS === 'function') ? getDeletedWS() : [];
     const all = { ...wsData };
@@ -8566,6 +8587,13 @@
         results.push({ num, ...data });
       }
     });
+    // 簡易ワークシート（単発の機材使用記録）も同じ日付で拾う
+    try {
+      _simpleWSRecords().forEach(rec => {
+        const dates = parseDateStr(rec.date) || [];
+        if (dates.some(dt => dt.y === y && dt.m === m + 1 && dt.d === d)) results.push(_simpleWSAsEvent(rec));
+      });
+    } catch (e) {}
     return results;
   }
 
@@ -8983,6 +9011,15 @@
         const typeColor = { 'TV':'#2980b9','CM':'#e74c3c','PV':'#27ae60','イベント':'#e67e22','WEB':'#8e44ad' };
         const card = document.createElement('div');
         card.className = 'sch-event-card';
+        if (ev._simple) {
+          // 簡易ワークシート：取引先・分類が無いので使用者と内容だけを出す
+          card.style.borderLeftColor = '#16a085';
+          card.innerHTML = `
+            <div class="sch-event-title">📋 ${escapeHtml(ev.title)}</div>
+            <div class="sch-event-meta">🎯 簡易ワークシート${ev.user ? '　👤 ' + escapeHtml(ev.user) : ''}</div>
+          `;
+          card.onclick = () => { openEditSimpleWS(ev.num); };
+        } else {
         card.style.borderLeftColor = typeColor[ev.type] || '#8e44ad';
         card.innerHTML = `
           <div class="sch-event-title">${escapeHtml(ev.num)} ${escapeHtml(ev.title)}</div>
@@ -8991,6 +9028,7 @@
         `;
         // ホームのカレンダーから選んだ案件 → タブ移動せず、ワークシート詳細を横からスライドイン
         card.onclick = () => { openWS(ev.num); };
+        }
         list.appendChild(card);
       });
     }
@@ -15068,6 +15106,21 @@ ${tableHTML}
       out.push({ num, title: d.title || p.title || '無題の案件', company: d.company || p.company || '',
         dateStr, firstKey: first, type: d.type || '', orderType: d.orderType || '', staff: p.staff || '' });
     });
+    // 簡易ワークシートも現場として載せる（2026-07-31）。
+    // 受注分類を持たないので DASH_ORDER_WORDS の条件は適用しない。
+    // 請求の概念も無いので「日程あり＋最終日が今日以降」だけで判定する。
+    try {
+      _simpleWSRecords().forEach(rec => {
+        let days = []; try { days = parseDateStr(rec.date) || []; } catch (e) { days = []; }
+        if (!days.length) return;
+        const first = days.reduce((mn, x) => { const v = x.y * 10000 + x.m * 100 + x.d; return v < mn ? v : mn; }, Infinity);
+        const last  = days.reduce((mx, x) => { const v = x.y * 10000 + x.m * 100 + x.d; return v > mx ? v : mx; }, 0);
+        if (!(last >= todayNum)) return;
+        const ev = _simpleWSAsEvent(rec);
+        out.push({ num: ev.num, title: ev.title, company: '', dateStr: rec.date,
+          firstKey: first, type: '', orderType: ev.orderType, staff: rec.user || '', _simple: true });
+      });
+    } catch (e) {}
     out.sort((a, b) => (a.firstKey - b.firstKey) || String(a.num).localeCompare(String(b.num), 'ja', { numeric: true }));
     return out;
   }
@@ -15136,6 +15189,13 @@ ${tableHTML}
   function _dashStaffColor(name) { const i = _dashStaffList().indexOf(name); return i >= 0 ? _dashStaffPalette[i % _dashStaffPalette.length] : '#7f8c8d'; }
   // 案件に出ているスタッフ名（クルー値のうち10名に一致するもの）
   function _caseStaffNames(num) {
+    // 簡易ワークシートはクルー欄が無く「使用者」1名だけ。ここで拾わないと
+    // スタッフ絞り込み中に簡易WSが常に消えてしまう。
+    if (_isSimpleWSNum(num)) {
+      const rec = _simpleWSById(num);
+      const s = String((rec && rec.user) || '').trim();
+      return s ? _dashStaffList().filter(n => n && s.indexOf(n) >= 0) : [];
+    }
     let d = {}; try { d = getWsDisplayData(num) || {}; } catch (e) {}
     const vals = [d.crewProducer, d.crewD, d.crewPm1, d.crewPm2, d.crewC, d.crewA, d.crewA2, d.crewSound, d.crewEdit];
     const staff = _dashStaffList();
@@ -15312,6 +15372,46 @@ ${tableHTML}
     </div>`;
   }
 
+  // 簡易ワークシート用のカード。案件用(buildWsPreviewHTML)は取引先・分類・進行状況を
+  // 前提にしていて簡易WSでは「無題の案件／—」だらけになるため、専用の簡素な札にする。
+  function buildSimpleWsPreviewHTML(id) {
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
+    const rec = _simpleWSById(id) || {};
+    const title = String(rec.content || '').trim() || '簡易ワークシート';
+    const date  = rec.date || '未定';
+    // 使用機材（チェック済み）をマスタ名で並べる
+    let equipNames = [];
+    try {
+      const eq = rec.equip || {};
+      const master = (typeof loadEquipMaster === 'function') ? loadEquipMaster() : [];
+      equipNames = master.filter(m => eq[m.id] && eq[m.id].checked).map(m => {
+        const q = (eq[m.id].qty !== undefined ? Number(eq[m.id].qty) : m.qty) || 1;
+        return m.name + (q > 1 ? ' ×' + q : '');
+      });
+    } catch (e) {}
+    const sec = (label) => `<div class="wp-sec">${label}</div>`;
+    const selOn = (typeof _selectedStaffOnCase === 'function') ? _selectedStaffOnCase(id) : [];
+    const filterActive = (typeof _dashStaffSel !== 'undefined') && _dashStaffSel.size > 0;
+    const dimCls = (filterActive && !selOn.length) ? ' wp-dim' : '';
+    const staffChips = selOn.length ? `<div class="wp-staffchips">${selOn.map(n => `<span style="background:${_dashStaffColor(n)};">${esc(n)}</span>`).join('')}</div>` : '';
+    const equipHtml = equipNames.length ? sec('使用機材') + `<div class="wp-equip">${equipNames.map(x => `<div>${esc(x)}</div>`).join('')}</div>` : '';
+    return `<div class="wp-paper${dimCls}" style="border-top:8px solid #16a085;">
+      <div class="wp-head">
+        <span class="wp-date">日程：${esc(date)}</span>
+        <span class="wp-num"><span class="wp-prog" style="background:#16a085;">簡易</span></span>
+      </div>
+      ${staffChips}
+      <div class="wp-title">${esc(title)}</div>
+      ${sec('基本情報')}
+      <table class="wp-info"><tbody>
+        <tr><th>種別</th><td colspan="3">簡易ワークシート</td></tr>
+        <tr><th>使用者</th><td colspan="3">${esc(rec.user || '—')}</td></tr>
+        ${rec.memo ? `<tr><th>メモ</th><td colspan="3">${esc(rec.memo)}</td></tr>` : ''}
+      </tbody></table>
+      ${equipHtml}
+    </div>`;
+  }
+
   function renderDashWorksheets(cases) {
     if (!cases.length) return '<div class="dash-empty">これからの現場はありません</div>';
     let conflictInfo = { caseItems: {}, conflicts: [] };
@@ -15319,6 +15419,7 @@ ${tableHTML}
     const MAX = 12;
     const tiles = cases.slice(0, MAX).map(c => {
       const numA = String(c.num).replace(/'/g, "\\'");
+      if (c._simple) return `<div class="dash-ws-tile" onclick="dashOpenWS('${numA}')">${buildSimpleWsPreviewHTML(c.num)}</div>`;
       const cset = new Set(conflictInfo.caseItems[String(c.num)] || []);
       return `<div class="dash-ws-tile" onclick="dashOpenWS('${numA}')">${buildWsPreviewHTML(c.num, cset)}</div>`;
     }).join('');
@@ -15434,6 +15535,11 @@ ${tableHTML}
   function dashOpenWS(num) {
     const el = document.getElementById('dashboard-screen');
     if (el && el.classList.contains('dash-show')) { el.style.display = 'none'; el.classList.remove('dash-show'); _dashReturn = true; }
+    // 簡易ワークシートは案件ではないので専用の編集画面を開く（カードと日別チップの両方から来る）
+    if (typeof _isSimpleWSNum === 'function' && _isSimpleWSNum(num)) {
+      try { openEditSimpleWS(num); } catch (e) { console.warn('dashOpenWS(simple)', e); }
+      return;
+    }
     try { openWS(num); } catch (e) { console.warn('dashOpenWS', e); }
   }
 
@@ -15512,6 +15618,7 @@ ${tableHTML}
   }
   // 受注番号の頭文字 → 色
   function _onPrefixColor(num) {
+    if (_isSimpleWSNum(num)) return '#16a085'; // 簡易ワークシート（青緑・部署とは別枠）
     const p = String(num || '').charAt(0).toUpperCase();
     if (p === 'T') return '#2980b9';
     if (p === 'E') return '#27ae60';
