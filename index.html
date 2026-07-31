@@ -15015,10 +15015,12 @@ ${tableHTML}
       <!-- 2行目：宛先ブロック（左）＋ 発行元（右） -->
       <div style="display:flex;gap:10mm;margin-bottom:3mm;">
 
-        <!-- 左：宛先（会社名と担当者を改行表示） -->
-        <div style="flex:1;">
+        <!-- 左：宛先（会社名と担当者を改行表示）
+             padding-left は窓付き封筒対策：窓の左枠に文字が隠れないよう約3文字ぶん内側へ寄せる -->
+        <div style="flex:1;padding-left:12mm;">
           <div style="font-size:11pt;color:#555;">${zip}</div>
-          <div style="font-size:11pt;color:#555;margin-bottom:1.5mm;line-height:1.4;">${addr}</div>
+          <!-- margin-bottom で住所と宛名の間を1行ぶん空ける（窓の中で住所が上に来るように） -->
+          <div style="font-size:11pt;color:#555;margin-bottom:7mm;line-height:1.4;">${addr}</div>
           ${(() => {
             // client = "○○株式会社 御中（担当：山田 太郎 様）" のような形式を分解
             const m = String(client || '').match(/^(.*?)(?:（担当[:：]\s*(.+?)\s*様?）)?\s*$/);
