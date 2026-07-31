@@ -11243,6 +11243,44 @@
       const numTxt = (document.getElementById('inv-detail-num')?.textContent || '').trim();
       printTitle = [label, numTxt].filter(Boolean).join('_') || '印刷';
     } catch (e) {}
+    // === 余白の作り方をブラウザで変える（2026-07-31）===
+    // Chrome等：@page margin:0 にしないと、余白部分にブラウザが
+    //   ヘッダー(about:blank等のURL)とフッター(日付・ページ番号)を印字してしまう。
+    //   そのため余白は自前（左右=bodyのpadding／上下=外枠テーブルのthead・tfoot）で作る。
+    // iOS Safari等：@page の余白指定をほぼ無視してシステム側の余白を必ず付けるので、
+    //   自前の余白と二重になり、使える面積が縦横とも1割ほど減って2枚に割れていた。
+    //   iOSの印刷はURL・日付を付けないので余白0にする必要もない＝システム任せにする。
+    const _ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+    const _isIOS = /iPad|iPhone|iPod/.test(_ua) ||
+                   (typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const _isSafari = /Safari/.test(_ua) && !/Chrome|CriOS|Chromium|Edg|FxiOS|Firefox/.test(_ua);
+    const _systemMargin = _isIOS || _isSafari;   // 余白をブラウザ／OSに任せる
+
+    const _pageCss = _systemMargin
+      ? `@page { size: A4; margin: 12mm; }
+  body { margin: 0; padding: 0; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }`
+      : `@page { size: A4; margin: 0; }
+  body { margin: 0; padding: 0 15mm; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }`;
+
+    // 自前で上下余白を作る外枠テーブル（余白をシステムに任せる時は使わない＝二重防止）
+    const _frameCss = _systemMargin ? '' : `
+  table.pg-frame { width: 100%; border-collapse: collapse; }
+  table.pg-frame > thead { display: table-header-group; }
+  table.pg-frame > tfoot { display: table-footer-group; }
+  /* 空の余白セル（改ページのたびに繰り返されるので2ページ目以降にも余白が付く） */
+  table.pg-frame > thead > tr > td,
+  table.pg-frame > tfoot > tr > td { height: 15mm; border: 0; padding: 0; font-size: 0; line-height: 0; }
+  /* 中身の行は改ページを許可（上の tr{page-break-inside:avoid} を打ち消す。
+     打ち消さないと書類全体が1ページに押し込まれてしまう） */
+  table.pg-frame > tbody > tr { page-break-inside: auto; break-inside: auto; }
+  table.pg-frame > tbody > tr > td { border: 0; padding: 0; vertical-align: top; }`;
+
+    const _body = _systemMargin ? content : `<table class="pg-frame">
+  <thead><tr><td>&nbsp;</td></tr></thead>
+  <tfoot><tr><td>&nbsp;</td></tr></tfoot>
+  <tbody><tr><td>${content}</td></tr></tbody>
+</table>`;
+
     const win = window.open('', '_blank', 'width=800,height=1000');
     win.document.write(`<!DOCTYPE html>
 <html><head>
@@ -11250,44 +11288,21 @@
 <title>${escapeHtml(printTitle)}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  /* 余白を0にするとブラウザがヘッダー(URL/タイトル)・フッター(日付/ページ番号)を
-     描く場所が無くなるため、「about:blank」や日付が印刷されなくなる。
-     そのぶんの紙の余白は自前で作る：
-       ・左右 … body の padding（全ページに効く）
-       ・上下 … 中身を包んだ表の thead/tfoot に空の高さを持たせる。
-                表の見出し・脚は改ページのたびに繰り返されるので、
-                2ページ目以降にも上下の余白が付く（15mmで統一）。 */
-  @page { size: A4; margin: 0; }
+  ${_pageCss}
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  body { margin: 0; padding: 0 15mm; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }
   table { border-collapse: collapse; width: 100%; }
   /* 行は途中で割らない／表ヘッダーは各ページ先頭で繰り返す */
   tr { page-break-inside: avoid; break-inside: avoid; }
   thead { display: table-header-group; }
   /* フッター（合計・備考・振込先）はひとかたまりで割らない */
   #doc-footer-block { page-break-inside: avoid; break-inside: avoid; }
-
-  /* === 全ページ共通の上下余白を作るための外枠テーブル === */
-  table.pg-frame { width: 100%; border-collapse: collapse; }
-  table.pg-frame > thead { display: table-header-group; }
-  table.pg-frame > tfoot { display: table-footer-group; }
-  /* 空の余白セル（ページごとに繰り返される） */
-  table.pg-frame > thead > tr > td,
-  table.pg-frame > tfoot > tr > td { height: 15mm; border: 0; padding: 0; font-size: 0; line-height: 0; }
-  /* 中身の行は改ページを許可する（上の tr{page-break-inside:avoid} を打ち消す。
-     打ち消さないと書類全体が1ページに押し込まれてしまう） */
-  table.pg-frame > tbody > tr { page-break-inside: auto; break-inside: auto; }
-  table.pg-frame > tbody > tr > td { border: 0; padding: 0; vertical-align: top; }
+${_frameCss}
 </style>
 </head><body>
-<table class="pg-frame">
-  <thead><tr><td>&nbsp;</td></tr></thead>
-  <tfoot><tr><td>&nbsp;</td></tr></tfoot>
-  <tbody><tr><td>${content}</td></tr></tbody>
-</table>
+${_body}
 </body></html>`);
     win.document.close();
     win.focus();
