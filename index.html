@@ -5852,6 +5852,11 @@
         </div>
 
         <div class="wsd-field-row">
+          <label class="wsd-label">🎬 件名</label>
+          <input id="sw-title" class="wsd-input" type="text" placeholder="例: RBC中継 応援　※カレンダーにこの名前で出ます">
+        </div>
+
+        <div class="wsd-field-row">
           <label class="wsd-label">👤 使用者（必須）</label>
           <div class="np-btn-group" id="sw-user-group">
             <button class="np-select-btn" onclick="selectSwUser('川崎')">川崎</button>
@@ -8568,7 +8573,8 @@
   function _simpleWSAsEvent(rec) {
     return {
       num: String(rec.id),
-      title: String(rec.content || '').trim() || '簡易ワークシート',
+      // 表示名は件名を優先。件名が無い過去の記録は内容で代用する（空欄化させない）
+      title: String(rec.title || '').trim() || String(rec.content || '').trim() || '簡易ワークシート',
       company: '', type: '', orderType: '簡易ワークシート',
       date: rec.date || '', crewC: rec.user || '', user: rec.user || '',
       memo: rec.memo || '', _simple: true
@@ -12776,7 +12782,7 @@
       String(b.date || '').localeCompare(String(a.date || '')) ||
       String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
     const filtered = q ? all.filter(r => {
-      const hay = _normalizeForSearch([r.date, r.user, r.content, swEquipSummary(r.equip).join(' '), r.memo].join(' '));
+      const hay = _normalizeForSearch([r.date, r.title, r.user, r.content, swEquipSummary(r.equip).join(' '), r.memo].join(' '));
       return hay.indexOf(q) >= 0;
     }) : all;
     document.getElementById('sw-count-label').textContent = `単発の機材使用記録 ${filtered.length} / ${all.length} 件`;
@@ -12794,6 +12800,7 @@
           <div style="font-weight:bold;color:#117a65;font-size:14px;flex:1;min-width:0;">📅 ${escapeHtml(r.date || '(使用日なし)')}</div>
           <span style="font-size:11px;color:#666;white-space:nowrap;">👤 ${escapeHtml(r.user || '―')}</span>
         </div>
+        ${r.title ? `<div style="font-weight:bold;color:#2c3e50;font-size:13px;margin-top:3px;">🎬 ${escapeHtml(r.title)}</div>` : ''}
         ${r.content ? `<div style="font-size:12px;color:#333;margin-top:4px;">📝 ${escapeHtml(r.content)}</div>` : ''}
         <div style="font-size:11px;color:#555;margin-top:4px;">🎥 ${escapeHtml(eqText)}</div>
         ${r.memo ? `<div style="font-size:11px;color:#888;margin-top:2px;">📝 ${escapeHtml(r.memo)}</div>` : ''}
@@ -12880,6 +12887,7 @@
     _swEditId = null;
     _swEquip = {};
     document.getElementById('sw-date').value = '';
+    { const t = document.getElementById('sw-title'); if (t) t.value = ''; }
     document.getElementById('sw-user').value = '';
     document.getElementById('sw-content').value = '';
     document.getElementById('sw-memo').value = '';
@@ -12903,6 +12911,7 @@
     _swEditId = id;
     _swEquip = JSON.parse(JSON.stringify(rec.equip || {}));
     document.getElementById('sw-date').value = rec.date || '';
+    { const t = document.getElementById('sw-title'); if (t) t.value = rec.title || ''; }
     document.getElementById('sw-user').value = rec.user || '';
     document.getElementById('sw-content').value = rec.content || '';
     document.getElementById('sw-memo').value = rec.memo || '';
@@ -12933,6 +12942,7 @@
     if (!Object.keys(equip).length) {
       status.style.color = '#c0392b'; status.textContent = '❌ 使用機材を1つ以上選んでください'; return;
     }
+    const title = (document.getElementById('sw-title')?.value || '').trim(); // カレンダー等の表示名
     const content = document.getElementById('sw-content').value.trim();
     const memo = document.getElementById('sw-memo').value.trim();
     const list = loadSimpleWS();
@@ -12941,11 +12951,11 @@
     if (_swEditId) {
       const idx = list.findIndex(r => r.id === _swEditId);
       if (idx >= 0) {
-        list[idx] = Object.assign({}, list[idx], { date, user, content, equip, memo, updatedAt: nowIso, _updatedAt: nowIso });
+        list[idx] = Object.assign({}, list[idx], { date, title, user, content, equip, memo, updatedAt: nowIso, _updatedAt: nowIso });
         rec = list[idx];
       }
     } else {
-      rec = { id: 'sw' + Date.now(), date, user, content, equip, memo, createdAt: nowIso, updatedAt: nowIso, _updatedAt: nowIso };
+      rec = { id: 'sw' + Date.now(), date, title, user, content, equip, memo, createdAt: nowIso, updatedAt: nowIso, _updatedAt: nowIso };
       list.push(rec);
     }
     saveSimpleWSList(list);
@@ -13004,6 +13014,7 @@
   // 簡易ワークシートの印刷プレビューを開く（共通の印刷オーバーレイを再利用）
   function openSimpleWSPrint() {
     const date = document.getElementById('sw-date').value.trim();
+    const title = (document.getElementById('sw-title')?.value || '').trim();
     const user = document.getElementById('sw-user').value.trim();
     const content = document.getElementById('sw-content').value.trim();
     const memo = document.getElementById('sw-memo').value.trim();
@@ -13026,6 +13037,10 @@
       <td style="width:22%;padding:8px 10px;background:#e8f8f4;font-weight:bold;font-size:14pt;">使用者</td>
       <td style="padding:8px 10px;border-bottom:1px solid #cdeee5;">${escapeHtml(user || '―')}</td>
     </tr>
+    ${title ? `<tr>
+      <td style="padding:8px 10px;background:#e8f8f4;font-weight:bold;font-size:14pt;">件名</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #cdeee5;font-weight:bold;" colspan="3">${escapeHtml(title)}</td>
+    </tr>` : ''}
     ${content ? `<tr>
       <td style="padding:8px 10px;background:#e8f8f4;font-weight:bold;font-size:14pt;vertical-align:top;">内容</td>
       <td style="padding:8px 10px;border-bottom:1px solid #cdeee5;white-space:pre-wrap;line-height:1.7;" colspan="3">${escapeHtml(content)}</td>
@@ -15377,7 +15392,7 @@ ${tableHTML}
   function buildSimpleWsPreviewHTML(id) {
     const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s == null ? '' : s));
     const rec = _simpleWSById(id) || {};
-    const title = String(rec.content || '').trim() || '簡易ワークシート';
+    const title = String(rec.title || '').trim() || String(rec.content || '').trim() || '簡易ワークシート';
     const date  = rec.date || '未定';
     // 使用機材（チェック済み）をマスタ名で並べる
     let equipNames = [];
@@ -15406,6 +15421,7 @@ ${tableHTML}
       <table class="wp-info"><tbody>
         <tr><th>種別</th><td colspan="3">簡易ワークシート</td></tr>
         <tr><th>使用者</th><td colspan="3">${esc(rec.user || '—')}</td></tr>
+        ${rec.content ? `<tr><th>内容</th><td colspan="3">${esc(rec.content)}</td></tr>` : ''}
         ${rec.memo ? `<tr><th>メモ</th><td colspan="3">${esc(rec.memo)}</td></tr>` : ''}
       </tbody></table>
       ${equipHtml}
