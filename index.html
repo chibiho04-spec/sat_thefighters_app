@@ -9929,6 +9929,32 @@
     _syncClientLine();
   }
 
+  // 宛名の会社名から取引先マスタを引いて、空いている住所欄を埋める（2026-08-01）。
+  // 候補から選んだときは _applyInvClient が入れてくれるが、会社名を手で入力した案件や
+  // 住所を登録する前に作った案件は空のままだったため、開いた時点で補完する。
+  // すでに住所が入っている場合は触らない（案件ごとに宛先を書き換えている場合を尊重）。
+  function _fillInvAddrFromMaster() {
+    try {
+      const z = document.getElementById('inv-screen-zip');
+      const a = document.getElementById('inv-screen-addr');
+      if (!z || !a) return;
+      if ((z.textContent || '').trim() || (a.textContent || '').trim()) return; // 既に入っていれば何もしない
+      const name = (document.getElementById('inv-screen-company')?.value || '').trim();
+      if (!name) return;
+      const norm = (s) => (typeof _normalizeForSearch === 'function')
+        ? _normalizeForSearch(s) : String(s || '').trim().toLowerCase();
+      const target = norm(name);
+      if (!target) return;
+      const hit = (getCachedClients() || []).find(r => norm(r['取引先名']) === target);
+      if (!hit) return;
+      const zip  = hit['郵便番号'] ? '〒' + String(hit['郵便番号']).replace(/^〒/, '') : '';
+      const addr = hit['住所'] || '';
+      if (!zip && !addr) return;
+      z.textContent = zip;
+      a.textContent = addr;
+    } catch (e) {}
+  }
+
   // 取引先マスタ選択時に請求書フォームへ反映
   function _applyInvClient(client) {
     const zip  = client['郵便番号'] ? '〒' + client['郵便番号'] : '';
@@ -9945,9 +9971,13 @@
 
   // 請求書会社名欄にオートコンプリートを取り付ける（一度だけ）
   function _attachInvCompanyAc() {
-    setupClientAutocomplete(document.getElementById('inv-screen-company'), {
-      onSelect: _applyInvClient
-    });
+    const el = document.getElementById('inv-screen-company');
+    setupClientAutocomplete(el, { onSelect: _applyInvClient });
+    // 候補から選ばず手で入力した場合も、入力を終えた時点でマスタの住所を補う
+    if (el && !el._addrFillWired) {
+      el._addrFillWired = true;
+      el.addEventListener('blur', () => { setTimeout(_fillInvAddrFromMaster, 150); }); // 候補クリックの処理を先に通す
+    }
   }
 
   // ===== 請求書テンプレート（この端末のみ・localStorage 'inv_templates'）=====
@@ -10187,6 +10217,7 @@
     _setInvClientFields(status.company, status.contact, status.honorific);
     document.getElementById('inv-screen-zip').textContent  = status.zip;
     document.getElementById('inv-screen-addr').textContent = status.addr;
+    _fillInvAddrFromMaster(); // 住所が空なら取引先マスタから補う
     document.getElementById('inv-screen-title').value      = status.title;
     document.getElementById('inv-screen-workdate').value   = status.workDate;
     document.getElementById('inv-screen-staff').value      = status.staff;
@@ -10374,6 +10405,7 @@
     _setInvClientFields(status.company || master.client || '', status.contact || master.contact || '', status.honorific);
     document.getElementById('inv-screen-zip').textContent    = status.zip   || master.zip   || '';
     document.getElementById('inv-screen-addr').textContent   = status.addr  || master.addr  || '';
+    _fillInvAddrFromMaster(); // 住所が空なら取引先マスタから補う
     document.getElementById('inv-screen-title').value        = status.title || master.title || '';
     document.getElementById('inv-screen-workdate').value     = status.workDate || master.date || '';
     document.getElementById('inv-screen-staff').value        = status.staff || master.staff || '';
@@ -16971,6 +17003,7 @@ ${tableHTML}
     _setInvClientFields(savedStatus.company || company, savedStatus.contact || contact, savedStatus.honorific);
     document.getElementById('inv-screen-zip').textContent    = savedStatus.zip   || '';
     document.getElementById('inv-screen-addr').textContent   = savedStatus.addr  || '';
+    _fillInvAddrFromMaster(); // 住所が空なら取引先マスタから補う
     document.getElementById('inv-screen-title').value        = savedStatus.title    || title;
     document.getElementById('inv-screen-workdate').value     = savedStatus.workDate || date;
     document.getElementById('inv-screen-staff').value        = savedStatus.staff || saved['edit_staff'] || data.staff || '';
