@@ -6600,8 +6600,8 @@
 
       <!-- 削除ボタン（最下部、目立つ赤） -->
       <div style="margin-top:20px;padding:12px 12px 24px;border-top:1px dashed #ddd;">
-        <button onclick="deleteCurrentWS()" style="font-family:'DotGothic16',monospace;font-size:13px;background:#c0392b;border:3px solid #7b241c;color:white;padding:10px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #7b241c;width:100%;">🗑️ <span style="font-size:15px;">こ</span>のワークシートを削除</button>
-        <div style="margin-top:6px;text-align:center;font-size:10px;color:#999;">アプリからは消えますが、スプレッドシートには「削除フラグ」で残ります</div>
+        <button onclick="deleteCurrentWS()" style="font-family:'DotGothic16',monospace;font-size:13px;background:#c0392b;border:3px solid #7b241c;color:white;padding:10px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #7b241c;width:100%;">🗑️ <span style="font-size:15px;">こ</span>の案件をゴミ箱へ</button>
+        <div style="margin-top:6px;text-align:center;font-size:10px;color:#999;">ワークシート・受注ノート・請求書がまとめて消えます<br>「管理室 → 削除した書類」から元に戻せます</div>
       </div>
 
     </div><!-- /wsd-view-panel -->
@@ -9452,14 +9452,34 @@
   }
 
   // 指定番号をゴミ箱へ（ws_/inv_/projects を論理削除＋シートに削除フラグ。後で復元可能）
-  function _dupDelete(num) {
+  // 案件をまるごとゴミ箱へ（ワークシート＋請求書を論理削除。あとで「削除した書類」から復元できる）。
+  // 確認ダイアログは呼び出し側の責任。ワークシート画面の削除ボタンと重複の整理の両方から使う。
+  // 戻り値：何を消したか（呼び出し側のメッセージ表示用）
+  function _moveCaseToTrash(num) {
     num = String(num);
-    if (!confirm('受注番号「' + num + '」をゴミ箱へ移動します。よろしいですか？\n（後でゴミ箱から復元できます）')) return;
     const nowIso = new Date().toISOString();
     const syncOn = (typeof _gasUrlOne === 'function' && _gasUrlOne() && typeof pushKind === 'function');
     const hadWs  = !!localStorage.getItem('ws_' + num);
     const hadInv = !!localStorage.getItem('inv_' + num);
-    let inProj = false; try { inProj = JSON.parse(localStorage.getItem('projects_saved') || '[]').some(p => String(p.num) === num); } catch (e) {}
+    let inProj = false, projEntry = null;
+    try {
+      projEntry = JSON.parse(localStorage.getItem('projects_saved') || '[]').find(p => String(p.num) === num) || null;
+      inProj = !!projEntry;
+    } catch (e) {}
+    // 【重要】中身ごとゴミ箱へ退避する（2026-07-31）。
+    // 以前はここで ws_/inv_ を消すだけで番号しか残さなかったため、
+    // ゴミ箱の「元に戻す」を押しても中身が戻らず、空の書類が現れるだけだった。
+    try {
+      const archive = {
+        num, deletedAt: nowIso,
+        ws:      localStorage.getItem('ws_'  + num),
+        inv:     localStorage.getItem('inv_' + num),
+        project: projEntry
+      };
+      if (archive.ws || archive.inv || archive.project) {
+        localStorage.setItem('trash_' + num, JSON.stringify(archive));
+      }
+    } catch (e) {}
     const addDel = (key) => { try { const d = JSON.parse(localStorage.getItem(key) || '[]'); d.push(num); localStorage.setItem(key, JSON.stringify([...new Set(d)])); } catch (e) {} };
     if (hadWs || inProj) addDel('deleted_ws');
     if (hadInv) addDel('deleted_inv');
@@ -9478,7 +9498,86 @@
     try { renderDupCleanupList(); } catch (e) {}
     try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
     try { if (typeof renderInvCards === 'function') renderInvCards(); } catch (e) {}
+    try { if (typeof renderOrderNoteList === 'function') renderOrderNoteList(); } catch (e) {}
+    try { if (typeof renderWorksheetList === 'function') renderWorksheetList(); } catch (e) {}
+    return { hadWs: (hadWs || inProj), hadInv };
+  }
+
+  function _dupDelete(num) {
+    num = String(num);
+    if (!confirm('受注番号「' + num + '」をゴミ箱へ移動します。よろしいですか？\n（後でゴミ箱から復元できます）')) return;
+    _moveCaseToTrash(num);
     try { if (typeof showToast === 'function') showToast('🗑 ' + num + ' をゴミ箱へ移動しました'); } catch (e) {}
+  }
+
+  // ゴミ箱に退避した中身を読む（無ければ null＝旧方式で消された分）
+  function _readTrash(num) {
+    try { return JSON.parse(localStorage.getItem('trash_' + String(num)) || 'null'); } catch (e) { return null; }
+  }
+  // ゴミ箱の一覧（新方式の退避ぶん＋旧方式で番号だけ残っているぶん）
+  function _trashNums() {
+    const set = new Set();
+    try { JSON.parse(localStorage.getItem('deleted_ws')  || '[]').forEach(n => set.add(String(n))); } catch (e) {}
+    try { JSON.parse(localStorage.getItem('deleted_inv') || '[]').forEach(n => set.add(String(n))); } catch (e) {}
+    return [...set].sort((a, b) => String(b).localeCompare(String(a), 'ja', { numeric: true }));
+  }
+  // 1件だけ同期へ送る（レコードの形は各アダプタの loadLocal から取るので確実）
+  function _pushOne(kind, num) {
+    try {
+      const cfg = (typeof SYNC_KINDS === 'object') ? SYNC_KINDS[kind] : null;
+      if (!cfg || typeof pushKind !== 'function') return;
+      const rec = (cfg.loadLocal() || []).find(r => String(r['受注No'] || r.受注No || '') === String(num));
+      if (!rec) return;
+      rec._updatedAt = new Date().toISOString();  // LWWでシートの削除済み行に勝たせる
+      pushKind(kind, [rec]).catch(() => { try { pendingAdd(kind, num); } catch (_) {} });
+    } catch (e) {}
+  }
+  // ゴミ箱から元に戻す（中身ごと復活させ、シートの削除フラグも取り消す）
+  function restoreCaseFromTrash(num) {
+    num = String(num);
+    const a = _readTrash(num);
+    if (a) {
+      try { if (a.ws)  localStorage.setItem('ws_'  + num, a.ws);  } catch (e) {}
+      try { if (a.inv) localStorage.setItem('inv_' + num, a.inv); } catch (e) {}
+      try {
+        if (a.project) {
+          const list = JSON.parse(localStorage.getItem('projects_saved') || '[]');
+          if (!list.some(p => String(p.num) === num)) { list.push(a.project); localStorage.setItem('projects_saved', JSON.stringify(list)); }
+        }
+      } catch (e) {}
+      try { if (typeof wsData === 'object' && a.project) wsData[num] = a.project; } catch (e) {}
+    }
+    const rmDel = (key) => { try { const d = JSON.parse(localStorage.getItem(key) || '[]'); localStorage.setItem(key, JSON.stringify(d.filter(n => String(n) !== num))); } catch (e) {} };
+    rmDel('deleted_ws'); rmDel('deleted_inv');
+    try { localStorage.removeItem('trash_' + num); } catch (e) {}
+    // シート側の削除フラグを取り消す（送らないと次の同期で再び消える）
+    if (a && (a.ws || a.project)) { _pushOne('order', num); _pushOne('child', num); }
+    if (a && a.inv) { _pushOne('invoice', num); }
+    try { restoreSavedProjects(); } catch (e) {}
+    try { refreshHomeView(true); } catch (e) {}
+    try { renderTrashCards(); } catch (e) {}
+    try { renderInvCards(); } catch (e) {}
+    try { if (typeof renderSalesScreen === 'function') renderSalesScreen(); } catch (e) {}
+    try { if (typeof renderOrderNoteList === 'function') renderOrderNoteList(); } catch (e) {}
+    try { if (typeof renderWorksheetList === 'function') renderWorksheetList(); } catch (e) {}
+    try { showToast(a ? `↩ ${num} を元に戻しました` : `↩ ${num} を一覧に戻しました（中身は残っていません）`); } catch (e) {}
+  }
+  // ゴミ箱から完全に削除（退避データも捨てる。ここで初めて本当に消える）
+  function permanentDeleteCase(num) {
+    num = String(num);
+    showConfirm(
+      `${num} を完全に削除します。\nゴミ箱からも消え、二度と元に戻せません。`,
+      () => {
+        const rmDel = (key) => { try { const d = JSON.parse(localStorage.getItem(key) || '[]'); localStorage.setItem(key, JSON.stringify(d.filter(n => String(n) !== num))); } catch (e) {} };
+        rmDel('deleted_ws'); rmDel('deleted_inv');
+        try { localStorage.removeItem('trash_' + num); } catch (e) {}
+        try { localStorage.removeItem('ws_'  + num); } catch (e) {}
+        try { localStorage.removeItem('inv_' + num); } catch (e) {}
+        try { renderTrashCards(); } catch (e) {}
+        try { showToast(`🗑 ${num} を完全に削除しました`); } catch (e) {}
+      },
+      { okText: '完全削除', cancelText: 'やめる', okBg: '#922b21', okBorder: '#641e16' }
+    );
   }
 
   function openDupCleanupScreen() {
@@ -10859,8 +10958,9 @@
   function renderTrashCards() {
     const list = document.getElementById('inv-trash-list');
     if (!list) return;
-    let deletedNums = [];
-    try { deletedNums = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch {}
+    // ワークシートだけ削除した案件も出す（以前は請求書の番号しか見ておらず、
+    // ワークシートをゴミ箱に入れても復元画面に出てこなかった・2026-07-31）
+    const deletedNums = _trashNums();
     document.getElementById('inv-trash-count').textContent = `削除済み ${deletedNums.length} 件`;
     if (!deletedNums.length) {
       list.innerHTML = '<div style="padding:40px 14px;text-align:center;color:#aaa;font-size:14px;">ゴミ箱は空です</div>';
@@ -10868,15 +10968,26 @@
     }
     list.innerHTML = deletedNums.map(num => {
       const master = (typeof invData !== 'undefined' && invData[num]) ? invData[num] : null;
-      const status = loadInvStatus(num) || {};
-      const clientName = status.company || status.client || (master && master.client) || '';
-      const titleName  = status.title   || (master && master.title)  || '';
-      const dateStr    = status.invDate  || (master && master.date)   || '';
-      const staffStr   = status.staff    || (master && master.staff)  || '';
+      // 中身はゴミ箱に退避してあるので、そこから表示用の情報を取る
+      const arc = _readTrash(num);
+      let status = {}, proj = null;
+      try { status = arc && arc.inv ? (JSON.parse(arc.inv) || {}) : (loadInvStatus(num) || {}); } catch (e) { status = {}; }
+      try { proj = arc ? arc.project : null; } catch (e) {}
+      const clientName = status.company || status.client || (proj && proj.company) || (master && master.client) || '';
+      const titleName  = status.title   || (proj && proj.title) || (master && master.title)  || '';
+      const dateStr    = status.invDate  || (proj && proj.date) || (master && master.date)   || '';
+      const staffStr   = status.staff    || (proj && proj.staff) || (master && master.staff)  || '';
+      // 中に何が入っているかの内訳（ワークシートだけ／請求書だけ／両方）
+      const parts = [];
+      if (arc && (arc.ws || arc.project)) parts.push('ワークシート');
+      if (arc && arc.inv) parts.push('請求書');
+      const kindLabel = parts.length ? parts.join('＋')
+        : '中身なし（古い削除ぶん・戻しても内容は復活しません）';
+      const linesSrc = (Array.isArray(status.lines) && status.lines.length) ? { lines: status.lines } : master;
       let totalStr = '';
-      if (master && master.lines) {
-        const subtotal = master.lines.reduce((s, l) => s + l.qty * l.price, 0);
-        const taxableAmt = master.lines.reduce((s, l) =>
+      if (linesSrc && linesSrc.lines) {
+        const subtotal = linesSrc.lines.reduce((s, l) => s + l.qty * l.price, 0);
+        const taxableAmt = linesSrc.lines.reduce((s, l) =>
           (l && l.taxable === false) ? s : s + l.qty * l.price, 0);
         const discount = Number(status.discount) || 0;
         const taxBase  = Math.max(0, taxableAmt - discount);
@@ -10891,12 +11002,13 @@
         ${clientName ? `<div style="font-weight:bold;font-size:14px;color:#444;margin-bottom:2px;">${escapeHtml(clientName)}</div>` : ''}
         ${titleName  ? `<div style="font-size:12px;color:#666;margin-bottom:4px;">${escapeHtml(titleName)}</div>` : ''}
         ${(dateStr || staffStr) ? `<div style="font-size:11px;color:#999;">${dateStr ? '📅 ' + escapeHtml(dateStr) : ''}${staffStr ? ' 👤 ' + escapeHtml(staffStr) : ''}</div>` : ''}
+        <div style="font-size:11px;color:${parts.length ? '#16a085' : '#c0392b'};margin-top:4px;">📦 ${escapeHtml(kindLabel)}</div>
         <div style="display:flex;gap:6px;margin-top:8px;">
-          <button onclick="restoreInvDoc('${num}')"
+          <button onclick="restoreCaseFromTrash('${num}')"
             style="flex:1;font-family:'DotGothic16',monospace;font-size:12px;background:#27ae60;color:white;border:2px solid #1a7a40;box-shadow:2px 2px 0 #1a7a40;border-radius:3px;padding:6px 0;cursor:pointer;">
             ↩ 元に戻す
           </button>
-          <button onclick="permanentDeleteInv('${num}')"
+          <button onclick="permanentDeleteCase('${num}')"
             style="font-family:'DotGothic16',monospace;font-size:12px;background:#922b21;color:white;border:2px solid #641e16;box-shadow:2px 2px 0 #641e16;border-radius:3px;padding:6px 12px;cursor:pointer;">
             完全削除
           </button>
@@ -10954,8 +11066,15 @@
     const status = loadInvStatus(num) || {};
     const clientName = status.company || status.client || master.client || '';
     const titleName  = status.title   || master.title  || '';
-    const msg = `受注No: ${num}${clientName ? '\n取引先: ' + clientName : ''}${titleName ? '\n件名: ' + titleName : ''}\n\nこの案件を会計室から削除します。\n元に戻せません。`;
+    const msg = `受注No: ${num}${clientName ? '\n取引先: ' + clientName : ''}${titleName ? '\n件名: ' + titleName : ''}\n\nこの請求書を会計室から削除します。\n売上表からも外れます。\n\n中身はゴミ箱に保管されるので、\n「管理室 → 削除した書類」から元に戻せます。`;
     showConfirm(msg, () => {
+      try {
+        // 中身をゴミ箱へ退避してから消す（ワークシート側の削除と同じ扱い・2026-07-31）
+        const prev = _readTrash(num) || { num, ws: null, inv: null, project: null };
+        prev.inv = localStorage.getItem('inv_' + num);
+        prev.deletedAt = new Date().toISOString();
+        if (prev.ws || prev.inv || prev.project) localStorage.setItem('trash_' + num, JSON.stringify(prev));
+      } catch (e) { console.warn('deleteInvDoc archive', e); }
       try {
         const deleted = JSON.parse(localStorage.getItem('deleted_inv') || '[]');
         deleted.push(num);
@@ -17350,34 +17469,48 @@ ${tableHTML}
   function confirmDeleteWS() {
     const num = document.getElementById('ws-detail-num').textContent;
     const title = document.getElementById('wsd-title').textContent;
+    // 何が一緒に消えるかを事前に調べて警告に出す（請求書ごと消えることに気づかない事故を防ぐ）
+    let hasInv = false, invNote = '';
+    try {
+      const raw = localStorage.getItem('inv_' + num);
+      hasInv = !!raw;
+      if (hasInv) {
+        const st = JSON.parse(raw) || {};
+        if (st.paid)        invNote = '（入金済の請求書です）';
+        else if (st.billed) invNote = '（発行済の請求書です）';
+      }
+    } catch (e) {}
+    const msg =
+      `${num}「${title}」をゴミ箱へ移動します。\n\n` +
+      `一緒に消えるもの：\n` +
+      `・ワークシート（案件の内容・機材・クルー）\n` +
+      `・受注ノートの行\n` +
+      (hasInv ? `・この案件の請求書${invNote}\n　→ 売上表からも外れます\n` : `・請求書はまだありません\n`) +
+      `\nホームのカレンダーや一覧からも消えます。\n` +
+      `中身はゴミ箱に保管されるので、\n「管理室 → 削除した書類」から元に戻せます。`;
     showConfirm(
-      `${num}「${title}」のワークシートを削除しますか？`,
+      msg,
       () => deleteWS(num),
-      { okText: 'はい', cancelText: 'いいえ', okBg: '#e74c3c', okBorder: '#8b0000' }
+      { okText: 'ゴミ箱へ移動', cancelText: 'やめる', okBg: '#e74c3c', okBorder: '#8b0000' }
     );
   }
   // ワークシート画面最下部の削除ボタンから呼ぶ（confirmDeleteWS のエイリアス）
   function deleteCurrentWS() { confirmDeleteWS(); }
 
-  // 親・子シートに削除フラグを立てる
+  // 案件をゴミ箱へ（ワークシート＋請求書。2026-07-31：以前はワークシートだけ消えて
+  // 請求書が残り、しかもゴミ箱に入らず復元できなかったため、重複の整理と同じ方式に統一）
   function deleteWS(num) {
-    localStorage.removeItem('ws_' + num);
-    localStorage.setItem('projects_saved', JSON.stringify(getSavedProjects().filter(p => p.num !== num)));
-    delete wsData[num];
-    removeWSCard(num);
-    closeWS();
-    refreshHomeView(true);
-    // 論理削除：親（案件）と子（詳細）の両方に削除フラグを立てて送信（fire-and-forget）
-    if (_gasUrlOne()) {
-      const _now = new Date().toISOString();
-      pushKind('order', [{ '受注No': num, _project: {}, _updatedAt: _now, _deleted: true }])
-        .catch(e => { try { pendingAdd('order', num); } catch(_){} });
-      pushKind('child', [{ '受注No': num, _updatedAt: _now, _deleted: true }])
-        .catch(e => { try { pendingAdd('child', num); } catch(_){} });
-    }
-    document.querySelector('.speech-bubble').innerHTML =
-      `🗑 ${num} のワークシートを削除しました<br>一覧から外しておきました<span class="blink">█</span>`;
-    showToast(`🗑 ${num} のワークシートを削除しました`);
+    const r = _moveCaseToTrash(num);
+    try { removeWSCard(num); } catch (e) {}
+    try { closeWS(); } catch (e) {}
+    try { refreshHomeView(true); } catch (e) {}
+    const what = r && r.hadInv ? 'ワークシートと請求書' : 'ワークシート';
+    try {
+      const bubble = document.querySelector('.speech-bubble');
+      if (bubble) bubble.innerHTML =
+        `🗑 ${num} の${what}をゴミ箱へ移動しました<br>「管理室 → 削除した書類」から戻せます<span class="blink">█</span>`;
+    } catch (e) {}
+    showToast(`🗑 ${num} の${what}をゴミ箱へ移動しました`);
   }
 
   // ===== レンタル機材リスト（複数行）管理 =====
