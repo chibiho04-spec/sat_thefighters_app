@@ -13668,6 +13668,10 @@ ${_body}
     const taxBase  = Math.max(0, taxableAmt - discount);
     const tax      = Math.floor(taxBase * 0.1);
     const total    = (subtotal - discount) + tax;
+    // 売上表に出す「税抜額」は値引き後の実額にする（2026-08-03 修正）。
+    // 以前は値引き前の小計を返していたため、税抜額＋消費税＝合計 が合わなかった
+    // （例：税抜50万＋税4.5万なのに合計49.5万＝値引き5万ぶんズレて見えていた）。
+    const subtotalNet = subtotal - discount;
 
     // 外注費：明細リスト＋合計をヘルパーで取得（計算式は従来どおり）。
     const _os = _collectOutsourceItems(num, lines, status);
@@ -13682,7 +13686,7 @@ ${_body}
       client:   master.client || master.company || '',
       // 計上日＝作業日の最終日。無ければ従来どおり請求日→マスタ日付の順で代用
       date:     _lastWorkDateForSales(status.workDate) || _lastWorkDateForSales(master.date) || status.invDate || master.date || '',
-      subtotal, tax, total,
+      subtotal: subtotalNet, tax, total,
       outsourceCost,
       outsourceItems,
       netInhouse,
@@ -14361,9 +14365,10 @@ ${_body}
     wsData[num] = newProject;
     saveProject(num, newProject);
     try { addWsCard(num, newProject); } catch (e) {}
-    // ワークシート本体：請求書の明細から税抜小計を受注金額として引き継ぐ
+    // ワークシート本体：請求書の明細から税抜小計を受注金額として引き継ぐ（値引き後の実額）
     const lines = status.lines || [];
-    const subtotal = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+    const _sub = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+    const subtotal = Math.max(0, _sub - (Number(status.discount) || 0));
     const data = Object.assign({}, loadWS(num), {
       'edit_title':       newProject.title,
       'edit_company':     newProject.company,
