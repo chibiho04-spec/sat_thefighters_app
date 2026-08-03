@@ -5563,8 +5563,8 @@
       </select>
       <span style="font-size:12px;color:#666;margin-left:6px;">並び順：</span>
       <select id="sales-sort" onchange="renderSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
-        <option value="date-asc" selected>請求日（古い順）</option>
-        <option value="date-desc">請求日（新しい順）</option>
+        <option value="date-asc" selected>作業日（古い順）</option>
+        <option value="date-desc">作業日（新しい順）</option>
         <option value="num">受注番号順</option>
       </select>
     </div>
@@ -6560,7 +6560,7 @@
 
       <!-- 外注 -->
       <div class="wsv-section" id="wsv-outsource-section" style="display:none;">
-        <div class="wsv-section-title">🤝 外注</div>
+        <div class="wsv-section-title">🤝 外注・レンタル機材</div>
         <div id="wsv-outsource-val" style="font-size:12px;color:var(--text-dark);line-height:1.7;"></div>
         <div id="wsv-outsource-cost" style="font-size:14px;font-weight:bold;color:#c0392b;margin-top:3px;"></div>
       </div>
@@ -6780,18 +6780,9 @@
           <label class="wsd-label">👤 私物機材</label>
           <input id="wsd-private" class="wsd-input" type="text" placeholder="持参する私物機材...">
         </div>
+        <!-- レンタル機材は外注に統合（2026-08-03）。既存データは開いたときに下のリストへ移る -->
         <div class="wsd-field-row" style="margin-top:6px;">
-          <label class="wsd-label">🏷 レンタル機材</label>
-          <div id="wsd-rental-rows" style="display:flex;flex-direction:column;gap:6px;">
-            <!-- JSで動的生成 -->
-          </div>
-          <button type="button" onclick="addRentalRow()"
-            style="font-family:'DotGothic16',monospace;font-size:12px;background:#27ae60;border:2px solid #1a7a40;color:white;padding:6px 14px;border-radius:3px;margin-top:6px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;align-self:flex-start;">
-            ＋ 行を追加
-          </button>
-        </div>
-        <div class="wsd-field-row" style="margin-top:6px;">
-          <label class="wsd-label">🤝 外注</label>
+          <label class="wsd-label">🤝 外注・レンタル機材</label>
           <div id="wsd-outsource-rows" style="display:flex;flex-direction:column;gap:6px;">
             <!-- JSで動的生成（デフォルト3行） -->
           </div>
@@ -13689,7 +13680,8 @@ ${_body}
       num,
       title:    master.title || '',
       client:   master.client || master.company || '',
-      date:     status.invDate || master.date || '',
+      // 計上日＝作業日の最終日。無ければ従来どおり請求日→マスタ日付の順で代用
+      date:     _lastWorkDateForSales(status.workDate) || _lastWorkDateForSales(master.date) || status.invDate || master.date || '',
       subtotal, tax, total,
       outsourceCost,
       outsourceItems,
@@ -13698,6 +13690,20 @@ ${_body}
       paid:     !!status.paid,
       outsourcePaid: !!status.outsourcePaid
     };
+  }
+
+  // 売上の計上月に使う日付＝作業日（撮影日程）の最終日。（2026-08-03 ユーザー要望）
+  // 請求日ではなく実際に作業した月で集計する。「6/17・6/20」「7/15〜21」のように
+  // 複数日・範囲で書かれていても全部展開して最も遅い日を返す。
+  // 返り値は _parseDateForSales が読める 'YYYY/MM/DD'。読めない場合は ''（呼び出し側で請求日にフォールバック）。
+  function _lastWorkDateForSales(s) {
+    try {
+      const arr = (typeof parseDateStr === 'function') ? (parseDateStr(s) || []) : [];
+      if (!arr.length) return '';
+      const key = x => x.y * 10000 + x.m * 100 + x.d;
+      const last = arr.reduce((mx, x) => (key(x) > key(mx) ? x : mx), arr[0]);
+      return last.y + '/' + String(last.m).padStart(2, '0') + '/' + String(last.d).padStart(2, '0');
+    } catch (e) { return ''; }
   }
 
   function _parseDateForSales(s) {
@@ -13763,7 +13769,9 @@ ${_body}
             total    = oa + tax;
           } catch(e) {}
           items.push({
-            num: p.num, title: p.title || '', client: p.company || '', date: status.invDate || p.date || '',
+            // 計上日＝作業日（撮影日程）の最終日。無ければ請求日で代用
+            num: p.num, title: p.title || '', client: p.company || '',
+            date: _lastWorkDateForSales(status.workDate) || _lastWorkDateForSales(p.date) || status.invDate || p.date || '',
             subtotal, tax, total,
             outsourceCost, outsourceItems, netInhouse: total - outsourceCost,
             billed: !!status.billed, paid: !!status.paid, outsourcePaid: !!status.outsourcePaid
@@ -14868,9 +14876,17 @@ ${tableHTML}
     const vehicleTxt = document.getElementById('wsv-vehicle-val')?.textContent || '';
     const num2       = document.getElementById('ws-detail-num').textContent;
     const saved2     = loadWS(num2);
-    const rentalVal  = saved2['wsd-rental']  || '';
+    const rentalVal  = saved2['wsd-rental']  || '';   // 旧レンタル欄（統合前のデータ用）
     const privateVal = saved2['wsd-private'] || '';
     const rentalTxt  = [rentalVal, privateVal].filter(Boolean).join('\n');
+    // 外注・レンタル機材（統合後はこちらに入る）。従来は印刷に出ていなかったため追加
+    const outsourceTxt = (loadOutsourceItems(saved2) || [])
+      .filter(o => String(o && o.name || '').trim() || Number(o && o.cost) > 0)
+      .map(o => {
+        const nm = String(o.name || '').trim() || '（名目なし）';
+        const cost = Number(o.cost) || 0;
+        return cost ? `${nm}　¥${cost.toLocaleString()}${o.taxable === false ? '（非課税）' : ''}` : nm;
+      }).join('\n');
     const memoTxt    = document.getElementById('wsv-memo-val')?.textContent    || '';
     const reportTxt  = document.getElementById('wsv-report-val')?.textContent  || '';
 
@@ -14901,6 +14917,7 @@ ${tableHTML}
   ${crewItems  ? secBar('担当クルー')            + hRow(crewItems) : ''}
   ${equipTable ? secBar('使用機材')              + equipTable     : ''}
   ${rentalTxt  ? secBar('レンタル・私物')         + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;white-space:pre-wrap;">${rentalTxt}</p>` : ''}
+  ${outsourceTxt ? secBar('外注・レンタル機材')   + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;white-space:pre-wrap;">${escapeHtml(outsourceTxt)}</p>` : ''}
   ${memoTxt   ? secBar('メモ',     '#27ae60') + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;border-left:3px solid #27ae60;">${memoTxt}</p>`   : ''}
   ${reportTxt ? secBar('作業報告', '#e67e22') + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;border-left:3px solid #e67e22;">${reportTxt}</p>` : ''}
   ${vehicleTxt ? secBar('使用車両')              + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.7;">${vehicleTxt}</p>` : ''}
@@ -17414,9 +17431,17 @@ ${tableHTML}
       }
     }
 
-    // レンタル機材・外注リスト復元（複数行）
-    renderRentalRows(loadRentalItems(saved));
-    renderOutsourceRows(loadOutsourceItems(saved));
+    // 外注・レンタル機材リスト復元（複数行）。
+    // レンタルは外注へ統合したため（2026-08-03）、旧レンタル欄に入っていた記録は
+    // ここで外注リストの末尾へ移す。レンタルは従来から課税扱いなので taxable:true にする。
+    // 移した内容は保存時に outsource_list へ書かれ、旧レンタル欄は空になる（二重計上の防止）。
+    {
+      const _notBlank = (r) => String(r && r.name || '').trim() !== '' || Number(r && r.cost) > 0;
+      const _os = loadOutsourceItems(saved).filter(_notBlank);
+      const _rt = loadRentalItems(saved).filter(_notBlank)
+        .map(r => ({ name: r.name || '', cost: r.cost, taxable: true }));
+      renderOutsourceRows(_os.concat(_rt));
+    }
 
     // 使用車両（複数選択＋自由記入）復元
     _setWsVehicle(saved['wsd-vehicle'] || '');
@@ -17658,7 +17683,7 @@ ${tableHTML}
     row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
     const taxable = (it.taxable !== false); // フラグ無し（旧データ・新規行）は課税
     row.innerHTML = `
-      <input type="text" class="wsd-input wsd-os-name" placeholder="名目 (例: ドローン撮影 ◯◯社)" value="${escapeHtml(it.name || '')}" style="flex:2;min-width:120px;">
+      <input type="text" class="wsd-input wsd-os-name" placeholder="名目 (例: ドローン撮影 ◯◯社 / レンタル ◯◯)" value="${escapeHtml(it.name || '')}" style="flex:2;min-width:120px;">
       <input type="number" class="wsd-input wsd-os-cost" placeholder="料金" value="${escapeHtml(String(it.cost || ''))}" min="0" style="flex:1;max-width:100px;min-width:0;">
       <select class="wsd-input wsd-os-tax" title="課税＝税抜で入力(自動で+10%)／非課税＝そのまま" style="max-width:92px;flex-shrink:0;">
         <option value="1" ${taxable ? 'selected' : ''}>課税</option>
@@ -17731,13 +17756,14 @@ ${tableHTML}
     data['crew_edit']     = getCrewVal('wsd-crew-edit',     'wsd-crew-edit-txt');
     data['saved_at'] = new Date().toLocaleString('ja-JP');
 
-    // レンタル機材リスト（複数行）を配列として保存。互換のため合計値とまとめテキストも残す。
-    const rentalList = getRentalItems();
-    data.rental_list = rentalList;
-    data['wsd-rental']      = rentalList.map(r => r.name).filter(Boolean).join(' / ');
-    data['wsd-rental-cost'] = rentalList.reduce((s, r) => s + (Number(r.cost) || 0), 0);
+    // レンタル機材は外注リストへ統合済み（2026-08-03）。
+    // 旧レンタル欄を必ず空にして保存する。空にしないと、外注へ移した金額と
+    // 旧レンタル金額(wsd-rental-cost)の両方が売上計算で引かれて二重計上になる。
+    data.rental_list = [];
+    data['wsd-rental']      = '';
+    data['wsd-rental-cost'] = '';
 
-    // 外注リスト（複数行）を配列として保存。互換のため合計値とまとめテキストも残す。
+    // 外注・レンタル機材リスト（複数行）を配列として保存。互換のため合計値とまとめテキストも残す。
     const outsourceList = getOutsourceItems();
     data.outsource_list = outsourceList;
     data['wsd-outsource']      = outsourceList.map(o => o.name).filter(Boolean).join(' / ');
@@ -17860,7 +17886,7 @@ ${tableHTML}
 
       // ステップ1: 撮影日前 & ワークシート記入あり → 準備中
       const hasWorksheet = Object.values(saved.equip || {}).some(e => e.checked)
-        || saved['crew_c'] || saved['crew_producer'] || saved['wsd-rental'];
+        || saved['crew_c'] || saved['crew_producer'] || saved['wsd-rental'] || saved['wsd-outsource'];
       if (hasWorksheet) return 1;
     } else {
       // 日付未設定でもワークシート記入あれば準備中
