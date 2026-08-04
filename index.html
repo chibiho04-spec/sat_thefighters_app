@@ -2342,6 +2342,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;  /* 文字拡大時にセレクトがはみ出さず折り返すようにする（2026-08-04） */
+    gap: 6px;
     background: #8e44ad;
     padding: 10px 14px;
     border-bottom: 3px solid #4a1a6a;
@@ -2357,12 +2359,26 @@
     cursor: pointer;
   }
   .dp-nav-btn:active { background: rgba(255,255,255,0.35); }
-  .dp-month-label {
-    font-size: 14px;
-    color: white;
-    text-shadow: 2px 2px 0 #4a1a6a;
-    letter-spacing: 2px;
+  /* 年・月のセレクト。パネル幅は320px固定で文字拡大に追従しないため、
+     はみ出さないよう最大幅を抑え、あふれたらヘッダーを折り返す（.dp-header の flex-wrap）。 */
+  .dp-ym-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
   }
+  .dp-sel {
+    font-family: 'DotGothic16', monospace;
+    font-size: 14px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+    padding: 3px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    max-width: 38vw;
+  }
+  .dp-sel option { color: #333; background: #fff; } /* ドロップダウンは白背景＋黒文字（白文字だと読めない） */
 
   .dp-dow-row {
     display: grid;
@@ -6943,7 +6959,12 @@
     <!-- ヘッダー -->
     <div class="dp-header">
       <button class="dp-nav-btn" onclick="dpChangeMonth(-1)">◀</button>
-      <span class="dp-month-label" id="dp-month-label"></span>
+      <!-- 年・月は直接選べる（2026-08-04）。以前は文字表示だけで、◀▶ の送りでしか年を変えられず、
+           2026を2016と打ち間違えても気づけなかった（E26029 の作業日が2016年になっていた）。 -->
+      <span class="dp-ym-wrap">
+        <select class="dp-sel" id="dp-year-sel"  onchange="dpSetYM(this.value, null)" aria-label="年"></select>
+        <select class="dp-sel" id="dp-month-sel" onchange="dpSetYM(null, this.value)" aria-label="月"></select>
+      </span>
       <button class="dp-nav-btn" onclick="dpChangeMonth(1)">▶</button>
     </div>
 
@@ -8381,9 +8402,43 @@
     renderDpCalendar();
   }
 
+  // 年・月セレクトを、いま表示している年月に合わせる。
+  // 年の候補は「今年の10年前〜3年後」＋表示中の年（範囲外の古いデータを開いても選択肢が消えないように）。
+  function _dpSyncYmSelects() {
+    const ys = document.getElementById('dp-year-sel');
+    const ms = document.getElementById('dp-month-sel');
+    if (ys) {
+      const nowY = new Date().getFullYear();
+      const min = Math.min(nowY - 10, _dpYear);
+      const max = Math.max(nowY + 3,  _dpYear);
+      const sig = min + '-' + max;
+      if (ys.dataset.sig !== sig) { // 範囲が変わったときだけ作り直す（毎回作ると選択が飛ぶ）
+        let html = '';
+        for (let y = max; y >= min; y--) html += '<option value="' + y + '">' + y + '年</option>';
+        ys.innerHTML = html;
+        ys.dataset.sig = sig;
+      }
+      ys.value = String(_dpYear);
+    }
+    if (ms) {
+      if (!ms.options.length) {
+        let html = '';
+        for (let m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + '月</option>';
+        ms.innerHTML = html;
+      }
+      ms.value = String(_dpMonth + 1);
+    }
+  }
+
+  // 年・月セレクトの変更で表示月を移す（変えたほうだけ値が来る）
+  function dpSetYM(y, m) {
+    if (y != null && y !== '') { const v = parseInt(y, 10); if (v >= 1900 && v <= 2200) _dpYear  = v; }
+    if (m != null && m !== '') { const v = parseInt(m, 10); if (v >= 1 && v <= 12)       _dpMonth = v - 1; }
+    renderDpCalendar();
+  }
+
   function renderDpCalendar() {
-    document.getElementById('dp-month-label').textContent =
-      `${_dpYear}年 ${_dpMonth + 1}月`;
+    _dpSyncYmSelects();
 
     const grid      = document.getElementById('dp-grid');
     const firstDay  = new Date(_dpYear, _dpMonth, 1).getDay();
