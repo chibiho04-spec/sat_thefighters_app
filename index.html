@@ -13725,12 +13725,43 @@ ${_body}
   // 請求日ではなく実際に作業した月で集計する。「6/17・6/20」「7/15〜21」のように
   // 複数日・範囲で書かれていても全部展開して最も遅い日を返す。
   // 返り値は _parseDateForSales が読める 'YYYY/MM/DD'。読めない場合は ''（呼び出し側で請求日にフォールバック）。
+  // 【2026-08-04】自由記述に強くする保険を追加。parseDateStr はカレンダー展開用のため、
+  //   日付以外の文字が混ざると先頭の1件で止まり、最終日を取り違えていた。
+  //     "#26(4/21) #27(5/12-14)"       → 4/21 で止まる（本来 5/14。T26045が4月扱いだった）
+  //     "6/9(#28).6/18(#29).6/22(#30)" → 6/9 で止まる（区切りが「.」で分割されない）
+  //     "企画3/3～撮影5/7～25"          → 5/7 で止まる（〜が3つ以上だと終端を捨てていた）
+  //   月判定に必要なのは最終日だけなので、文字列中の日付トークンも直接拾って最大を取る。
+  //   誤検出よけ：年2000〜2100／月1〜12／日はその月の末日まで、を満たすものだけ採用し、
+  //   「(#30)」のような裸の数字は範囲記号の直後のときだけ日として扱う。
   function _lastWorkDateForSales(s) {
     try {
-      const arr = (typeof parseDateStr === 'function') ? (parseDateStr(s) || []) : [];
-      if (!arr.length) return '';
+      const cand = [];
+      const add = (y, m, d) => {
+        if (!(y >= 2000 && y <= 2100)) return;
+        if (!(m >= 1 && m <= 12)) return;
+        if (!(d >= 1 && d <= new Date(y, m, 0).getDate())) return; // その月に存在しない日は捨てる
+        cand.push({ y, m, d });
+      };
+      // ① 従来どおり parseDateStr で読む（カレンダー表示と同じ解釈を保つ）
+      try {
+        if (typeof parseDateStr === 'function') (parseDateStr(s) || []).forEach(x => add(x.y, x.m, x.d));
+      } catch (e) {}
+      // ② 文字列中の日付トークンを直接拾う（自由記述の保険）
+      const str = String(s || '');
+      const re = /(\d{4})\s*[\/\-.年]\s*(\d{1,2})\s*[\/\-.月]\s*(\d{1,2})|(\d{1,2})\s*[\/月]\s*(\d{1,2})/g;
+      let m;
+      while ((m = re.exec(str))) {
+        const y  = m[1] ? +m[1] : new Date().getFullYear();
+        const mo = m[1] ? +m[2] : +m[4];
+        const d  = m[1] ? +m[3] : +m[5];
+        add(y, mo, d);
+        // 「5/12-14」「5/7～25」のような範囲の終端（裸の数字）も同じ月の日として拾う
+        const tail = str.slice(re.lastIndex).match(/^\s*[-‐‑–—ー－〜~～]\s*(\d{1,2})(?![\d\/月])/);
+        if (tail) add(y, mo, +tail[1]);
+      }
+      if (!cand.length) return '';
       const key = x => x.y * 10000 + x.m * 100 + x.d;
-      const last = arr.reduce((mx, x) => (key(x) > key(mx) ? x : mx), arr[0]);
+      const last = cand.reduce((mx, x) => (key(x) > key(mx) ? x : mx), cand[0]);
       return last.y + '/' + String(last.m).padStart(2, '0') + '/' + String(last.d).padStart(2, '0');
     } catch (e) { return ''; }
   }
