@@ -4156,8 +4156,28 @@
           <button onclick="manualSyncInvoices()" style="font-family:'DotGothic16',monospace;background:#2980b9;color:white;border:2px solid #1a5c8a;box-shadow:2px 2px 0 #1a5c8a;border-radius:3px;font-size:12px;padding:7px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0;letter-spacing:1px;">🔄 請求書を同期</button>
           <div id="inv-sync-status" style="font-size:11px;color:#666;flex:1;min-width:0;line-height:1.35;">　</div>
         </div>
-        <div style="padding:8px 14px 6px;font-size:12px;color:#888;letter-spacing:1px;">— 書類作成 —</div>
+        <div style="padding:8px 14px 6px;font-size:12px;color:#888;letter-spacing:1px;">— 集計 —</div>
         <div style="padding:0 14px;display:flex;flex-direction:column;gap:10px;">
+          <button onclick="openSalesScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#c0392b 0%,#922b21 100%);border:3px solid #641e16;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #641e16;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #641e16;letter-spacing:2px;">
+            <span style="font-size:32px;line-height:1;">📊</span>
+            <span style="flex:1;"><span style="font-size:1.2em;">売</span>上表<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">請求書データから売上集計</div></span>
+            <span style="font-size:23px;">▶</span>
+          </button>
+          <!-- 低頻度のメンテ操作は小型セカンダリ枠に格下げ（視覚階層づけ・2026-07-11） -->
+          <div style="display:flex;gap:10px;">
+            <button onclick="openOrderNumEditScreen()" title="案件・請求書の番号を後から変更"
+              style="flex:1;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#6c3483;border:2px solid #8e44ad;border-radius:5px;padding:11px 6px;cursor:pointer;box-shadow:0 2px 0 #5b2c6f;white-space:nowrap;">
+              🔢 受注番号の変更
+            </button>
+            <button onclick="openDupCleanupScreen()" title="同じ内容が二重計上されていないか確認・整理"
+              style="flex:1;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#b3650f;border:2px solid #e67e22;border-radius:5px;padding:11px 6px;cursor:pointer;box-shadow:0 2px 0 #7e4906;white-space:nowrap;">
+              🔁 重複の整理
+            </button>
+          </div>
+        </div>
+
+        <div style="padding:18px 14px 6px;font-size:12px;color:#888;letter-spacing:1px;">— 書類作成 —</div>
+        <div style="padding:0 14px 18px;display:flex;flex-direction:column;gap:10px;">
           <button onclick="openOrderNoteScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#34495e 0%,#2c3e50 100%);border:3px solid #1a252f;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #1a252f;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #1a252f;letter-spacing:2px;">
             <span style="font-size:32px;line-height:1;">📒</span>
             <span style="flex:1;"><span style="font-size:1.2em;">受</span>注ノート<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">案件を受注番号順に一覧（並び替え可）</div></span>
@@ -4188,26 +4208,6 @@
             <span style="flex:1;"><span style="font-size:1.2em;">納</span>品書<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">作成済の納品書一覧</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
-        </div>
-
-        <div style="padding:18px 14px 6px;font-size:12px;color:#888;letter-spacing:1px;">— 集計 —</div>
-        <div style="padding:0 14px 18px;display:flex;flex-direction:column;gap:10px;">
-          <button onclick="openSalesScreen()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#c0392b 0%,#922b21 100%);border:3px solid #641e16;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #641e16;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #641e16;letter-spacing:2px;">
-            <span style="font-size:32px;line-height:1;">📊</span>
-            <span style="flex:1;"><span style="font-size:1.2em;">売</span>上表<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">請求書データから売上集計</div></span>
-            <span style="font-size:23px;">▶</span>
-          </button>
-          <!-- 低頻度のメンテ操作は小型セカンダリ枠に格下げ（視覚階層づけ・2026-07-11） -->
-          <div style="display:flex;gap:10px;">
-            <button onclick="openOrderNumEditScreen()" title="案件・請求書の番号を後から変更"
-              style="flex:1;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#6c3483;border:2px solid #8e44ad;border-radius:5px;padding:11px 6px;cursor:pointer;box-shadow:0 2px 0 #5b2c6f;white-space:nowrap;">
-              🔢 受注番号の変更
-            </button>
-            <button onclick="openDupCleanupScreen()" title="同じ内容が二重計上されていないか確認・整理"
-              style="flex:1;font-family:'DotGothic16',monospace;font-size:13px;background:white;color:#b3650f;border:2px solid #e67e22;border-radius:5px;padding:11px 6px;cursor:pointer;box-shadow:0 2px 0 #7e4906;white-space:nowrap;">
-              🔁 重複の整理
-            </button>
-          </div>
         </div>
 
       </div>
