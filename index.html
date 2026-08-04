@@ -16216,15 +16216,19 @@ ${tableHTML}
 
     // 並び順
     const sortMode = document.getElementById('wl-sort-sel')?.value || 'date_desc';
-    const getFirstDate = num => {
-      const str = getWsDateText(num);
-      const dates = parseDateStr(str);
-      if (!dates.length) return null;
-      return new Date(dates[0].y, dates[0].m - 1, dates[0].d).getTime();
+    // 月の判定・並びに使う日付＝日程の【最終日】（ユーザー指定 2026-08-04）。
+    // 以前は parseDateStr の先頭（最初の日付）を見ていたため、「6/24・7/10」のように
+    // 複数日ある案件が、最終作業日7/10にもかかわらず6月に入っていた。
+    // 売上表の計上月と同じ _lastWorkDateForSales を使って基準を揃える。
+    const getLastDate = num => {
+      const s = (typeof _lastWorkDateForSales === 'function') ? _lastWorkDateForSales(getWsDateText(num)) : '';
+      const d = s ? _parseDateForSales(s) : null;
+      if (!d) return null;
+      return new Date(d.y, d.m - 1, d.d).getTime();
     };
-    // 月の判定（撮影日の年月。日付なしは末尾）
+    // 月の判定（日程の最終日の年月。日付なしは末尾）
     const _wlMonthOf = (num) => {
-      const t = getFirstDate(num);
+      const t = getLastDate(num);
       if (t == null) return { ord: -1, key: '日付なし' };
       const d = new Date(t);
       return { ord: d.getFullYear() * 100 + (d.getMonth() + 1), key: d.getFullYear() + '年 ' + (d.getMonth() + 1) + '月' };
@@ -16237,7 +16241,7 @@ ${tableHTML}
       if (ma.ord !== mb.ord) return _wlMonthAsc ? (ma.ord - mb.ord) : (mb.ord - ma.ord);
       // 同月内は選択中の並び順
       if (sortMode.startsWith('date')) {
-        const da = getFirstDate(a), db = getFirstDate(b);
+        const da = getLastDate(a), db = getLastDate(b);
         if (da == null && db == null) return 0;
         if (da == null) return 1;
         if (db == null) return -1;
