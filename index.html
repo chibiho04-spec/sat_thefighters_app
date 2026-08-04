@@ -5563,8 +5563,8 @@
       </select>
       <span style="font-size:12px;color:#666;margin-left:6px;">並び順：</span>
       <select id="sales-sort" onchange="renderSalesScreen()" class="wsd-input" style="width:auto;font-size:13px;padding:6px 8px;">
-        <option value="date-asc" selected>作業日（古い順）</option>
-        <option value="date-desc">作業日（新しい順）</option>
+        <option value="date-asc" selected>請求日（古い順）</option>
+        <option value="date-desc">請求日（新しい順）</option>
         <option value="num">受注番号順</option>
       </select>
     </div>
@@ -13686,6 +13686,8 @@ ${_body}
       client:   master.client || master.company || '',
       // 計上日＝作業日の最終日。無ければ従来どおり請求日→マスタ日付の順で代用
       date:     _lastWorkDateForSales(status.workDate) || _lastWorkDateForSales(master.date) || status.invDate || master.date || '',
+      // 請求日（並び順の基準・2026-08-04）。集計月は上の date（作業日）のまま変えない。
+      invDate:  status.invDate || master.date || '',
       subtotal: subtotalNet, tax, total,
       outsourceCost,
       outsourceItems,
@@ -13720,10 +13722,23 @@ ${_body}
     return null;
   }
 
+  // 並び順に使う日付キー（2026-08-04 ユーザー要望）。
+  // 売上の集計月は作業日(it.date)基準のままにしつつ、並び順だけ請求日(it.invDate)で決める。
+  // 請求日がその集計月に入っていない案件（翌月請求・未請求など）は「その月の月末」として扱うので、
+  // 月グループの外へ飛び出さず、月内では請求日の実日付より後ろに並ぶ。
+  function _salesSortKey(it) {
+    const iv = _parseDateForSales(it && it.invDate);
+    const d  = _parseDateForSales(it && it.date); // 集計月＝作業日の月
+    if (!d) return iv ? (iv.y*10000 + iv.m*100 + iv.d) : null; // 「日付未設定」は従来どおり請求日のみで判定
+    if (iv && iv.y === d.y && iv.m === d.m) return iv.y*10000 + iv.m*100 + iv.d;
+    const eom = new Date(d.y, d.m, 0).getDate(); // その月の末日（d.m は1始まり＝翌月の0日目）
+    return d.y*10000 + d.m*100 + eom;
+  }
+
   // 売上表の並び替え比較（請求日→同日は受注番号）。mode: 'date-desc'(既定)/'date-asc'/'num'
   // 画面(renderSalesScreen)と売上PDF(_openSalesPrint)で共通利用する。
   function _salesRowCmp(a, b, mode) {
-    const key    = it => { const d = _parseDateForSales(it && it.date); return d ? (d.y*10000 + d.m*100 + d.d) : null; };
+    const key    = it => _salesSortKey(it);
     const numCmp = (x, y) => String((x && x.num) || '').localeCompare(String((y && y.num) || ''), 'ja', { numeric: true });
     if (mode === 'num') return numCmp(a, b);
     const da = key(a), db = key(b);
@@ -13776,6 +13791,8 @@ ${_body}
             // 計上日＝作業日（撮影日程）の最終日。無ければ請求日で代用
             num: p.num, title: p.title || '', client: p.company || '',
             date: _lastWorkDateForSales(status.workDate) || _lastWorkDateForSales(p.date) || status.invDate || p.date || '',
+            // 請求日（並び順の基準・2026-08-04）。未請求案件は空＝その月の月末として並ぶ。
+            invDate: status.invDate || '',
             subtotal, tax, total,
             outsourceCost, outsourceItems, netInhouse: total - outsourceCost,
             billed: !!status.billed, paid: !!status.paid, outsourcePaid: !!status.outsourcePaid
@@ -14171,7 +14188,7 @@ ${_body}
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:16px;color:#c0392b;font-weight:bold;word-break:break-all;line-height:1.2;margin-bottom:3px;">受注No: ${escapeHtml(it.num)}</div>
                   <div style="font-size:20px;font-weight:bold;line-height:1.25;word-break:break-word;letter-spacing:0.5px;margin-bottom:3px;">📋 ${escapeHtml(it.title || '無題')}</div>
-                  <div style="font-size:12px;color:#888;line-height:1.3;word-break:break-word;">${escapeHtml(it.client)} ${it.date ? '／ '+escapeHtml(it.date) : ''}</div>
+                  <div style="font-size:12px;color:#888;line-height:1.3;word-break:break-word;">${escapeHtml(it.client)} ${it.date ? '／ 作業 '+escapeHtml(it.date) : ''}${it.invDate ? ' ／ 請求 '+escapeHtml(it.invDate) : (it.billed ? '' : ' ／ 請求 未')}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
                   <button onclick="event.stopPropagation();openDocFromSales('${it.num}')"
