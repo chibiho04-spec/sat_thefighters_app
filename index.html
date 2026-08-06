@@ -13941,7 +13941,11 @@ ${_body}
     if (!d) return iv ? (iv.y*10000 + iv.m*100 + iv.d) : null; // 「日付未設定」は従来どおり請求日のみで判定
     if (iv && iv.y === d.y && iv.m === d.m) return iv.y*10000 + iv.m*100 + iv.d;
     const eom = new Date(d.y, d.m, 0).getDate(); // その月の末日（d.m は1始まり＝翌月の0日目）
-    return d.y*10000 + d.m*100 + eom;
+    // 【2026-08-06】請求日が集計月の外（翌月請求など）を月末と“同点”にすると、本物の月末請求の
+    //   行の間に割り込んで見える（7/31が13件並ぶ中に 8/3・8/6 が混ざっていた）。
+    //   0.5 を足して月内の実日付より必ず後ろへ置く。月グループから飛び出さないのは従来どおり。
+    //   請求日なし（未請求 iv=null）は従来どおり月末と同点にする＝挙動を変えない。
+    return d.y*10000 + d.m*100 + eom + (iv ? 0.5 : 0);
   }
 
   // 売上表の並び替え比較（請求日→同日は受注番号）。mode: 'date-desc'(既定)/'date-asc'/'num'
@@ -13955,7 +13959,15 @@ ${_body}
     if (da == null) return 1;   // 請求日なしは末尾へ
     if (db == null) return -1;
     const diff = (mode === 'date-asc') ? (da - db) : (db - da); // 既定は新しい順
-    return diff !== 0 ? diff : numCmp(a, b); // 同じ請求日は受注番号順
+    if (diff !== 0) return diff;
+    // 同じ位置に来たとき（月末へ丸めた翌月請求どうしなど）は、実際の請求日で細かく並べる。
+    // 月内の実日付が同じ行は下の値も同じになるので、従来どおり受注番号順に落ちる（2026-08-06）。
+    const ra = _parseDateForSales(a && a.invDate), rb = _parseDateForSales(b && b.invDate);
+    if (ra && rb) {
+      const va = ra.y*10000 + ra.m*100 + ra.d, vb = rb.y*10000 + rb.m*100 + rb.d;
+      if (va !== vb) return (mode === 'date-asc') ? (va - vb) : (vb - va);
+    }
+    return numCmp(a, b); // 同じ請求日は受注番号順
   }
   function _currentSalesSort() { return document.getElementById('sales-sort')?.value || 'date-asc'; }
 
