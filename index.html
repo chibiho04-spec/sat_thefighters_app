@@ -9247,7 +9247,20 @@
       // 旧D（制作）はP（制作）が移行先。ボタンに無いDのまま確定すると保存時に弾かれるので既定をPにする。
       // 旧B（ボルト・2026-08-06廃止）は移行先が決まっていないのでTに落とす（選び直せる）。
       let prefix = (rawPfx === 'D') ? 'P' : (['T','E','P'].indexOf(rawPfx) >= 0 ? rawPfx : 'T');
-      const digits0 = m ? m[2] : (cur.replace(/[^0-9-]/g, ''));
+      // 【2026-08-06】0000系（過去の重複で退避された番号）は、そのまま出すと「T0000」という
+      //   使えない番号を確定できてしまう。退避番号を開いたときは空き番号を最初から入れておく。
+      //   接頭辞ボタンを押し直したら、まだ手で触っていない限り その接頭辞の空き番号に入れ替える。
+      const _isEscaped = /^0\d{3}$/.test(cur);
+      const _suggest = (p) => {
+        try {
+          const f = _freeOrderNum(p);
+          if (String(f).charAt(0).toUpperCase() === p) return String(f).slice(1);
+        } catch (e) {}
+        return '';
+      };
+      let autoFilled = _isEscaped;           // 自動で入れた値か（手入力されたら false）
+      const digits0 = m ? m[2]
+                        : (_isEscaped ? (_suggest(prefix) || cur) : cur.replace(/[^0-9-]/g, ''));
       const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
       const ov = document.createElement('div');
       ov.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'DotGothic16',monospace;";
@@ -9285,8 +9298,13 @@
         preview.style.color = ok ? '#8e44ad' : '#c0392b';
         numEl.style.borderColor = (!d || ok) ? '#aaa' : '#c0392b';
       };
-      pfxBtns.forEach(b => b.addEventListener('click', () => { prefix = b.dataset.p; paint(); }));
-      numEl.addEventListener('input', () => { numEl.value = (numEl.value || '').replace(/[^0-9-]/g, ''); paint(); });
+      pfxBtns.forEach(b => b.addEventListener('click', () => {
+        prefix = b.dataset.p;
+        // 自動で入れた番号のままなら、選び直した接頭辞の空き番号に合わせる（手入力後は尊重して触らない）
+        if (autoFilled) { const s = _suggest(prefix); if (s) numEl.value = s; }
+        paint();
+      }));
+      numEl.addEventListener('input', () => { autoFilled = false; numEl.value = (numEl.value || '').replace(/[^0-9-]/g, ''); paint(); });
       const close = (val) => { try { document.body.removeChild(ov); } catch (e) {} resolve(val); };
       const confirmNum = () => { const d = (numEl.value || ''); if (!_numOK(d)) { numEl.focus(); paint(); return; } close(prefix + d); };
       ov.querySelector('#_oni-cancel').addEventListener('click', () => close(null));
@@ -9411,6 +9429,9 @@
     // 形式チェック：受注番号は接頭辞(T/E/P)＋数字。追加請求の枝番（例 T26050-1）も許可（2026-08-06）。
     // D・B は旧接頭辞なので変更先には指定できない（＝旧番号の出口だけ開けて、入口は塞ぐ）。
     if (!/^[TEP]\d+(?:-\d+)?$/.test(newNum)) { alert('受注番号は T/E/P ＋ 数字の形式にしてください（例 T26050、追加請求は T26050-1）。'); return null; }
+    // 数字が全部ゼロ（T0000 等）は受注番号として成立しない。退避番号 0000 の案件を直すとき、
+    // 番号を消さずにそのまま確定すると出来てしまうので保存側でも塞ぐ（2026-08-06）。
+    if (/^[TEP]0+(?:-\d+)?$/.test(newNum)) { alert('「' + newNum + '」は受注番号として使えません。\n年と連番を入れてください（例 T26116）。'); return null; }
 
     // 請求済み/入金済み確認
     try {
