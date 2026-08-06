@@ -5612,6 +5612,16 @@
         案件・請求書の受注番号を後から変更できます。案件と請求書は同じ番号で連動します。<br>
         <span style="color:#c0392b;">⚠️ 既存の番号とぶつかると警告が出ます（負けた方は空いている次の番号に）。</span>
       </div>
+      <!-- 検索窓（2026-08-06）。番号・件名・取引先をまとめて絞り込む -->
+      <div style="padding:0 12px 10px;flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="position:relative;flex:1;min-width:150px;">
+          <input id="ordernum-search" type="search" placeholder="番号・件名・取引先で絞る" oninput="renderOrderNumEditList()"
+            style="width:100%;box-sizing:border-box;font-family:'DotGothic16',monospace;font-size:13px;border:2px solid #8e44ad;border-radius:4px;padding:7px 30px 7px 9px;background:#fff;color:#333;">
+          <button type="button" onclick="clearOrderNumSearch()" title="検索をクリア"
+            style="position:absolute;right:4px;top:50%;transform:translateY(-50%);font-family:inherit;font-size:13px;line-height:1;background:transparent;border:none;color:#999;padding:4px 5px;cursor:pointer;">✕</button>
+        </div>
+        <span id="ordernum-search-count" style="font-size:11px;color:#888;white-space:nowrap;"></span>
+      </div>
       <div id="ordernum-edit-list" style="flex:1;overflow-y:auto;border-top:1px solid #ddd;background:#fff;"></div>
     </div>
   </div><!-- /ordernum-edit-screen -->
@@ -9498,15 +9508,45 @@
       let t = ''; try { const s = JSON.parse(localStorage.getItem(k) || '{}'); t = s.title || s.company || ''; } catch (e) {}
       rows.push({ num: num, title: t, sub: '（単独請求書）' });
     });
+    // 検索で絞る（番号・件名・取引先）。スペース区切りは全部含むものだけ＝AND検索。
+    // 全角の英数字とスペースで打っても引っかかるよう、比較前に半角へ寄せて小文字にする。
+    const total = rows.length;
+    const _norm = (s) => String(s == null ? '' : s)
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+      .replace(/　/g, ' ')
+      .toLowerCase();
+    const q = _norm(document.getElementById('ordernum-search')?.value || '').trim();
+    const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+    let shown = rows;
+    if (terms.length) {
+      shown = rows.filter(r => {
+        const hay = _norm(r.num) + ' ' + _norm(r.title) + ' ' + _norm(r.sub);
+        return terms.every(t => hay.indexOf(t) >= 0);
+      });
+    }
+    try {
+      const cnt = document.getElementById('ordernum-search-count');
+      if (cnt) cnt.textContent = terms.length ? (shown.length + '件 / 全' + total + '件') : ('全' + total + '件');
+    } catch (e) {}
+
     const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
-    box.innerHTML = rows.map(r => {
+    box.innerHTML = shown.map(r => {
       const zero = /^0\d{3}$/.test(r.num);
       return '<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px dashed #ddd;">' +
         '<span style="font-family:\'DotGothic16\',monospace;font-weight:bold;font-size:14px;color:' + (zero ? '#c0392b' : '#2c3e50') + ';min-width:84px;">' + esc(r.num) + (zero ? ' ⚠' : '') + '</span>' +
         '<span style="flex:1;min-width:0;font-size:12px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(r.title) + ' <span style="color:#aaa;">' + esc(r.sub) + '</span></span>' +
         '<button onclick="startOrderNumEdit(\'' + esc(r.num) + '\')" style="font-family:\'DotGothic16\',monospace;font-size:12px;background:#f1c40f;color:#5d4037;border:2px solid #b7950b;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap;">✏️変更</button>' +
         '</div>';
-    }).join('') || '<div style="color:#999;font-size:12px;padding:10px;">対象がありません</div>';
+    }).join('') || (terms.length
+      ? '<div style="color:#999;font-size:12px;padding:14px 10px;text-align:center;">「' + esc(q) + '」に一致する案件はありません</div>'
+      : '<div style="color:#999;font-size:12px;padding:10px;">対象がありません</div>');
+  }
+
+  // 検索窓をクリアして一覧を戻す
+  function clearOrderNumSearch() {
+    const el = document.getElementById('ordernum-search');
+    if (el) { el.value = ''; el.focus(); }
+    try { renderOrderNumEditList(); } catch (e) {}
   }
 
   // ✏️変更：新番号を尋ねて _applyOrderRename を呼ぶ
@@ -9523,6 +9563,8 @@
     const s = document.getElementById('ordernum-edit-screen'); if (!s) return;
     s.style.display = 'flex';
     s.onclick = (e) => { if (e.target === s) closeOrderNumEditScreen(); }; // 背景タップで閉じる
+    // 前回の検索語が残っていると「案件が消えた」と誤解するので開くたびに空にする（2026-08-06）
+    try { const q = document.getElementById('ordernum-search'); if (q) q.value = ''; } catch (e) {}
     try { renderOrderNumEditList(); } catch (e) {}
   }
   function closeOrderNumEditScreen() {
