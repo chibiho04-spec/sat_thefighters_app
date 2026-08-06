@@ -9221,9 +9221,13 @@
   function _orderNumInputDialog(currentNum) {
     return new Promise(resolve => {
       const cur = String(currentNum || '');
-      const m = cur.match(/^([TEPB])(\d+)$/i);
-      let prefix = m ? m[1].toUpperCase() : 'T';
-      const digits0 = m ? m[2] : (cur.replace(/[^0-9]/g, ''));
+      // 【2026-08-06】枝番（例 D26005-1）に対応。以前は \d+ のみ拾い、さらに入力欄でハイフンを
+      //   削っていたため D26005-3 が P260053（6桁）に化けた。実データが1件壊れたので両方直した。
+      const m = cur.match(/^([TEPBD])(\d+(?:-\d+)?)$/i);
+      const rawPfx = m ? m[1].toUpperCase() : '';
+      // 旧D（制作）はP（制作）が移行先。ボタンに無いDのまま確定すると保存時に弾かれるので既定をPにする。
+      let prefix = (rawPfx === 'D') ? 'P' : (['T','E','P','B'].indexOf(rawPfx) >= 0 ? rawPfx : 'T');
+      const digits0 = m ? m[2] : (cur.replace(/[^0-9-]/g, ''));
       const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
       const ov = document.createElement('div');
       ov.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'DotGothic16',monospace;";
@@ -9250,17 +9254,24 @@
       const numEl  = ov.querySelector('#_oni-num');
       const preview = ov.querySelector('#_oni-preview');
       const pfxBtns = Array.prototype.slice.call(ov.querySelectorAll('#_oni-prefix button'));
+      // 枝番を許すので数字だけの単純除去はできない。確定できる形（26005 または 26005-1）だけを通す。
+      const _numOK = (s) => /^\d+(?:-\d+)?$/.test(s);
       const paint = () => {
         pfxBtns.forEach(b => { const on = b.dataset.p === prefix; b.style.background = on ? '#27ae60' : '#fff'; b.style.color = on ? '#fff' : '#27ae60'; b.style.boxShadow = on ? '2px 2px 0 #1a7a40' : 'none'; });
-        const d = (numEl.value || '').replace(/[^0-9]/g, '');
-        preview.textContent = d ? (prefix + d) : '—';
+        const d = (numEl.value || '');
+        const ok = _numOK(d);
+        preview.textContent = ok ? (prefix + d) : '—';
+        // 入力途中（26005- など）は確定できないことが見て分かるようにする
+        preview.style.color = ok ? '#8e44ad' : '#c0392b';
+        numEl.style.borderColor = (!d || ok) ? '#aaa' : '#c0392b';
       };
       pfxBtns.forEach(b => b.addEventListener('click', () => { prefix = b.dataset.p; paint(); }));
-      numEl.addEventListener('input', () => { numEl.value = (numEl.value || '').replace(/[^0-9]/g, ''); paint(); });
+      numEl.addEventListener('input', () => { numEl.value = (numEl.value || '').replace(/[^0-9-]/g, ''); paint(); });
       const close = (val) => { try { document.body.removeChild(ov); } catch (e) {} resolve(val); };
+      const confirmNum = () => { const d = (numEl.value || ''); if (!_numOK(d)) { numEl.focus(); paint(); return; } close(prefix + d); };
       ov.querySelector('#_oni-cancel').addEventListener('click', () => close(null));
-      ov.querySelector('#_oni-ok').addEventListener('click', () => { const d = (numEl.value || '').replace(/[^0-9]/g, ''); if (!d) { numEl.focus(); return; } close(prefix + d); });
-      numEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const d = (numEl.value || '').replace(/[^0-9]/g, ''); if (d) close(prefix + d); } });
+      ov.querySelector('#_oni-ok').addEventListener('click', confirmNum);
+      numEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); confirmNum(); } });
       ov.addEventListener('click', e => { if (e.target === ov) close(null); });
       paint();
       setTimeout(() => { try { numEl.focus(); numEl.select(); } catch (e) {} }, 30);
@@ -9375,8 +9386,8 @@
     let newNum = String(newNumRaw || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
     if (!newNum) { alert('番号を入力してください。'); return null; }
     if (newNum === oldNum) return null;
-    // 形式チェック：受注番号は接頭辞(T/E/P)＋数字のみ許可（「1」等の不正番号を防止）
-    if (!/^[TEPB]\d+$/.test(newNum)) { alert('受注番号は T/E/P/B ＋ 数字の形式にしてください（例 T26050）。'); return null; }
+    // 形式チェック：受注番号は接頭辞(T/E/P/B)＋数字。追加請求の枝番（例 T26050-1）も許可（2026-08-06）。
+    if (!/^[TEPB]\d+(?:-\d+)?$/.test(newNum)) { alert('受注番号は T/E/P/B ＋ 数字の形式にしてください（例 T26050、追加請求は T26050-1）。'); return null; }
 
     // 請求済み/入金済み確認
     try {
