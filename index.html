@@ -5610,7 +5610,7 @@
       </div>
       <div style="padding:10px 12px;flex-shrink:0;font-size:12px;color:#666;line-height:1.5;">
         案件・請求書の受注番号を後から変更できます。案件と請求書は同じ番号で連動します。<br>
-        <span style="color:#c0392b;">⚠️ 既存の番号とぶつかると警告が出ます（負けた方は番号が 0000 に）。</span>
+        <span style="color:#c0392b;">⚠️ 既存の番号とぶつかると警告が出ます（負けた方は空いている次の番号に）。</span>
       </div>
       <div id="ordernum-edit-list" style="flex:1;overflow-y:auto;border-top:1px solid #ddd;background:#fff;"></div>
     </div>
@@ -9204,6 +9204,26 @@
     return '0000';
   }
 
+  // 【2026-08-06】番号の重複時に「負けた方」を逃がす先を、0000 ではなく“次の空き受注番号”にする。
+  //   0000 は案件として使えない退避番号で、受注ノートにも赤く残り続けて手当てが要る。
+  //   その場で使える番号（例 T26116）を候補に出せば、逃がした側もそのまま運用できる。
+  //   getNextOrderNum は「同じ接頭辞・同じ年の最大＋1」を返すので原則そのまま空きだが、
+  //   枝番や他端末ぶんが入り込んでも確実に空くまでずらす。0000系へのフォールバックは残す。
+  function _freeOrderNum(prefix) {
+    const p = String(prefix || 'T').toUpperCase();
+    try {
+      const yy = String(new Date().getFullYear()).slice(-2);
+      let seq = parseInt(String(getNextOrderNum(p)).slice(2), 10);
+      if (!isNaN(seq)) {
+        for (let i = 0; i < 1000; i++, seq++) {
+          const cand = p + yy + String(seq).padStart(3, '0');
+          if (!_orderNumExists(cand)) return cand;
+        }
+      }
+    } catch (e) { console.warn('_freeOrderNum 失敗、0000系へ退避', e); }
+    return _freeZeroNum();
+  }
+
   // 「受注番号の後変更」の対象にする番号か。受注番号(T/E/P)・旧D/旧B番号・旧INV-請求書・退避中の0000系のみ。
   // 納品書(DLV-)・見積書(EST-)は別系統なので対象外。
   // 【2026-08-04】旧D接頭辞（2026-06-16にP＝制作へ変更する前の番号）を対象に追加。
@@ -9354,7 +9374,9 @@
   }
 
   // 衝突時の3択モーダル。'a'(こちら優先)/'b'(相手優先)/'cancel' を解決する。
-  function _orderConflictDialog(newNum, bNum, bTitle) {
+  // freeNum＝負けた方に振り直す空き番号（_freeOrderNum の結果）。ボタンに実際の番号を出して、
+  // 「どの番号になるのか分からないまま選ばせない」ようにする（2026-08-06）。
+  function _orderConflictDialog(newNum, bNum, bTitle, freeNum) {
     return new Promise(resolve => {
       const ov = document.createElement('div');
       ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'DotGothic16',monospace;";
@@ -9363,11 +9385,11 @@
         '<div style="background:#fff;border:3px solid #e0cd95;border-radius:8px;max-width:360px;width:100%;padding:16px;box-shadow:4px 4px 0 #cdb273;">' +
           '<div style="font-size:15px;font-weight:bold;color:#c0392b;margin-bottom:8px;">⚠️ 番号が重複しています</div>' +
           '<div style="font-size:13px;color:#444;line-height:1.5;margin-bottom:14px;">' +
-            '「<b>' + esc(newNum) + '</b>」は別の案件<br><b>' + esc(bTitle || bNum) + '</b>（' + esc(bNum) + '）が既に使っています。<br>どちらに「' + esc(newNum) + '」を付けますか？<br><span style="color:#888;font-size:11px;">※負けた方は番号が「0000」になります</span>' +
+            '「<b>' + esc(newNum) + '</b>」は別の案件<br><b>' + esc(bTitle || bNum) + '</b>（' + esc(bNum) + '）が既に使っています。<br>どちらに「' + esc(newNum) + '」を付けますか？<br><span style="color:#888;font-size:11px;">※負けた方は空いている「<b style="color:#555;">' + esc(freeNum) + '</b>」になります</span>' +
           '</div>' +
           '<div style="display:flex;flex-direction:column;gap:8px;">' +
-            '<button data-c="a" style="font-family:inherit;font-size:14px;font-weight:bold;background:#27ae60;color:#fff;border:2px solid #1a7a40;border-radius:5px;padding:10px;cursor:pointer;">こちらを優先（相手を0000に）</button>' +
-            '<button data-c="b" style="font-family:inherit;font-size:14px;font-weight:bold;background:#2980b9;color:#fff;border:2px solid #1c5980;border-radius:5px;padding:10px;cursor:pointer;">相手を優先（こちらを0000に）</button>' +
+            '<button data-c="a" style="font-family:inherit;font-size:14px;font-weight:bold;background:#27ae60;color:#fff;border:2px solid #1a7a40;border-radius:5px;padding:10px;cursor:pointer;">こちらを優先（相手を ' + esc(freeNum) + ' に）</button>' +
+            '<button data-c="b" style="font-family:inherit;font-size:14px;font-weight:bold;background:#2980b9;color:#fff;border:2px solid #1c5980;border-radius:5px;padding:10px;cursor:pointer;">相手を優先（こちらを ' + esc(freeNum) + ' に）</button>' +
             '<button data-c="cancel" style="font-family:inherit;font-size:13px;background:#eee;color:#555;border:2px solid #bbb;border-radius:5px;padding:8px;cursor:pointer;">キャンセル</button>' +
           '</div>' +
         '</div>';
@@ -9412,17 +9434,20 @@
         if (p) bTitle = p.title || '';
         if (!bTitle) { const inv = (typeof loadInvStatus === 'function') ? loadInvStatus(newNum) : {}; bTitle = (inv && inv.title) || ''; }
       } catch (e) {}
-      const choice = await _orderConflictDialog(newNum, newNum, bTitle);
+      // 負けた方の逃がし先を先に決める。この時点では newNum は相手が使っているので、
+      // getNextOrderNum は必ず newNum と別の（最大＋1の）番号を返す＝自分自身とぶつからない。
+      const freeNum = _freeOrderNum((newNum.match(/^[TEP]/i) || ['T'])[0]);
+      const choice = await _orderConflictDialog(newNum, newNum, bTitle, freeNum);
       if (choice === 'cancel') return null;
       if (choice === 'a') {
-        // 相手Bを0000へ逃がしてから自分をnewNumに。新番号の作成が削除より必ず新しい時刻になるよう
+        // 相手Bを空き番号へ逃がしてから自分をnewNumに。新番号の作成が削除より必ず新しい時刻になるよう
         // 2回目に十分なオフセットを与える（同期LWWの同値スキップで新番号が消えるのを防ぐ）。
         const _b = Date.now();
-        renameOrderNum(newNum, _freeZeroNum(), _b);
+        renameOrderNum(newNum, freeNum, _b);
         renameOrderNum(oldNum, newNum, _b + 2000);
         return newNum;
       }
-      if (choice === 'b') { const z = _freeZeroNum(); renameOrderNum(oldNum, z); return z; }
+      if (choice === 'b') { renameOrderNum(oldNum, freeNum); return freeNum; }
       return null;
     }
 
