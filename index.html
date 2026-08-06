@@ -5004,8 +5004,7 @@
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
                   <button type="button" class="inv-order-pfx-btn" data-prefix="P" onclick="selectInvOrderPrefix('P')" title="制作（演出）"
                     style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
-                  <button type="button" class="inv-order-pfx-btn" data-prefix="B" onclick="selectInvOrderPrefix('B')" title="ボルト（BORT・実験ビジュアルチーム）"
-                    style="font-family:'DotGothic16',monospace;font-size:12px;background:white;color:#27ae60;border:2px solid #27ae60;padding:2px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;">B ボルト</button>
+                  <!-- 【2026-08-06】B（ボルト）は廃止。既存のB番号は表示・番号変更だけできる（新規に作れない） -->
                 </div>
                 <input id="inv-order-num" type="number" min="0" oninput="updateInvOrderNum()"
                   style="width:74px;font-family:'DotGothic16',monospace;font-size:12px;border:1px solid #aaa;border-radius:3px;padding:2px 6px;text-align:right;">
@@ -6283,8 +6282,7 @@
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">E 編集</button>
             <button type="button" class="np-prefix-btn" data-prefix="P" onclick="selectOrderPrefix('P')" title="制作（演出）"
               style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">P 制作</button>
-            <button type="button" class="np-prefix-btn" data-prefix="B" onclick="selectOrderPrefix('B')" title="ボルト（BORT・実験ビジュアルチーム）"
-              style="font-family:'DotGothic16',monospace;font-size:14px;background:white;color:#27ae60;border:2px solid #27ae60;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">B ボルト</button>
+            <!-- 【2026-08-06】B（ボルト）は廃止。既存のB番号は表示・番号変更だけできる（新規に作れない） -->
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <input id="np-num" class="wsd-input" type="number" style="width:90px;"
@@ -6292,7 +6290,7 @@
             <span id="np-num-preview" style="font-size:12px;color:#888;">→ T26001</span>
           </div>
           <div style="flex-basis:100%;font-size:11px;color:#888;line-height:1.5;">
-            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）／<b style="color:#1a1a1a;">B</b>＝ボルト（BORT）　※番号は年ごとに自動でリセット
+            <b style="color:#27ae60;">T</b>＝技術部（撮影・音声）／<b style="color:#27ae60;">E</b>＝編集／<b style="color:#27ae60;">P</b>＝制作（演出）　※番号は年ごとに自動でリセット
           </div>
         </div>
         <div class="wsd-field-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px;">
@@ -9226,7 +9224,8 @@
       const m = cur.match(/^([TEPBD])(\d+(?:-\d+)?)$/i);
       const rawPfx = m ? m[1].toUpperCase() : '';
       // 旧D（制作）はP（制作）が移行先。ボタンに無いDのまま確定すると保存時に弾かれるので既定をPにする。
-      let prefix = (rawPfx === 'D') ? 'P' : (['T','E','P','B'].indexOf(rawPfx) >= 0 ? rawPfx : 'T');
+      // 旧B（ボルト・2026-08-06廃止）は移行先が決まっていないのでTに落とす（選び直せる）。
+      let prefix = (rawPfx === 'D') ? 'P' : (['T','E','P'].indexOf(rawPfx) >= 0 ? rawPfx : 'T');
       const digits0 = m ? m[2] : (cur.replace(/[^0-9-]/g, ''));
       const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s => String(s));
       const ov = document.createElement('div');
@@ -9238,13 +9237,13 @@
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
             '<span style="font-size:13px;color:#888;">受注番号</span>' +
             '<div id="_oni-prefix" style="display:inline-flex;gap:3px;">' +
-              ['T','E','P','B'].map(p => '<button type="button" data-p="' + p + '" style="font-family:inherit;font-size:14px;font-weight:bold;padding:5px 13px;border-radius:3px;cursor:pointer;border:2px solid #27ae60;background:#fff;color:#27ae60;">' + p + '</button>').join('') +
+              ['T','E','P'].map(p => '<button type="button" data-p="' + p + '" style="font-family:inherit;font-size:14px;font-weight:bold;padding:5px 13px;border-radius:3px;cursor:pointer;border:2px solid #27ae60;background:#fff;color:#27ae60;">' + p + '</button>').join('') +
             '</div>' +
             '<input id="_oni-num" type="text" inputmode="numeric" value="' + esc(digits0) + '" placeholder="26050" ' +
               'style="width:96px;font-family:inherit;font-size:15px;border:1px solid #aaa;border-radius:3px;padding:5px 8px;text-align:right;">' +
             '<span style="font-size:13px;color:#555;">→ <b id="_oni-preview" style="color:#8e44ad;font-size:16px;">—</b></span>' +
           '</div>' +
-          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）／B=ボルト（BORT）</div>' +
+          '<div style="font-size:11px;color:#999;margin-bottom:16px;">T=技術部（撮影・音声）／E=編集／P=制作（演出）</div>' +
           '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
             '<button id="_oni-cancel" type="button" style="font-family:inherit;font-size:13px;background:#eee;color:#555;border:2px solid #bbb;border-radius:5px;padding:8px 16px;cursor:pointer;">キャンセル</button>' +
             '<button id="_oni-ok" type="button" style="font-family:inherit;font-size:14px;font-weight:bold;background:#8e44ad;color:#fff;border:2px solid #6c3483;border-radius:5px;padding:8px 20px;cursor:pointer;">変更する</button>' +
@@ -9386,8 +9385,9 @@
     let newNum = String(newNumRaw || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
     if (!newNum) { alert('番号を入力してください。'); return null; }
     if (newNum === oldNum) return null;
-    // 形式チェック：受注番号は接頭辞(T/E/P/B)＋数字。追加請求の枝番（例 T26050-1）も許可（2026-08-06）。
-    if (!/^[TEPB]\d+(?:-\d+)?$/.test(newNum)) { alert('受注番号は T/E/P/B ＋ 数字の形式にしてください（例 T26050、追加請求は T26050-1）。'); return null; }
+    // 形式チェック：受注番号は接頭辞(T/E/P)＋数字。追加請求の枝番（例 T26050-1）も許可（2026-08-06）。
+    // D・B は旧接頭辞なので変更先には指定できない（＝旧番号の出口だけ開けて、入口は塞ぐ）。
+    if (!/^[TEP]\d+(?:-\d+)?$/.test(newNum)) { alert('受注番号は T/E/P ＋ 数字の形式にしてください（例 T26050、追加請求は T26050-1）。'); return null; }
 
     // 請求済み/入金済み確認
     try {
@@ -10322,7 +10322,7 @@
     }
     // 新規の単独書類：受注番号の妥当性と重複をチェック
     if (_invIsNew) {
-      if (!/^[TEPB]\d+$/i.test(num)) {
+      if (!/^[TEP]\d+$/i.test(num)) {
         alert('受注番号を入力してください（例：T26046）。');
         return;
       }
@@ -15990,23 +15990,25 @@ ${tableHTML}
   }
 
   // ===== 部署(T/E/P)フィルター：ホーム・カレンダー・受注ノートで共有（2026-07-11）=====
-  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9', dark:'#1a5c8a' }, { p:'E', label:'編集', color:'#27ae60', dark:'#1a7a40' }, { p:'P', label:'制作', color:'#8e44ad', dark:'#5b2c6f' }, { p:'B', label:'ボルト', color:'#1a1a1a', dark:'#000000' } ];
+  // 【2026-08-06】B（ボルト）を廃止。トグルから外し、旧B番号は「非部署」として常に表示する
+  //   （フィルターで隠れて番号を直せなくなるのを防ぐ）。全部OFF防止の判定もT/E/Pだけで見る。
+  const _DEPTS = [ { p:'T', label:'技術', color:'#2980b9', dark:'#1a5c8a' }, { p:'E', label:'編集', color:'#27ae60', dark:'#1a7a40' }, { p:'P', label:'制作', color:'#8e44ad', dark:'#5b2c6f' } ];
   function getDeptFilter() {
     try { const v = JSON.parse(localStorage.getItem('dept_filter') || 'null');
-      if (v && typeof v === 'object') return { T: v.T !== false, E: v.E !== false, P: v.P !== false, B: v.B !== false }; } catch (e) {}
-    return { T: true, E: true, P: true, B: true }; // 既定は全部ON
+      if (v && typeof v === 'object') return { T: v.T !== false, E: v.E !== false, P: v.P !== false }; } catch (e) {}
+    return { T: true, E: true, P: true }; // 既定は全部ON
   }
   function _saveDeptFilter(f) { try { localStorage.setItem('dept_filter', JSON.stringify(f)); } catch (e) {} }
-  // 受注番号がフィルターを通るか（頭文字がT/E/Pのとき該当ONのみ。非T/E/Pは常に表示）
+  // 受注番号がフィルターを通るか（頭文字がT/E/Pのとき該当ONのみ。非T/E/P＝旧B・旧D等は常に表示）
   function deptPass(num) {
     const p = String(num || '').charAt(0).toUpperCase();
-    if (p !== 'T' && p !== 'E' && p !== 'P' && p !== 'B') return true;
+    if (p !== 'T' && p !== 'E' && p !== 'P') return true;
     return !!getDeptFilter()[p];
   }
   function toggleDept(p) {
     const f = getDeptFilter();
     f[p] = !f[p];
-    if (!f.T && !f.E && !f.P && !f.B) f[p] = true; // 全部OFF（何も見えない）は防ぐ＝最後の1つは戻す
+    if (!f.T && !f.E && !f.P) f[p] = true; // 全部OFF（何も見えない）は防ぐ＝最後の1つは戻す
     _saveDeptFilter(f);
     renderDeptToggles();
     try { const t0 = document.getElementById('tab-0'); if (t0 && t0.style.display !== 'none') sortWsCardsByDate(); } catch (e) {} // sortWsCardsByDate は内部で renderHomeCal も呼ぶ
