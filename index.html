@@ -7750,23 +7750,100 @@
   // ===== Google OAuth クライアントID =====
   const GOOGLE_CLIENT_ID = '896214034897-tjbgqdogdgq9hl8k6jngbfu9muaodrlb.apps.googleusercontent.com';
 
-  // ===== 許可するGmailアドレス一覧（小文字で記載）=====
-  // ここにないアドレスでのログインは拒否されます
-  // メール → スタッフキー の対応を書くと自動でそのスタッフとしてログインします
-  // 対応不明な場合は email: null でも登録可能（スタッフ選択画面が表示されます）
-  const STAFF_EMAILS = {
-    'office.satto@gmail.com':      null,       // ← 誰のアドレスか確認次第キーを設定
-    'kawasaki@okinawa-sat.com':    'kawasaki', // 川崎
-    'hira.fuma1990@gmail.com':     'hiraoka',  // 平岡
-    'psycho.germ@gmail.com':       'kamiji',   // 上地
-    'chibiho04@gmail.com':         'shin',     // 城間
-    'kawano@okinawa-sat.com':      'kawano',   // 川野
-    'hzmsei8300@gmail.com':        'hazama',   // 玻座真
-    'morita.showgo@gmail.com':     'morita',   // 森田
-    'morito.sat@gmail.com':        'arasaki',  // 新崎
-    'masesosyu@gmail.com':         'uehara',   // 上原
-    'hirokazu6822@gmail.com':      'matsuda',  // 松田
-    'drone.sat19960603@gmail.com': 'kawano',   // 川野（ドローン用の2つ目・2026-08-25追加）
+  // ===== 許可するGoogleアカウント（メールはハッシュで保持・2026-08-25）=====
+  // このリポジトリは公開なので、スタッフの生メールアドレスをコードに置かない。
+  // 照合はログイン時に「入力されたメール → 同じ手順でハッシュ → 表に在るか」で行う。
+  //
+  // ⚠️ これは「ソースからそのままアドレスを拾われない」ための対策であって、暗号的な秘匿ではない。
+  //    メールは推測しやすいので、本気で総当たりされれば復元されうる。総当たりのコストを上げるため
+  //    ソルト付きで _EMAIL_ROUNDS 回くり返している（ログインは1回だけなので体感差は出ない）。
+  //    そもそもこのホワイトリストはクライアント側の判定なので、アクセス制御の本体は
+  //    GoogleのOAuth（クライアントID）とGAS側にある。ここは「誰の連絡先か」を隠すのが目的。
+  //
+  // アドレスを足すときは、_emailHash('新しいアドレス') をブラウザのコンソールで実行して
+  // 出た64桁を下の表に足す（生アドレスは書かない）。
+
+  // SHA-256（純JS）。crypto.subtle は file:// で使えない環境があるので依存しない。
+  // 入力はUTF-8として扱う。戻り値は64桁の16進文字列。
+  function _sha256Hex(msg) {
+    const K = [
+      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+    ];
+    const bytes = [];
+    for (let i = 0; i < msg.length; i++) {
+      const c = msg.charCodeAt(i);
+      if (c < 0x80) bytes.push(c);
+      else if (c < 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+      else if (c < 0xd800 || c >= 0xe000) bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      else { i++; const cp = 0x10000 + (((c & 0x3ff) << 10) | (msg.charCodeAt(i) & 0x3ff));
+             bytes.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63)); }
+    }
+    const bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    const hi = Math.floor(bitLen / 4294967296);
+    bytes.push((hi >>> 24) & 255, (hi >>> 16) & 255, (hi >>> 8) & 255, hi & 255,
+               (bitLen >>> 24) & 255, (bitLen >>> 16) & 255, (bitLen >>> 8) & 255, bitLen & 255);
+    let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,
+        h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+    const w = new Array(64);
+    for (let off = 0; off < bytes.length; off += 64) {
+      for (let i = 0; i < 16; i++) {
+        w[i] = (bytes[off+i*4] << 24) | (bytes[off+i*4+1] << 16) | (bytes[off+i*4+2] << 8) | bytes[off+i*4+3];
+      }
+      for (let i = 16; i < 64; i++) {
+        const x = w[i-15], y = w[i-2];
+        const s0 = ((x>>>7)|(x<<25)) ^ ((x>>>18)|(x<<14)) ^ (x>>>3);
+        const s1 = ((y>>>17)|(y<<15)) ^ ((y>>>19)|(y<<13)) ^ (y>>>10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
+      }
+      let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+      for (let i = 0; i < 64; i++) {
+        const S1 = ((e>>>6)|(e<<26)) ^ ((e>>>11)|(e<<21)) ^ ((e>>>25)|(e<<7));
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[i] + w[i]) | 0;
+        const S0 = ((a>>>2)|(a<<30)) ^ ((a>>>13)|(a<<19)) ^ ((a>>>22)|(a<<10));
+        const mj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + mj) | 0;
+        h=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
+      }
+      h0=(h0+a)|0; h1=(h1+b)|0; h2=(h2+c)|0; h3=(h3+d)|0;
+      h4=(h4+e)|0; h5=(h5+f)|0; h6=(h6+g)|0; h7=(h7+h)|0;
+    }
+    return [h0,h1,h2,h3,h4,h5,h6,h7].map(v => (v >>> 0).toString(16).padStart(8, '0')).join('');
+  }
+
+  const _EMAIL_SALT   = 'sat-thefighters/staff-email/v1';
+  const _EMAIL_ROUNDS = 50000; // 総当たりのコストを上げる。ログイン1回あたり数百ミリ秒
+  // メールアドレス → 照合用ハッシュ。前後の空白を落とし小文字化してから掛ける
+  // （Google が返す payload.email も小文字化済みだが、手入力ぶんに備えて揃える）。
+  function _emailHash(email) {
+    let v = _EMAIL_SALT + '|' + String(email == null ? '' : email).trim().toLowerCase();
+    for (let i = 0; i < _EMAIL_ROUNDS; i++) v = _sha256Hex(v);
+    return v;
+  }
+
+  // ハッシュ → スタッフキー。null はスタッフ選択画面を出す（誰のアドレスか未確定）
+  const STAFF_EMAIL_HASHES = {
+    'c5a582f30dfda324780d4da649028e802bb273753584a5d15dff8562ced4a5b5': null,       // 未確認（誰のアドレスか確認次第キーを設定）
+    'f7b085507ddf4bcde01a773efda80c49941da20ced78dad491369f2059cf3969': 'kawasaki', // 川崎
+    'aaddc2924efa36d6fd4d52c79e957913eb4ab45da518a23533333da73a2ef3df': 'hiraoka',  // 平岡
+    'be3aaf8b4782892b3d5723ae6e1e8823abe4c0be58d7d665826b38c3d07590cf': 'kamiji',   // 上地
+    '73bd93dd5ed076553bc558ef29a36a9fb8c7d19db675639c5a2cb0a24b28d130': 'shin',     // 城間
+    '5132cb7af0aaeb11c9d63c08163e8bda523174e1b1bf5cc62b1d25d5850db21d': 'kawano',   // 川野
+    '3f0f7e3afe032970565394da43e9d23e4f67f6e71e4c7d0a51bbdb30feed6484': 'hazama',   // 玻座真
+    '359ad0fa784a4d7134b751c23620537400264fd6d6a2f94f0b6090fb693b7a6d': 'morita',   // 森田
+    '786faf8c687e5c83bd297deba5f1c8495a7987514a0db86574f9253c17ccc622': 'arasaki',  // 新崎
+    '3f319aada04d0f2a943c6e5f72e45f5eb9e93a43432bc7801ad8062011b74777': 'uehara',   // 上原
+    '9614629677a84b89dd471295c41acf380f3db1f66bd1445d4f8e959c3b06040a': 'matsuda',  // 松田
+    'cc6aba02309d4d8f358df7291d3cf891f128f07934fdcf77e54b289438ddbca1': 'kawano',   // 川野（ドローン用の2つ目・2026-08-25追加）
   };
 
   // ===== スタッフキー一覧（SUMO_FIGHTERSのインデックスと対応） =====
@@ -7809,9 +7886,11 @@
       const googleName  = payload.name  || '';
       const googleEmail = (payload.email || '').toLowerCase();
 
-      // ===== メールアドレスのホワイトリストチェック =====
+      // ===== メールアドレスのホワイトリストチェック（ハッシュ照合・2026-08-25）=====
+      // 生アドレスは持たないので、入力されたメールを同じ手順でハッシュしてから表を引く。
       const errEl = document.getElementById('google-login-error');
-      if (!Object.prototype.hasOwnProperty.call(STAFF_EMAILS, googleEmail)) {
+      const emailHash = _emailHash(googleEmail); // 5万回くり返すので数百ミリ秒かかる
+      if (!Object.prototype.hasOwnProperty.call(STAFF_EMAIL_HASHES, emailHash)) {
         // 登録されていないアドレス → アクセス拒否
         if (errEl) {
           errEl.textContent = '⚠️ このGoogleアカウントはアクセス権がありません（' + googleEmail + '）';
@@ -7822,8 +7901,8 @@
       }
       if (errEl) errEl.style.display = 'none';
 
-      // メール → スタッフキーが紐付いていれば自動ログイン
-      const staffKey = STAFF_EMAILS[googleEmail];
+      // ハッシュ → スタッフキーが紐付いていれば自動ログイン
+      const staffKey = STAFF_EMAIL_HASHES[emailHash];
       if (staffKey && STAFF_KEYS.includes(staffKey)) {
         loginSuccess(staffKey);
       } else {
