@@ -6794,6 +6794,15 @@
         </div>
       </div>
 
+      <!-- 機材リストの開閉バー（2026-08-25）。編集担当がログイン中は畳んだ状態で開く。
+           畳んでいても選択件数が分かるように件数を出す。 -->
+      <div id="wsd-equip-toggle" onclick="toggleWsdEquip()" role="button" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdEquip();}"
+        style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 8px 0;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
+        <span style="min-width:0;">🎥 機材リスト<span id="wsd-equip-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
+        <span id="wsd-equip-caret" style="font-size:12px;flex-shrink:0;">▼</span>
+      </div>
+
       <!-- 機材チェックリスト（マスターから動的生成） -->
       <div id="wsd-equip-checklist" class="wsd-field-group" style="padding:8px;">
         <!-- JSで動的生成 -->
@@ -16940,6 +16949,48 @@ ${tableHTML}
     showToast('🗑 機材を削除しました');
   }
 
+  // ===== 機材リストの開閉（2026-08-25 ユーザー要望）=====
+  // 編集担当（STAFF_ROLES が E）がログイン中は機材がほぼ関係ないので畳んだ状態で開く。
+  // 撮影部は今までどおり開いたまま。どちらもバーをタップすれば開閉できる。
+  // 開閉はその案件を開いている間だけ保つ（別の案件を開くと役職に応じた既定に戻る）。
+  let _wsdEquipFoldedFor = null;
+
+  function _isEditorLoggedIn() {
+    try {
+      const key = localStorage.getItem('last_login_name');
+      const i = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(key) : -1;
+      if (i < 0) return false;
+      // 'C / CA' のように複数役職が入るので分解して判定する（'E' そのものだけを編集担当とみなす）
+      return String((typeof STAFF_ROLES !== 'undefined' && STAFF_ROLES[i]) || '')
+        .split('/').map(x => x.trim()).indexOf('E') >= 0;
+    } catch (e) { return false; }
+  }
+
+  function _setWsdEquipOpen(open) {
+    const box = document.getElementById('wsd-equip-checklist');
+    if (box) box.style.display = open ? '' : 'none';
+    const car = document.getElementById('wsd-equip-caret');
+    if (car) car.textContent = open ? '▼' : '▶';
+  }
+
+  function toggleWsdEquip() {
+    const box = document.getElementById('wsd-equip-checklist');
+    if (!box) return;
+    _setWsdEquipOpen(box.style.display === 'none');
+  }
+
+  // 畳んでいても何件選んでいるか分かるようにバーへ出す
+  function _updateWsdEquipCount(savedEquip) {
+    const el = document.getElementById('wsd-equip-count');
+    if (!el) return;
+    let n = 0;
+    try {
+      const eq = savedEquip || {};
+      Object.keys(eq).forEach(k => { if (eq[k] && eq[k].checked) n++; });
+    } catch (e) {}
+    el.textContent = n ? '選択中 ' + n + '件' : '未選択';
+  }
+
   // ワークシート詳細画面の機材チェックリストを描画
   function renderEquipChecklist(wsNum, savedEquip) {
     const master  = loadEquipMaster();
@@ -16989,6 +17040,14 @@ ${tableHTML}
     addBtn.onclick = openEquipMaster;
     addBtn.style.cssText = "grid-column:1 / -1;font-family:'DotGothic16',monospace;font-size:13px;background:#27ae60;border:2px solid #1a7a40;color:white;padding:8px 16px;border-radius:3px;margin-top:10px;cursor:pointer;box-shadow:2px 2px 0 #1a7a40;justify-self:start;";
     el.appendChild(addBtn);
+
+    // 開閉の既定は「案件を開いたとき」だけ当てる。同じ案件での再描画（マスタ編集後など）では
+    // ユーザーが開いた状態を畳み直さない。
+    _updateWsdEquipCount(savedEquip);
+    if (_wsdEquipFoldedFor !== wsNum) {
+      _wsdEquipFoldedFor = wsNum;
+      _setWsdEquipOpen(!_isEditorLoggedIn());
+    }
   }
 
   // チェックのオン/オフ
@@ -16999,6 +17058,7 @@ ${tableHTML}
     row.classList.toggle('checked', checked);
     label.classList.toggle('checked', checked);
     updateEquipField(itemId, 'checked', wsNum, checked);
+    try { _updateWsdEquipCount((loadWS(wsNum) || {}).equip || {}); } catch (e) {}
   }
 
   // 個別フィールドを保存
