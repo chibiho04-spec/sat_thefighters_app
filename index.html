@@ -16955,9 +16955,17 @@ ${tableHTML}
   // 開閉はその案件を開いている間だけ保つ（別の案件を開くと役職に応じた既定に戻る）。
   let _wsdEquipFoldedFor = null;
 
+  // 編集部として扱うスタッフ（役職が E の人に加えて、ここに書いたキーも編集部扱いにする）。
+  // 松田は役職が D（ディレクター）で、スタッフ選択画面とステータスカードにその表示が出る。
+  // 表示を E に書き換えると別の意味になってしまうので、役職はそのままにここへ登録する（2026-08-25）。
+  // 編集部を増やすときはこの配列にスタッフキーを1つ足す。
+  const EDITOR_STAFF_KEYS = ['matsuda'];
+
   function _isEditorLoggedIn() {
     try {
       const key = localStorage.getItem('last_login_name');
+      if (!key) return false;
+      if (EDITOR_STAFF_KEYS.indexOf(key) >= 0) return true;
       const i = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(key) : -1;
       if (i < 0) return false;
       // 'C / CA' のように複数役職が入るので分解して判定する（'E' そのものだけを編集担当とみなす）
