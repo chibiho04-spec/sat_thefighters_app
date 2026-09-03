@@ -6721,15 +6721,17 @@
         <button onclick="openEquipMaster()" style="font-family:'DotGothic16',monospace;font-size:10px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 8px;border-radius:2px;cursor:pointer;">＋ マスター編集</button>
       </div>
 
-      <div class="wsd-field-group">
-        <!-- 担当クルーの開閉バー（2026-08-25）。機材リストと同じく編集担当は畳んで開く -->
-        <div id="wsd-crew-toggle" onclick="toggleWsdCrew()" role="button" tabindex="0"
-          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdCrew();}"
-          style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
-          <span style="min-width:0;">👥 担当クルー<span id="wsd-crew-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
-          <span id="wsd-crew-caret" style="font-size:12px;flex-shrink:0;">▼</span>
-        </div>
-        <div id="wsd-crew-body" style="display:flex;flex-direction:column;gap:6px;">
+      <!-- 担当クルーの開閉バー（2026-08-25）。機材リストと同じ組み方にする：
+           バーは白いザブトン(wsd-field-group)の外に出し、中身の方にザブトンを持たせる。
+           バーを内側に置くと、機材リストとザブトンの敷かれ方が食い違って見える。 -->
+      <div id="wsd-crew-toggle" onclick="toggleWsdCrew()" role="button" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdCrew();}"
+        style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 8px 0;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
+        <span style="min-width:0;">👥 担当クルー<span id="wsd-crew-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
+        <span id="wsd-crew-caret" style="font-size:12px;flex-shrink:0;">▼</span>
+      </div>
+
+      <div id="wsd-crew-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:6px;">
 
           <div style="display:flex;gap:8px;">
             <div style="flex:1;">
@@ -6797,7 +6799,6 @@
               placeholder="例: 川崎（照明）、山田（ヘアメイク）"></textarea>
           </div>
 
-        </div>
       </div>
 
       <!-- 機材リストの開閉バー（2026-08-25）。編集担当がログイン中は畳んだ状態で開く。
