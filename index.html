@@ -12101,6 +12101,16 @@ ${_body}
   }
 
   // 詳細ステータス画面を開く（自分は編集ボタンあり・他人は閲覧のみ）
+  // 他のスタッフの情報を編集できる管理者（2026-08-25 ユーザー要望）。
+  // 既定は本人のみ編集可。ここに書いたスタッフキーだけは、全員のカードで編集ボタンが出る。
+  // 誰でも他人を書き換えられると、役職を変えられて機材リストの折りたたみ判定まで動くため、
+  // 管理者を明示的に絞る。増やすときはこの配列にスタッフキーを1つ足す。
+  const STAFF_ADMIN_KEYS = ['shin'];
+  function _isStaffAdmin() {
+    try { return STAFF_ADMIN_KEYS.indexOf(localStorage.getItem('last_login_name')) >= 0; }
+    catch (e) { return false; }
+  }
+
   function openStaffDetail(key) {
     const d = getStaffDetail(key);
     if (!d) return;
@@ -12110,7 +12120,8 @@ ${_body}
     if (title) title.textContent = d.fullName;
 
     const editBtn = document.getElementById('sd-edit-btn');
-    if (editBtn) editBtn.style.display = d.isSelf ? 'block' : 'none';
+    // 本人のカード、または管理者（STAFF_ADMIN_KEYS）なら編集できる
+    if (editBtn) editBtn.style.display = (d.isSelf || _isStaffAdmin()) ? 'block' : 'none';
 
     const stars = '★'.repeat(d.stars) + '☆'.repeat(5 - d.stars);
     const posColor = STAFF_POSITION_COLOR[d.position] || '#2980b9';
