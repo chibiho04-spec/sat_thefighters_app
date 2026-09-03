@@ -6722,8 +6722,14 @@
       </div>
 
       <div class="wsd-field-group">
-        <div class="wsd-label" style="margin-bottom:6px;">担当クルー</div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
+        <!-- 担当クルーの開閉バー（2026-08-25）。機材リストと同じく編集担当は畳んで開く -->
+        <div id="wsd-crew-toggle" onclick="toggleWsdCrew()" role="button" tabindex="0"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdCrew();}"
+          style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
+          <span style="min-width:0;">👥 担当クルー<span id="wsd-crew-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
+          <span id="wsd-crew-caret" style="font-size:12px;flex-shrink:0;">▼</span>
+        </div>
+        <div id="wsd-crew-body" style="display:flex;flex-direction:column;gap:6px;">
 
           <div style="display:flex;gap:8px;">
             <div style="flex:1;">
@@ -16988,6 +16994,38 @@ ${tableHTML}
     _setWsdEquipOpen(box.style.display === 'none');
   }
 
+  function _setWsdCrewOpen(open) {
+    const box = document.getElementById('wsd-crew-body');
+    if (box) box.style.display = open ? 'flex' : 'none'; // 元が flex 縦並びなので戻す値も flex
+    const car = document.getElementById('wsd-crew-caret');
+    if (car) car.textContent = open ? '▼' : '▶';
+  }
+
+  function toggleWsdCrew() {
+    const box = document.getElementById('wsd-crew-body');
+    if (!box) return;
+    _setWsdCrewOpen(box.style.display === 'none');
+  }
+
+  // 畳んでいても誰か入っているか分かるように人数をバーへ出す（入力欄の現在値から数える）
+  const _WSD_CREW_SLOTS = ['producer','d','pm1','pm2','c','a','a2','sound','edit'];
+  function _updateWsdCrewCount() {
+    const el = document.getElementById('wsd-crew-count');
+    if (!el) return;
+    let n = 0;
+    _WSD_CREW_SLOTS.forEach(k => {
+      const sel = document.getElementById('wsd-crew-' + k);
+      const txt = document.getElementById('wsd-crew-' + k + '-txt');
+      const v = sel ? String(sel.value || '') : '';
+      const t = txt ? String(txt.value || '').trim() : '';
+      // '__free__' は「その他（自由記入）」を選んだだけの状態。名前が入って初めて1人と数える
+      if ((v && v !== '__free__') || t) n++;
+    });
+    const ex = document.getElementById('wsd-crew-extra');
+    const hasEx = !!(ex && String(ex.value || '').trim());
+    el.textContent = (n ? n + '名' : '未登録') + (hasEx ? '＋追加' : '');
+  }
+
   // 畳んでいても何件選んでいるか分かるようにバーへ出す
   function _updateWsdEquipCount(savedEquip) {
     const el = document.getElementById('wsd-equip-count');
@@ -17053,9 +17091,12 @@ ${tableHTML}
     // 開閉の既定は「案件を開いたとき」だけ当てる。同じ案件での再描画（マスタ編集後など）では
     // ユーザーが開いた状態を畳み直さない。
     _updateWsdEquipCount(savedEquip);
+    _updateWsdCrewCount();
     if (_wsdEquipFoldedFor !== wsNum) {
       _wsdEquipFoldedFor = wsNum;
-      _setWsdEquipOpen(!_isEditorLoggedIn());
+      const open = !_isEditorLoggedIn();
+      _setWsdEquipOpen(open);
+      _setWsdCrewOpen(open); // 担当クルーも同じ既定（機材と別々にタップで開閉できる）
     }
   }
 
@@ -17114,6 +17155,7 @@ ${tableHTML}
 
   // セレクト変更時に自由記入欄の表示切替
   function onCrewSel(selEl, txtId) {
+    try { setTimeout(_updateWsdCrewCount, 0); } catch (e) {} // 選び直したら人数表示を更新
     const txtEl = document.getElementById(txtId);
     if (!txtEl) return;
     if (selEl.value === '__free__') {
