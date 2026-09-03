@@ -17325,15 +17325,134 @@ ${tableHTML}
 
   const wsData = {};
 
-  // ワークシートから見積書・請求書 編集画面を起動（ワークシート画面は閉じずに上に重ねる）
+  // ===== ワークシートから見積書を起こす（2026-08-25 ユーザー要望）=====
+  // 以前このボタンは請求書と同じ inv_${num} を見積モードで開いていた。見積と請求で明細が
+  // 1組しか無いため、見積を作ったあとに同じ案件の請求書を作ると明細が上書きされていた。
+  // 納品書化(createDeliveryFromCurrent)と同じく、独立した EST- 番号の書類として起こす。
+  // 明細は「項目名と数量だけ入れて、金額は空」（本人の指示）。金額は見積書の画面で手入力する。
+  const _WS_CREW_DEFS_EST = [
+    { key:'crew_producer', dataKey:'crewProducer', label:'プロデューサー' },
+    { key:'crew_d',        dataKey:'crewD',        label:'ディレクター' },
+    { key:'crew_pm1',      dataKey:'crewPm1',      label:'制作進行' },
+    { key:'crew_pm2',      dataKey:'crewPm2',      label:'制作進行' },
+    { key:'crew_c',        dataKey:'crewC',        label:'カメラマン' },
+    { key:'crew_a',        dataKey:'crewA',        label:'カメラアシスタント' },
+    { key:'crew_a2',       dataKey:'crewA2',       label:'カメラアシスタント' },
+    { key:'crew_sound',    dataKey:'crewSound',    label:'音声' },
+    { key:'crew_edit',     dataKey:'crewEdit',     label:'編集' },
+  ];
+
+  // ワークシートの内容から見積書の明細を組み立てる（項目名＋数量のみ・単価は0＝空欄）
+  // 同じ役割のクルーはまとめて数量にする（カメラアシスタント2人 → 1行 ×2）。
+  function _buildEstimateLinesFromWS(num) {
+    const saved = (typeof loadWS === 'function' ? loadWS(num) : null) || {};
+    const data  = (typeof wsData === 'object' && wsData && wsData[num]) || {};
+    const lines = [];
+    const push = (name, qty, code) => {
+      name = String(name || '').trim();
+      if (!name) return;
+      lines.push({ code: String(code || ''), name: name, qty: Number(qty) || 1, unit: '', price: 0,
+                   taxable: true, outsource: false, red: false, note: '', spacer: false });
+    };
+    // クルー（役割ごとに人数を集計。ワークシート画面と同じ並び順を保つ）
+    const order = [], count = {};
+    _WS_CREW_DEFS_EST.forEach(d => {
+      if (!String(saved[d.key] || data[d.dataKey] || '').trim()) return;
+      if (count[d.label] === undefined) { count[d.label] = 0; order.push(d.label); }
+      count[d.label]++;
+    });
+    order.forEach(label => push(label, count[label]));
+    // 追加クルー（自由記入）は改行を「／」でつないで1行にする
+    const extra = String(saved['crew_extra'] || data.crewExtra || '').trim();
+    if (extra) push(extra.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('／'), 1);
+    // 機材（チェック済みのみ・ワークシート画面と同じカテゴリ順）
+    try {
+      const master = (typeof loadEquipMaster === 'function') ? (loadEquipMaster() || []) : [];
+      const equip  = saved.equip || {};
+      const cats   = (typeof CAT_ORDER !== 'undefined') ? CAT_ORDER : [];
+      const allCats = [...cats, ...[...new Set(master.map(e => e.cat))].filter(c => cats.indexOf(c) < 0)];
+      allCats.forEach(cat => {
+        master.filter(e => e.cat === cat && equip[e.id] && equip[e.id].checked).forEach(e => {
+          const sv = equip[e.id];
+          const memo = String(sv.memo || '').trim();
+          push(e.name + (memo ? '（' + memo + '）' : ''), sv.qty || e.qty || 1, e.code);
+        });
+      });
+    } catch (e) { console.warn('見積書：機材の取り込みに失敗', e); }
+    return lines;
+  }
+
+  // この案件から起こした見積書(EST-)を探す。押すたびに増えないよう、あれば既存を開く。
+  function _findEstimateForCase(num) {
+    let found = '';
+    let deleted = [];
+    try { deleted = JSON.parse(localStorage.getItem('deleted_inv') || '[]'); } catch (e) {}
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('inv_EST-') !== 0) return;
+        const n = k.slice(4);
+        if (deleted.indexOf(n) >= 0) return;
+        const st = (typeof loadInvStatus === 'function') ? (loadInvStatus(n) || {}) : {};
+        if (String(st.parentNum || '') !== String(num)) return;
+        if (!found || String(n).localeCompare(found, 'ja', { numeric: true }) > 0) found = n;
+      });
+    } catch (e) {}
+    return found;
+  }
+
+  // ワークシート画面の「🧮 見積書」ボタン
   function openEstimateFromWS() {
-    const num = document.getElementById('ws-detail-num').textContent;
-    if (invData[num]) openInv(num, 'estimate');
-    else              _openBlankInvFromWS(num, 'estimate');
+    const num = (document.getElementById('ws-detail-num')?.textContent || '').trim();
+    if (!num) return;
+    const existing = _findEstimateForCase(num);
+    const target = existing || _createEstimateFromWS(num);
+    if (!target) return;
+    _openBlankInvFromWS(target, 'estimate'); // 保存済みの内容から見積モードで開く
     // ws-detail-screen(z:175)より上に表示するためフルページで重ねる
     const inv = document.getElementById('inv-detail-screen');
     if (inv) { _applyFullPageStyle(inv, 10000); inv.dataset.fromWS = '1'; }
   }
+
+  // 新しい EST- 番号の見積書を作って保存し、その番号を返す（失敗時は空文字）
+  function _createEstimateFromWS(num) {
+    try {
+      const saved = (typeof loadWS === 'function' ? loadWS(num) : null) || {};
+      const data  = (typeof wsData === 'object' && wsData && wsData[num]) || {};
+      const src   = (typeof loadInvStatus === 'function') ? (loadInvStatus(num) || {}) : {};
+      const newNum = generateNewInvNum('estimate');
+      const today  = new Date().toLocaleDateString('ja-JP',
+        { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g, '/');
+      const status = {
+        lines:    _buildEstimateLinesFromWS(num),
+        title:    src.title    || saved['edit_title']    || data.title   || '',
+        company:  src.company  || saved['edit_company']  || data.company || '',
+        contact:  src.contact  || saved['edit_contact']  || data.contact || '',
+        honorific: src.honorific || '御中',
+        zip:      src.zip  || '',
+        addr:     src.addr || '',
+        staff:    src.staff || saved['edit_staff'] || data.staff || '',
+        workDate: saved['wsd-shootdate'] || data.date || '',
+        invDate:  today,               // 見積日は今日
+        discount: 0,
+        memo:     '',
+        docMode:  'estimate',
+        estimated: true,
+        parentNum: num,                // どの案件から起こしたか（EST-単体では辿れないため）
+        savedAt:  new Date().toLocaleString('ja-JP'),
+        _updatedAt: new Date().toISOString(),
+      };
+      saveInvStatus(newNum, status);   // シートへの送信は saveInvStatus が内部で実施
+      // 元の案件に「見積書を作った」印を残す（受注ノートの発行状況チェックで使う）
+      if (!src.estimated) { try { src.estimated = true; saveInvStatus(num, src); } catch (e) {} }
+      try { if (typeof showToast === 'function') showToast('🧮 見積書 ' + newNum + ' を起こしました'); } catch (e) {}
+      return newNum;
+    } catch (e) {
+      console.error('見積書の作成に失敗', e);
+      try { alert('見積書の作成に失敗しました。'); } catch (_) {}
+      return '';
+    }
+  }
+
   function openInvoiceFromWS() {
     const num = document.getElementById('ws-detail-num').textContent;
     openInvoiceForCase(num);
