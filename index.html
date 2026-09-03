@@ -7869,10 +7869,6 @@
     'kawasaki', 'uehara', 'hiraoka', 'kawano', 'shin',
     'arasaki',  'hazama', 'morita',  'kamiji', 'matsuda'
   ];
-  const STAFF_ROLES = [
-    'P / D', 'C', 'CA', 'PM', 'C / CA',
-    'S', 'CA', 'E', 'CA', 'D'
-  ];
 
   // ===== Google Sign-In 初期化 =====
   function initGoogleSignIn() {
@@ -7949,7 +7945,7 @@
     listEl.innerHTML = STAFF_KEYS.map((key, i) => {
       const fighter = fighters[i] || {};
       const name    = fighter.name || key;
-      const role    = STAFF_ROLES[i] || '';
+      const role    = (typeof getStaffRole === 'function') ? getStaffRole(key) : '';
       const avatar  = (fighter.palette && typeof makePixelChar === 'function')
         ? makePixelChar(fighter.palette) : '👤';
 
@@ -8126,7 +8122,7 @@
     if (idx < 0) return null;
     const f = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS[idx] : null;
     if (!f) return null;
-    const role   = (typeof STAFF_ROLES !== 'undefined' && STAFF_ROLES[idx]) ? STAFF_ROLES[idx] : '';
+    const role   = (typeof getStaffRole === 'function') ? getStaffRole(loginName) : '';
     const avatar = (f.palette && typeof makePixelChar === 'function') ? makePixelChar(f.palette) : '👤';
     return {
       name: f.name || loginName, role: role,
@@ -11944,6 +11940,13 @@ ${_body}
   }
   function saveStaffMaster(list) { localStorage.setItem('staff_master', JSON.stringify(list)); }
   function getStaffByKey(key) { return loadStaffMaster().find(s => s.key === key); }
+  // スタッフの職種を返す唯一の入口（2026-08-25）。
+  // 以前はコード直書きの STAFF_ROLES（'C' 'CA' 'E' 等の略号）と staff_master の職種が
+  // 二重管理になっていて、スタッフ編集画面で職種を直しても略号側は変わらなかった。
+  // 略号は廃止し、スタッフ編集画面で編集でき同期もされる staff_master.role に一本化した。
+  function getStaffRole(key) {
+    try { const s = getStaffByKey(key); return String((s && s.role) || ''); } catch (e) { return ''; }
+  }
 
   // 詳細画面用：1人分の表示データを集約して返す（基本＋ゲーム＋本人フラグ）
   // 見つからない項目は安全な既定値（'-' など）にして描画が落ちないようにする。
@@ -16950,7 +16953,7 @@ ${tableHTML}
   }
 
   // ===== 機材リストの開閉（2026-08-25 ユーザー要望）=====
-  // 編集担当（STAFF_ROLES が E）がログイン中は機材がほぼ関係ないので畳んだ状態で開く。
+  // 編集担当（職種に「編集」を含む人）がログイン中は機材がほぼ関係ないので畳んだ状態で開く。
   // 撮影部は今までどおり開いたまま。どちらもバーをタップすれば開閉できる。
   // 開閉はその案件を開いている間だけ保つ（別の案件を開くと役職に応じた既定に戻る）。
   let _wsdEquipFoldedFor = null;
@@ -16966,11 +16969,9 @@ ${tableHTML}
       const key = localStorage.getItem('last_login_name');
       if (!key) return false;
       if (EDITOR_STAFF_KEYS.indexOf(key) >= 0) return true;
-      const i = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(key) : -1;
-      if (i < 0) return false;
-      // 'C / CA' のように複数役職が入るので分解して判定する（'E' そのものだけを編集担当とみなす）
-      return String((typeof STAFF_ROLES !== 'undefined' && STAFF_ROLES[i]) || '')
-        .split('/').map(x => x.trim()).indexOf('E') >= 0;
+      // 職種（スタッフ編集画面で編集できる）に「編集」が入っていれば編集担当とみなす。
+      // 例：森田の「映像編集・カラコレ」。ディレクターやカメラマンは掛からない。
+      return /編集/.test((typeof getStaffRole === 'function') ? getStaffRole(key) : '');
     } catch (e) { return false; }
   }
 
