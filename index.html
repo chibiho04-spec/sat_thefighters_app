@@ -6874,6 +6874,15 @@
       </div>
       <div class="inv-modal-body">
         <input type="hidden" id="inv-modal-index" value="">
+        <!-- 登録済みの商品・機材から選ぶ（2026-08-25）。商品コードが付いている機材は
+             78件中4件しかなく、コードだけでは大半を特定できないため商品名で選べるようにした。
+             選ぶと下の欄が埋まり、そのあと手で直せる。数量だけは触らない。 -->
+        <div class="inv-field">
+          <label>登録済みから選ぶ</label>
+          <select id="inv-modal-product" onchange="_onInvModalProductPick()">
+            <option value="">─ 手入力する ─</option>
+          </select>
+        </div>
         <div class="inv-field">
           <label>摘要（作業内容）</label>
           <textarea id="inv-modal-name" placeholder="例）カメラマン人件費（撮影：城間）" oninput="_updateInvModalAmount()"></textarea>
@@ -10913,6 +10922,82 @@
   }
 
   // モーダルを開く（idx=null で新規追加、数値で既存行を編集）
+  // ===== 明細モーダル：登録済みの商品・機材から選ぶ（2026-08-25 ユーザー要望）=====
+  // 商品コードでしか引けないと、コードの無い機材（78件中74件）は選べない。商品名で選べるようにする。
+  // 商品リスト(product_master_cache)と機材マスタ(equip_master)の両方を1つのプルダウンに出す。
+  let _invPickCache = [];
+  function _buildInvPickList() {
+    const out = [];
+    try {
+      (_loadProductRows() || []).forEach(r => {
+        const name = String(r['商品名'] || '').trim();
+        if (!name) return;
+        out.push({ group: '📦 商品リスト', name: name,
+                   code:  String(r['商品コード'] || '').trim(),
+                   unit:  String(r['単位'] || '').trim(),
+                   price: Number(String(r['単価'] || '').replace(/[^\d.-]/g, '')) || 0 });
+      });
+    } catch (e) { console.warn('商品リストの読み込みに失敗', e); }
+    try {
+      (loadEquipMaster() || []).forEach(e => {
+        const name = String(e.name || '').trim();
+        if (!name) return;
+        // 機材マスタに単位の欄は無い。レンタルは日単位なので既定を「日」にする（あとから直せる）
+        out.push({ group: '🎥 機材', name: name,
+                   code:  String(e.code || '').trim(),
+                   unit:  '日',
+                   price: Number(e.price) || 0 });
+      });
+    } catch (e) { console.warn('機材マスタの読み込みに失敗', e); }
+    return out;
+  }
+
+  // プルダウンの中身を作る。value は _invPickCache の添字（名前やコードを value に埋めない＝記号で壊れない）
+  function _fillInvModalProductOptions() {
+    const sel = document.getElementById('inv-modal-product');
+    if (!sel) return;
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x));
+    const yen = n => '¥' + (Number(n) || 0).toLocaleString('ja-JP');
+    _invPickCache = _buildInvPickList();
+    let html = '<option value="">─ 手入力する ─</option>';
+    if (!_invPickCache.length) {
+      html += '<option value="" disabled>（商品リスト・機材マスタに登録がありません）</option>';
+    } else {
+      const groups = [];
+      _invPickCache.forEach((it, i) => {
+        let g = null;
+        for (const x of groups) { if (x.label === it.group) { g = x; break; } }
+        if (!g) { g = { label: it.group, items: [] }; groups.push(g); }
+        g.items.push({ it: it, i: i });
+      });
+      groups.forEach(g => {
+        html += '<optgroup label="' + esc(g.label + '（' + g.items.length + '件）') + '">';
+        g.items.forEach(function (e) {
+          const label = e.it.name + (e.it.code ? '（' + e.it.code + '）' : '')
+                      + (e.it.price ? '  ' + yen(e.it.price) : '');
+          html += '<option value="' + e.i + '">' + esc(label) + '</option>';
+        });
+        html += '</optgroup>';
+      });
+    }
+    sel.innerHTML = html;
+    sel.value = '';
+  }
+
+  // 選んだ商品を各欄へ流し込む。数量は触らない（入力済みの数量を消さないため）
+  function _onInvModalProductPick() {
+    const sel = document.getElementById('inv-modal-product');
+    if (!sel || sel.value === '') return;
+    const it = _invPickCache[Number(sel.value)];
+    if (!it) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('inv-modal-name',  it.name);
+    if (it.unit) set('inv-modal-unit', it.unit);
+    set('inv-modal-price', it.price || 0);
+    set('inv-modal-code',  it.code || '');
+    try { _updateInvModalAmount(); } catch (e) {}
+  }
+
   function openInvLineModal(idx) {
     const rows = _readInvLineRows();
     const isNew = (idx === null || idx === undefined);
@@ -10923,7 +11008,7 @@
     // フォームに値をセット
     document.getElementById('inv-modal-index').value = isNew ? '' : String(idx);
     document.getElementById('inv-modal-title').textContent = _invReadonly ? '明細を確認' : (isNew ? '通常行を追加' : '明細を編集');
-    const fields = ['inv-modal-name','inv-modal-qty','inv-modal-unit','inv-modal-price','inv-modal-tax','inv-modal-code','inv-modal-red'];
+    const fields = ['inv-modal-name','inv-modal-qty','inv-modal-unit','inv-modal-price','inv-modal-tax','inv-modal-code','inv-modal-red','inv-modal-product'];
     fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = _invReadonly; });
     document.getElementById('inv-modal-name').value  = l.name || '';
     document.getElementById('inv-modal-qty').value   = (l.qty != null ? l.qty : 1);
@@ -10941,6 +11026,7 @@
     }
     const footEl = document.querySelector('#inv-line-modal .inv-modal-foot');
     if (footEl) footEl.style.paddingTop = _invReadonly ? '0' : '';
+    try { _fillInvModalProductOptions(); } catch (e) { console.warn('登録済みリストの作成', e); }
     _updateInvModalAmount();
     document.getElementById('inv-line-modal').classList.add('open');
   }
