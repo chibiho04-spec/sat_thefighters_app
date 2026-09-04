@@ -3779,6 +3779,9 @@
       <button onclick="changeFontScale(0.1)" style="background:transparent;border:none;color:#fff;font-family:'DotGothic16',monospace;font-size:30px;padding:6px 14px;cursor:pointer;font-weight:bold;" title="文字を大きく">A+</button>
     </div>
     <button id="dash-open-btn" onclick="openDashboard()" style="background:#16243a;border:1px solid #2980b9;color:#cfe0f2;font-family:'DotGothic16',monospace;font-size:18px;padding:6px 12px;border-radius:4px;cursor:pointer;margin-right:6px;white-space:nowrap;" title="進行中ダッシュボード（モニター用）">🖥 ダッシュボード</button>
+    <!-- KUROSAWA mode（2026-09-04）。押すたびに白黒ON/OFF。状態は端末ごと（kurosawa_mode） -->
+    <button id="kz-toggle-btn" onclick="toggleKurosawaMode()" title="KUROSAWA mode（白黒）"
+      style="background:#111;border:1px solid #888;color:#fff;font-family:'DotGothic16',monospace;font-size:16px;padding:6px 10px;border-radius:4px;cursor:pointer;margin-right:6px;letter-spacing:1px;white-space:nowrap;">🎬 KUROSAWA</button>
     <button onclick="openSettings()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-family:'DotGothic16',monospace;font-size:22px;padding:6px 14px;border-radius:4px;cursor:pointer;margin-right:6px;" title="データ管理">データ管理</button>
     <button onclick="doLogout()" style="background:rgba(255,100,100,0.25);border:1px solid rgba(255,150,150,0.4);color:#ffcccc;font-family:'DotGothic16',monospace;font-size:22px;padding:6px 14px;border-radius:4px;cursor:pointer;margin-right:8px;" title="ログアウト">⏏ 退出</button>
     <div class="api-label" id="clock"></div>
@@ -8972,6 +8975,31 @@
   }
 
   function applyFontScale() {
+    // ===== KUROSAWA mode（2026-09-04）=====
+    // 見た目だけを黒澤映画風（白黒）にする遊び機能。業務データ・同期には触れない。
+    // 状態は localStorage 'kurosawa_mode'（'1'=ON）。端末ごとの好みなので同期しない。
+    // 設計書: docs/superpowers/specs/2026-09-04-kurosawa-mode-design.md
+    function isKurosawa() {
+      try { return localStorage.getItem('kurosawa_mode') === '1'; } catch (e) { return false; }
+    }
+    function applyKurosawaMode() {
+      const on = isKurosawa();
+      try { document.body.classList.toggle('kurosawa', on); } catch (e) {}
+      // ボタンの見た目（ONは白地に黒文字で反転）
+      try {
+        const b = document.getElementById('kz-toggle-btn');
+        if (b) { b.style.background = on ? '#fff' : '#111'; b.style.color = on ? '#111' : '#fff'; b.style.borderColor = on ? '#111' : '#888'; }
+      } catch (e) {}
+      // 以降のタスクでここに「アバター再描画」「SUMOの文言差し替え」を足す
+      try { if (typeof _refreshKurosawaAvatars === 'function') _refreshKurosawaAvatars(); } catch (e) {}
+      try { if (typeof _applySumoWords === 'function') _applySumoWords(); } catch (e) {}
+    }
+    function toggleKurosawaMode() {
+      try { localStorage.setItem('kurosawa_mode', isKurosawa() ? '0' : '1'); } catch (e) {}
+      applyKurosawaMode();
+    }
+    applyKurosawaMode(); // 起動時に保存値を反映（font_scale と同じタイミング）
+
     const s = parseFloat(localStorage.getItem('font_scale'));
     const scale = (isNaN(s) || s <= 0) ? 1.5 : Math.max(0.8, Math.min(2.2, s));
     // 文字サイズに合わせて列幅などを伸縮させたいCSSのためのカスタムプロパティ（売上表の金額列等）
