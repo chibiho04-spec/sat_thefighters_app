@@ -75,43 +75,23 @@ body.kurosawa #kz-overlay {
   z-index が膜より低いので白黒になる
 - 印刷・PDF は `window.open` で別ウィンドウに生成しているため元々影響を受けない。上の `@media print` は保険
 
-## 3. 川崎の武士（浪人）
+## 3. 川崎会長の武士（浪人）
 
-### ドット絵
+**対象はホーム画面上部を歩く「川崎会長」**（`.character` — CSS の四角で組んだキャラ）。
+スタッフ一覧・SUMO・ステータスカードの16×16ドット絵は**変えない**（2026-09-04 本人確認で修正。
+先に作ったスタッフ一覧側の差し替えは取り消した: 362bc72）。
 
-`makePixelChar(palette)` に `hat: 'samurai'` を追加。既存の helmet / cap / bandana / beret は変更しない。
+方式：`body.kurosawa` のときだけ CSS で部品を足す。JS は使わない。
 
-16×16 の描き足し（既存の顔・体の描画の上に重ねる）:
-- ちょんまげ: 頭頂 `x7-8,y0-1` と土台 `x6-9,y2`、髪 `x3-12,y3-4`、もみあげ `x3,y5-7` `x12,y5-7`（黒）
-- 着物の襟: 体の中央 `x7-8,y11-13` を明るい灰色（V字の代わり）
-- 帯: `x4-11,y14` を暗い灰色
-- 刀: `x13,y6-12` 明るい灰色（刀身）、鍔 `x12-14,y13` 茶、柄 `x13,y14-15` 暗い茶
+| 部品 | CSS |
+|---|---|
+| ちょんまげ | `.character::before`（頭の上に小さな束＋左右へ広げた髪） |
+| 髪 | `.char-head::before` を月代風に少し高く |
+| 着物 | `.char-body` を暗い色に。帯は `border-bottom`、襟は `::after` を細い白に |
+| 袴 | `.char-leg` を暗い色に |
+| 刀 | `.character::after` を右腰に斜めで置き、`box-shadow` で柄を下にずらして描く |
 
-### 差し替えの入口
-
-```js
-// アバターを描く全箇所がここを通る。川崎かつモードONのときだけ武士パレットを返す
-function _charPalette(fighter) {
-  if (isKurosawa() && fighter && fighter.name === '川崎') {
-    return Object.assign({}, fighter.palette, { hat: 'samurai', body: '#2c2c2c' });
-  }
-  return fighter.palette;
-}
-```
-
-判定は `name === '川崎'`（SUMO_FIGHTERS の name）。STAFF_KEYS 経由なら `key === 'kawasaki'`。両方の入口で同じ人を指す。
-
-### 描き直す場所
-
-| 場所 | 現状 | 対応 |
-|---|---|---|
-| 漢たちタブ | 静的SVG（`.staff-card` 1枚目） | ON/OFF のたびに川崎のカードのアバター要素だけ `makePixelChar(_charPalette(...))` で差し替える。元のSVGは初回に退避して OFF で戻す |
-| ログイン後のスタッフ選択画面 | `makePixelChar(fighter.palette)` | `_charPalette(fighter)` に置換 |
-| ホームのユーザーステータスカード | 同上 | 同上 |
-| スタッフ詳細 | 同上 | 同上 |
-| SUMO（対戦画面・選択プルダウン） | `makeSumoAvatar(fighter)` | 内部で `_charPalette` を使う |
-
-他の9人は変わらない。
+`.character` に既存の `::before` / `::after` が無いことを確認して使った。通常時は何も変わらない。
 
 ## 4. 斬り合い（読み替え）
 
