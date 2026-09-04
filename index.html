@@ -76,18 +76,19 @@
   /* ===== KUROSAWA mode：ホーム上部の川崎会長を浪人に（2026-09-04）=====
      キャラは CSS の四角で組んである（.char-head / .char-body / .char-legs）。
      body.kurosawa のときだけ、ちょんまげ・着物の襟・帯・腰の刀を足す。JS は使わない。 */
-  body.kurosawa .character::before { /* ちょんまげ（頭の上） */
+  /* キャラを少し小さくして頭の上に余白を作る（.scene-area は overflow:hidden で、
+     髪が上端ぎりぎりのため、頭上に描いたものは切れてしまう）。足元基準で縮める */
+  body.kurosawa .character { transform: scale(0.85); transform-origin: bottom center; }
+  body.kurosawa .character::before { /* ちょんまげ：髪の上に横たわる束＋先端の結び目 */
     content: '';
     position: absolute;
-    top: -12px; left: 16px;
-    width: 8px; height: 8px;
+    top: -9px; left: 13px;
+    width: 12px; height: 4px;
     background: #1a0e08;
     border: 2px solid #1a0e08;
-    box-shadow: -6px 6px 0 0 #1a0e08, 6px 6px 0 0 #1a0e08; /* 髪を左右へ広げて結い上げた感じに */
+    border-radius: 2px;
+    box-shadow: 9px -3px 0 0 #1a0e08; /* 後ろ側に立ち上がる結び目 */
     z-index: 1;
-  }
-  body.kurosawa .char-head::before { /* 髪：月代（さかやき）風に少し高く */
-    height: 8px; top: -4px;
   }
   body.kurosawa .char-body { /* 着物：暗い色 */
     background: #2c2c2c;
@@ -115,6 +116,9 @@
     transform-origin: 50% 100%;
     box-shadow: 0 25px 0 0 #5a3a1a; /* 柄（同じ形を下にずらして茶色に） */
     z-index: 1;
+  }
+  @media (min-width: 769px) {
+    body.kurosawa .character { transform: scale(0.6); transform-origin: bottom left; }
   }
   .phone-frame {
     width: 100vw;
