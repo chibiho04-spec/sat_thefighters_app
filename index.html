@@ -48,6 +48,21 @@
   }
 
   /* ===== モバイル全画面対応 ===== */
+  /* ===== KUROSAWA mode：白黒（フィルム調）の膜（2026-09-04）===== */
+  #kz-overlay { display: none; }
+  body.kurosawa #kz-overlay {
+    display: block;
+    position: fixed; inset: 0;
+    z-index: 2147483000;              /* ダイアログ(〜100000)より上＝全部が膜の後ろに入る */
+    pointer-events: none;             /* タップ・スクロールを邪魔しない */
+    -webkit-backdrop-filter: grayscale(1) contrast(1.25) brightness(1.02);
+            backdrop-filter: grayscale(1) contrast(1.25) brightness(1.02);
+    background:
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: .55;                     /* ← 粒子と四隅の影の強さ。実機で見て弱めるならここ1か所 */
+  }
   .phone-frame {
     width: 100vw;
     height: 100vh;
@@ -2704,6 +2719,7 @@
   }
 
   @media print {
+    #kz-overlay { display: none !important; }  /* KUROSAWA mode の膜は印刷に出さない */
     @page { size: A4; margin: 15mm; }
     #print-content { width: 100% !important; box-shadow: none !important; padding: 0 !important; }
     body > *                    { display: none !important; }
@@ -3654,6 +3670,10 @@
 </style>
 </head>
 <body>
+
+<!-- KUROSAWA mode の膜（2026-09-04）。body.kurosawa のときだけ表示され、backdrop-filter で後ろを白黒にする。
+     祖先に filter を付けると position:fixed の画面の位置基準がずれるため、膜方式にしている。 -->
+<div id="kz-overlay" aria-hidden="true"></div>
 
 <div class="phone-frame">
 

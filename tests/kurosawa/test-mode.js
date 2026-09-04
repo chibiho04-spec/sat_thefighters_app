@@ -40,4 +40,20 @@ ok(src.indexOf('id="kz-toggle-btn"') < src.indexOf('title="データ管理">デ�
 const boot = src.slice(src.indexOf("const s = parseFloat(localStorage.getItem('font_scale'))") - 400,
                        src.indexOf("const s = parseFloat(localStorage.getItem('font_scale'))"));
 ok(/applyKurosawaMode\(\)/.test(boot), '起動時に applyKurosawaMode() を呼ぶ（font_scale の直前）');
+console.log('\n=== 白黒オーバーレイ ===');
+const { css } = require('./_extract');
+const styles = css(src);
+ok(/<div id="kz-overlay" aria-hidden="true"><\/div>/.test(src), '#kz-overlay が body 直下にある');
+ok(src.indexOf('id="kz-overlay"') < src.indexOf('<div class="phone-frame">'), 'phone-frame より前（外側）にある');
+ok(/#kz-overlay\s*\{\s*display:\s*none;?\s*\}/.test(styles), '既定は非表示');
+const on = styles.slice(styles.indexOf('body.kurosawa #kz-overlay'));
+ok(/position:\s*fixed/.test(on) && /inset:\s*0/.test(on), '画面全体に固定');
+ok(/pointer-events:\s*none/.test(on), 'タップを邪魔しない');
+ok(/z-index:\s*2147483000/.test(on), 'ダイアログより上');
+ok(/-webkit-backdrop-filter:\s*grayscale\(1\)/.test(on), 'Safari 用の -webkit- 付き');
+ok(/[^-]backdrop-filter:\s*grayscale\(1\)\s*contrast\(1\.25\)/.test(on), 'グレースケール＋コントラスト');
+ok(/feTurbulence/.test(on), '粒子（feTurbulence）がある');
+ok(/radial-gradient/.test(on), '四隅の影がある');
+ok(/opacity:\s*\.55/.test(on), '強さは opacity .55（実機で調整する1か所）');
+ok(/@media print[\s\S]*#kz-overlay\s*\{\s*display:\s*none\s*!important/.test(styles), '印刷時は消える');
 ok.done();
