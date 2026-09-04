@@ -7491,9 +7491,24 @@
     } else if (p.hat === 'beret') {
       r += `<rect x="3" y="1" width="10" height="3" fill="#8b4513"/>`;
       r += `<rect x="11" y="2" width="2" height="2" fill="#a0522d"/>`;
+    } else if (p.hat === 'samurai') {
+      // 浪人（KUROSAWA mode・2026-09-04）：髪・ちょんまげ・もみあげ。襟と刀は体の後で描く
+      r += `<rect x="3" y="3" width="10" height="2" fill="#1a1a1a"/>`;
+      r += `<rect x="3" y="5" width="1" height="3" fill="#1a1a1a"/>`;
+      r += `<rect x="12" y="5" width="1" height="3" fill="#1a1a1a"/>`;
+      r += `<rect x="6" y="2" width="4" height="1" fill="#1a1a1a"/>`;
+      r += `<rect x="7" y="0" width="2" height="2" fill="#1a1a1a"/>`;
     }
     r += `<rect x="4" y="11" width="8" height="5" fill="${BD}"/>`;
     r += `<rect x="5" y="10" width="6" height="1" fill="${SK}"/>`;
+    if (p.hat === 'samurai') {
+      // 着物の襟・帯・腰の刀（体の上に重ねる）
+      r += `<rect x="7" y="11" width="2" height="3" fill="#d0d0d0"/>`;
+      r += `<rect x="4" y="14" width="8" height="1" fill="#555555"/>`;
+      r += `<rect x="13" y="6" width="1" height="7" fill="#eeeeee"/>`;
+      r += `<rect x="12" y="13" width="3" height="1" fill="#5a3a1a"/>`;
+      r += `<rect x="13" y="14" width="1" height="2" fill="#3a2a1a"/>`;
+    }
     return `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;image-rendering:pixelated;">${r}</svg>`;
   }
 
