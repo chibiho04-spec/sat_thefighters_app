@@ -40,22 +40,31 @@ ok(src.indexOf('id="kz-toggle-btn"') < src.indexOf('title="データ管理">デ�
 const boot = src.slice(src.indexOf("const s = parseFloat(localStorage.getItem('font_scale'))") - 400,
                        src.indexOf("const s = parseFloat(localStorage.getItem('font_scale'))"));
 ok(/applyKurosawaMode\(\)/.test(boot), '起動時に applyKurosawaMode() を呼ぶ（font_scale の直前）');
-console.log('\n=== 白黒オーバーレイ ===');
+console.log('\n=== 白黒オーバーレイ（2枚構成）===');
 const { css } = require('./_extract');
 const styles = css(src);
-ok(/<div id="kz-overlay" aria-hidden="true"><\/div>/.test(src), '#kz-overlay が body 直下にある');
+ok(/<div id="kz-overlay" aria-hidden="true"><\/div>/.test(src), '#kz-overlay（白黒化）がある');
+ok(/<div id="kz-grain" aria-hidden="true"><\/div>/.test(src), '#kz-grain（粒子・影）がある');
 ok(src.indexOf('id="kz-overlay"') < src.indexOf('<div class="phone-frame">'), 'phone-frame より前（外側）にある');
-ok(/#kz-overlay\s*\{\s*display:\s*none;?\s*\}/.test(styles), '既定は非表示');
-const on = styles.slice(styles.indexOf('body.kurosawa #kz-overlay'));
-ok(/position:\s*fixed/.test(on) && /inset:\s*0/.test(on), '画面全体に固定');
-ok(/pointer-events:\s*none/.test(on), 'タップを邪魔しない');
-ok(/z-index:\s*2147483000/.test(on), 'ダイアログより上');
-ok(/-webkit-backdrop-filter:\s*grayscale\(1\)/.test(on), 'Safari 用の -webkit- 付き');
-ok(/[^-]backdrop-filter:\s*grayscale\(1\)\s*contrast\(1\.25\)/.test(on), 'グレースケール＋コントラスト');
-ok(/feTurbulence/.test(on), '粒子（feTurbulence）がある');
-ok(/radial-gradient/.test(on), '四隅の影がある');
-ok(/opacity:\s*\.55/.test(on), '強さは opacity .55（実機で調整する1か所）');
-ok(/@media print[\s\S]*#kz-overlay\s*\{\s*display:\s*none\s*!important/.test(styles), '印刷時は消える');
+ok(/#kz-overlay,\s*#kz-grain\s*\{\s*display:\s*none;?\s*\}/.test(styles), '既定は2枚とも非表示');
+// 1枚目：白黒化だけ
+const ov = styles.slice(styles.indexOf('body.kurosawa #kz-overlay'), styles.indexOf('body.kurosawa #kz-grain'));
+ok(/position:\s*fixed/.test(ov) && /inset:\s*0/.test(ov), '白黒化の膜：画面全体に固定');
+ok(/pointer-events:\s*none/.test(ov), '白黒化の膜：タップを邪魔しない');
+ok(/z-index:\s*2147483000/.test(ov), '白黒化の膜：ダイアログより上');
+ok(/-webkit-backdrop-filter:\s*grayscale\(1\)/.test(ov), 'Safari 用の -webkit- 付き');
+ok(/[^-]backdrop-filter:\s*grayscale\(1\)\s*contrast\(1\.25\)/.test(ov), 'グレースケール＋コントラスト');
+ok(!/mix-blend-mode/.test(ov), '白黒化の膜に mix-blend-mode が無い ★同じ要素に付けると Chrome で効かなくなる');
+ok(!/opacity/.test(ov), '白黒化の膜に opacity が無い ★同上');
+// 2枚目：粒子と影
+const gr = styles.slice(styles.indexOf('body.kurosawa #kz-grain'), styles.indexOf('.phone-frame {'));
+ok(/z-index:\s*2147483001/.test(gr), '粒子の膜は白黒化の膜より上');
+ok(/pointer-events:\s*none/.test(gr), '粒子の膜：タップを邪魔しない');
+ok(/feTurbulence/.test(gr), '粒子（feTurbulence）がある');
+ok(/radial-gradient/.test(gr), '四隅の影がある');
+ok(/mix-blend-mode:\s*multiply/.test(gr) && /opacity:\s*\.55/.test(gr), '粒子の膜に multiply と opacity .55');
+ok(!/backdrop-filter/.test(gr), '粒子の膜に backdrop-filter は無い（役割を混ぜない）');
+ok(/@media print[\s\S]*#kz-overlay,\s*#kz-grain\s*\{\s*display:\s*none\s*!important/.test(styles), '印刷時は2枚とも消える');
 console.log('\n=== スコープ：ボタンから呼べる位置（トップレベル）にあるか ===');
 // 2026-09-04 の不具合：applyFontScale() の中に定義してしまい onclick から見えなかった。
 // トップレベル関数はこのファイルでは2スペース字下げ。4スペース以上なら何かの関数の中。
