@@ -56,4 +56,12 @@ ok(/feTurbulence/.test(on), '粒子（feTurbulence）がある');
 ok(/radial-gradient/.test(on), '四隅の影がある');
 ok(/opacity:\s*\.55/.test(on), '強さは opacity .55（実機で調整する1か所）');
 ok(/@media print[\s\S]*#kz-overlay\s*\{\s*display:\s*none\s*!important/.test(styles), '印刷時は消える');
+console.log('\n=== スコープ：ボタンから呼べる位置（トップレベル）にあるか ===');
+// 2026-09-04 の不具合：applyFontScale() の中に定義してしまい onclick から見えなかった。
+// トップレベル関数はこのファイルでは2スペース字下げ。4スペース以上なら何かの関数の中。
+['isKurosawa', 'applyKurosawaMode', 'toggleKurosawaMode'].forEach(fn => {
+  const m = src.match(new RegExp('^( *)function ' + fn + '\\(', 'm'));
+  ok(!!m && m[1].length === 2, fn + ' がトップレベル（字下げ ' + (m ? m[1].length : '?') + '）');
+});
+ok(!/applyKurosawaMode\(\)/.test(src.slice(0, src.indexOf('function isKurosawa'))) || true, '（参考）定義より前の呼び出しは関数宣言の巻き上げで動く');
 ok.done();
