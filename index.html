@@ -7491,24 +7491,9 @@
     } else if (p.hat === 'beret') {
       r += `<rect x="3" y="1" width="10" height="3" fill="#8b4513"/>`;
       r += `<rect x="11" y="2" width="2" height="2" fill="#a0522d"/>`;
-    } else if (p.hat === 'samurai') {
-      // 浪人（KUROSAWA mode・2026-09-04）：髪・ちょんまげ・もみあげ。襟と刀は体の後で描く
-      r += `<rect x="3" y="3" width="10" height="2" fill="#1a1a1a"/>`;
-      r += `<rect x="3" y="5" width="1" height="3" fill="#1a1a1a"/>`;
-      r += `<rect x="12" y="5" width="1" height="3" fill="#1a1a1a"/>`;
-      r += `<rect x="6" y="2" width="4" height="1" fill="#1a1a1a"/>`;
-      r += `<rect x="7" y="0" width="2" height="2" fill="#1a1a1a"/>`;
     }
     r += `<rect x="4" y="11" width="8" height="5" fill="${BD}"/>`;
     r += `<rect x="5" y="10" width="6" height="1" fill="${SK}"/>`;
-    if (p.hat === 'samurai') {
-      // 着物の襟・帯・腰の刀（体の上に重ねる）
-      r += `<rect x="7" y="11" width="2" height="3" fill="#d0d0d0"/>`;
-      r += `<rect x="4" y="14" width="8" height="1" fill="#555555"/>`;
-      r += `<rect x="13" y="6" width="1" height="7" fill="#eeeeee"/>`;
-      r += `<rect x="12" y="13" width="3" height="1" fill="#5a3a1a"/>`;
-      r += `<rect x="13" y="14" width="1" height="2" fill="#3a2a1a"/>`;
-    }
     return `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;image-rendering:pixelated;">${r}</svg>`;
   }
 
@@ -7557,36 +7542,8 @@
     });
   }
 
-  // ===== KUROSAWA mode：アバターのパレット差し替え（2026-09-04）=====
-  // アバターを描く全箇所がここを通る。モードONかつ川崎のときだけ浪人のパレットを返す。
-  // 元の palette は書き換えない（新しいオブジェクトを返す）。それ以外は元の参照をそのまま返す。
-  function _charPalette(fighter) {
-    if (!fighter || !fighter.palette) return fighter ? fighter.palette : null;
-    if (typeof isKurosawa === 'function' && isKurosawa() && fighter.name === '川崎') {
-      return Object.assign({}, fighter.palette, { hat: 'samurai', body: '#2c2c2c' });
-    }
-    return fighter.palette;
-  }
-  // モード切替のたびに、いま画面に出ているアバターを描き直す（applyKurosawaMode から呼ばれる）
-  function _refreshKurosawaAvatars() {
-    try { if (typeof applyStaffToCards === 'function') applyStaffToCards(); } catch (e) {}          // 漢たちタブ
-    try {
-      const ln = localStorage.getItem('last_login_name');
-      if (ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(ln);                   // ホームのステータスカード
-    } catch (e) {}
-    try {
-      const d = document.getElementById('staff-detail-screen');
-      if (d && d.style.transform === 'translateX(0)' && window._sdEditKey && typeof openStaffDetail === 'function') openStaffDetail(window._sdEditKey); // スタッフ詳細が開いていれば
-    } catch (e) {}
-    try {
-      // SUMO の対戦画面に出ているアバター（対戦中でなければ何もしない）
-      if (typeof sumoCurrentP1 !== 'undefined' && sumoCurrentP1) { const a = document.getElementById('sumo-p1-avatar'); if (a) a.innerHTML = makeSumoAvatar(sumoCurrentP1); }
-      if (typeof sumoCurrentP2 !== 'undefined' && sumoCurrentP2) { const a = document.getElementById('sumo-p2-avatar'); if (a) a.innerHTML = makeSumoAvatar(sumoCurrentP2); }
-    } catch (e) {}
-  }
-
   function makeSumoAvatar(fighter) {
-    return makePixelChar(_charPalette(fighter));
+    return makePixelChar(fighter.palette);
   }
 
   function randomSumo() {
@@ -8056,7 +8013,7 @@
       const name    = fighter.name || key;
       const role    = (typeof getStaffRole === 'function') ? getStaffRole(key) : '';
       const avatar  = (fighter.palette && typeof makePixelChar === 'function')
-        ? makePixelChar(_charPalette(fighter)) : '👤';
+        ? makePixelChar(fighter.palette) : '👤';
 
       return `
         <button onclick="selectStaff('${key}')" style="
@@ -8232,7 +8189,7 @@
     const f = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS[idx] : null;
     if (!f) return null;
     const role   = (typeof getStaffRole === 'function') ? getStaffRole(loginName) : '';
-    const avatar = (f.palette && typeof makePixelChar === 'function') ? makePixelChar(_charPalette(f)) : '👤';
+    const avatar = (f.palette && typeof makePixelChar === 'function') ? makePixelChar(f.palette) : '👤';
     return {
       name: f.name || loginName, role: role,
       status: '稼働中', statusColor: '#27ae60',
@@ -12067,7 +12024,7 @@ ${_body}
     const us = (typeof USER_STAFF !== 'undefined') ? (USER_STAFF[key] || null) : null;
     const isSelf = (localStorage.getItem('last_login_name') === key);
     const avatar = (fighter.palette && typeof makePixelChar === 'function')
-      ? makePixelChar(_charPalette(fighter)) : '';
+      ? makePixelChar(fighter.palette) : '';
     const tenureYears = (typeof _staffTenureYears === 'function') ? _staffTenureYears(base.joinDate) : null;
     return {
       key: key,
@@ -12127,15 +12084,6 @@ ${_body}
       const s = list[i];
       if (!s) return;
       const header   = card.children[0];
-      // KUROSAWA mode（2026-09-04）：川崎のカードだけアバターを浪人に。元の静的SVGは初回に退避し OFF で戻す
-      try {
-        const av = header && header.children[0];
-        if (av && s.key === 'kawasaki') {
-          if (!av.dataset.kzOrig) av.dataset.kzOrig = av.innerHTML;
-          const f = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS.find(x => x.name === '川崎') : null;
-          av.innerHTML = (typeof isKurosawa === 'function' && isKurosawa() && f) ? makePixelChar(_charPalette(f)) : av.dataset.kzOrig;
-        }
-      } catch (e) {}
       const rolesDiv = card.children[1];
       const infoDiv  = card.children[2];
       const noteDiv  = card.children[3];
