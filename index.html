@@ -79,15 +79,23 @@
   /* キャラを少し小さくして頭の上に余白を作る（.scene-area は overflow:hidden で、
      髪が上端ぎりぎりのため、頭上に描いたものは切れてしまう）。足元基準で縮める */
   body.kurosawa .character { transform: scale(0.85); transform-origin: bottom center; }
-  body.kurosawa .character::before { /* ちょんまげ：髪の上に横たわる束＋先端の結び目 */
+  /* 髪：月代（さかやき）＝てっぺんは剃って肌を見せ、髪は左右の側頭だけに残す。
+     元の hair（頭上の横長ブロック）をそのまま使うと、上に束を乗せたときリーゼントに見える */
+  body.kurosawa .char-head::before {
+    top: 2px; left: -2px;
+    width: 5px; height: 12px;
+    background: #1a0e08;
+    border: 0;
+    box-shadow: 21px 0 0 0 #1a0e08; /* 右側頭にも同じ形 */
+  }
+  body.kurosawa .character::before { /* 髷（まげ）：剃った頭のてっぺんに立つ小さな束 */
     content: '';
     position: absolute;
-    top: -9px; left: 13px;
-    width: 12px; height: 4px;
+    top: -7px; left: 18px;
+    width: 4px; height: 9px;
     background: #1a0e08;
-    border: 2px solid #1a0e08;
-    border-radius: 2px;
-    box-shadow: 9px -3px 0 0 #1a0e08; /* 後ろ側に立ち上がる結び目 */
+    border: 0;
+    border-radius: 2px 2px 0 0;
     z-index: 1;
   }
   body.kurosawa .char-body { /* 着物：暗い色 */

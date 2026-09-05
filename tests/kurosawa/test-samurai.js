@@ -10,13 +10,20 @@ ok(/<div class="char-name-tag">▶ 川崎会長<\/div>/.test(src), '名前タグ
 
 const kz = styles.slice(styles.indexOf('KUROSAWA mode：ホーム上部の川崎会長を浪人に'), styles.indexOf('.phone-frame {'));
 ok(kz.length > 0, '浪人用の CSS ブロックがある');
-ok(/body\.kurosawa \.character::before[\s\S]*?content:\s*''/.test(kz), 'ちょんまげ（.character::before）');
-ok(/body\.kurosawa \.character\s*\{\s*transform:\s*scale\(0\.85\);\s*transform-origin:\s*bottom center/.test(kz), 'キャラを足元基準で 0.85 に縮めて頭上に余白を作る ★overflow:hidden で切れない');
-ok(!/box-shadow:\s*-6px 6px/.test(kz), '左右に広げた髪のコピー（耳に見えた）は無い');
-ok(/top:\s*-9px;\s*left:\s*13px;\s*width:\s*12px;\s*height:\s*4px/.test(kz), 'ちょんまげは横に寝た束（12×4）');
-ok(/box-shadow:\s*9px -3px 0 0 #1a0e08/.test(kz), '結び目は束の後ろ側に1つ');
+ok(/body\.kurosawa \.character\s*\{\s*transform:\s*scale\(0\.85\);\s*transform-origin:\s*bottom center/.test(kz), 'キャラを足元基準で 0.85 に縮めて頭上に余白を作る');
 ok(/@media \(min-width: 769px\)\s*\{\s*body\.kurosawa \.character\s*\{\s*transform:\s*scale\(0\.6\);\s*transform-origin:\s*bottom left/.test(kz), 'デスクトップは元の 0.7 に合わせて 0.6・左下基準');
-ok(!/月代/.test(kz), '髪を上へ伸ばす指定は無い（伸ばしても切れるだけ）');
+// 月代：てっぺんは肌、髪は左右の側頭だけ
+const hair = kz.slice(kz.indexOf('body.kurosawa .char-head::before'), kz.indexOf('body.kurosawa .character::before'));
+ok(/top:\s*2px;\s*left:\s*-2px;\s*width:\s*5px;\s*height:\s*12px/.test(hair), '髪は左側頭の細い縦長（5×12）＝頭のてっぺんは肌が見える（月代）');
+ok(/border:\s*0/.test(hair), '髪の枠線は消す（元の2px枠が太らせない）');
+ok(/box-shadow:\s*21px 0 0 0 #1a0e08/.test(hair), '右側頭にも同じ形（左右対称）');
+ok(!/width:\s*26px/.test(hair), '元の横長ブロック（26px）は使わない ★リーゼントに見えた原因');
+// 髷：頭頂に立つ小さな束
+const mage = kz.slice(kz.indexOf('body.kurosawa .character::before'), kz.indexOf('body.kurosawa .char-body {'));
+ok(/content:\s*''/.test(mage), '髷（.character::before）');
+ok(/top:\s*-7px;\s*left:\s*18px;\s*width:\s*4px;\s*height:\s*9px/.test(mage), '髷は頭頂中央に立つ細い束（4×9・x18＝頭の中心）');
+ok(/border-radius:\s*2px 2px 0 0/.test(mage), '束の先を少し丸める');
+ok(!/box-shadow/.test(mage), '髷にコピー（横の束・結び目）は付けない');
 ok(/body\.kurosawa \.char-body\s*\{[\s\S]*?background:\s*#2c2c2c/.test(kz), '着物は暗い色');
 ok(/border-bottom:\s*5px solid #6a6a6a/.test(kz), '帯（border-bottom）');
 ok(/body\.kurosawa \.char-body::after[\s\S]*?width:\s*6px/.test(kz), '襟は細い白');
