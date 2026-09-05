@@ -4735,7 +4735,7 @@
     <div id="tab-5" class="tab-panel" style="display:none;">
 
       <div style="background:linear-gradient(135deg,#8b1e1e,#5d0d0d);color:#fff;padding:14px 16px;text-align:center;">
-        <div style="font-size:21px;font-weight:bold;letter-spacing:4px;">🏟️ 大相撲 SUMO</div>
+        <div id="sumo-title" style="font-size:21px;font-weight:bold;letter-spacing:4px;">🏟️ 大相撲 SUMO</div>
         <div style="font-size:11px;color:#ffd;margin-top:2px;">スタッフのステータスで自動対戦！</div>
       </div>
 
@@ -4743,17 +4743,17 @@
       <div id="sumo-select-panel" style="padding:14px;background:#fef9e7;">
         <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <div style="font-size:10px;color:#888;">東 力士</div>
+            <div id="sumo-east-label" style="font-size:10px;color:#888;">東 力士</div>
             <select id="sumo-p1-select" style="font-family:'DotGothic16',monospace;font-size:13px;padding:6px 10px;border:2px solid #c0392b;border-radius:3px;background:white;min-width:120px;"></select>
           </div>
           <div style="font-size:19px;color:#c0392b;font-weight:bold;">VS</div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <div style="font-size:10px;color:#888;">西 力士</div>
+            <div id="sumo-west-label" style="font-size:10px;color:#888;">西 力士</div>
             <select id="sumo-p2-select" style="font-family:'DotGothic16',monospace;font-size:13px;padding:6px 10px;border:2px solid #2980b9;border-radius:3px;background:white;min-width:120px;"></select>
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
-          <button onclick="startSumo()" style="font-family:'DotGothic16',monospace;font-size:14px;background:#e67e22;border:3px solid #8b4500;color:white;padding:10px 22px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #5a2800;font-weight:bold;letter-spacing:2px;">⚔️ はっけよい！</button>
+          <button id="sumo-start-btn" onclick="startSumo()" style="font-family:'DotGothic16',monospace;font-size:14px;background:#e67e22;border:3px solid #8b4500;color:white;padding:10px 22px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #5a2800;font-weight:bold;letter-spacing:2px;">⚔️ はっけよい！</button>
           <button onclick="randomSumo()" style="font-family:'DotGothic16',monospace;font-size:12px;background:#16a085;border:3px solid #0e5d4a;color:white;padding:10px 14px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #0a3d31;">🎲 ランダム</button>
         </div>
       </div>
@@ -4762,7 +4762,7 @@
       <div id="sumo-arena" style="display:none;background:linear-gradient(180deg,#2a2a2a,#1a1a1a);border-radius:14px;padding:24px 12px 28px;position:relative;margin:8px 6px;box-shadow:0 6px 16px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.08);">
 
         <!-- TV ブランド -->
-        <div style="position:absolute;top:7px;left:50%;transform:translateX(-50%);color:#999;font-size:11px;letter-spacing:3px;font-family:Helvetica,Arial,sans-serif;font-weight:bold;">SUMO<span style="color:#f1c40f;">19</span></div>
+        <div style="position:absolute;top:7px;left:50%;transform:translateX(-50%);color:#999;font-size:11px;letter-spacing:3px;font-family:Helvetica,Arial,sans-serif;font-weight:bold;"><span id="sumo-badge">SUMO</span><span style="color:#f1c40f;">19</span></div>
 
         <!-- 4隅のマウントハンドル -->
         <div style="position:absolute;top:7px;left:7px;width:11px;height:11px;background:#1a1a1a;border-radius:50%;border:2px solid #444;box-shadow:inset 0 1px 2px rgba(0,0,0,0.6);"></div>
@@ -7578,6 +7578,25 @@
     'すくいなげ': 1.4, 'うっちゃり': 1.6, 'つりだし': 1.2
   };
 
+  // ===== KUROSAWA mode：斬り合いの読み替え（2026-09-04）=====
+  // 対戦の仕組みは相撲のまま。技名と画面の言葉だけ武士に置き換える。
+  // 相撲の技と「同じ添字＝同じ倍率」にしてあるので、勝率のバランスは変わらない。
+  const KZ_TECHNIQUES = [
+    '袈裟斬り','突き','逆袈裟','唐竹割り','胴払い',
+    '受け流し','小手打ち','抜刀術','一閃','燕返し'
+  ];
+  const KZ_TECH_POWER = {
+    '袈裟斬り': 1.0, '突き': 1.1, '逆袈裟': 1.0,
+    '唐竹割り': 1.3, '胴払い': 1.3,
+    '受け流し': 0.7, '小手打ち': 0.8,
+    '抜刀術': 1.4, '一閃': 1.6, '燕返し': 1.2
+  };
+  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO',    east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO' };
+  const KZ_WORDS   = { title:'🎬 決闘 KUROSAWA', east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KUROSAWA' };
+  function _techList()  { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECHNIQUES : SUMO_TECHNIQUES; }
+  function _techPower() { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECH_POWER  : SUMO_TECH_POWER; }
+  function _words()     { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_WORDS       : SUMO_WORDS; }
+
   // 決まり手の種類（場外へ押し出す技 / 倒す技）
   const SUMO_PUSH_TECHS = ['おしだし','つきだし','よりきり','つりだし'];
   const SUMO_FALL_TECHS = ['うわてなげ','したてなげ','はたきこみ','つきおとし','すくいなげ','うっちゃり'];
@@ -7595,6 +7614,14 @@
       ).join('');
       sel.value = idx === 0 ? 4 : 0; // 初期値: 城間 vs 川崎
     });
+  }
+
+  // SUMOタブの見出し・東西・開始ボタン・バッジをモードに合わせて差し替える（applyKurosawaMode から呼ばれる）
+  function _applySumoWords() {
+    const w = _words();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('sumo-title', w.title); set('sumo-east-label', w.east); set('sumo-west-label', w.west);
+    set('sumo-start-btn', w.start); set('sumo-badge', w.badge);
   }
 
   function makeSumoAvatar(fighter) {
@@ -7674,7 +7701,7 @@
       else                      mood = `<span style="color:#c0392b;">⚠ 不調か…</span>`;
       addSumoLog(`<span style="color:#888;">${side}・${f.name}：</span> ${mood}`);
     });
-    addSumoLog(`<span style="color:#888;">行司「はっけよい、のこった！」</span>`);
+    addSumoLog(`<span style="color:#888;">${_words().referee}</span>`);
 
     sumoTimer = setTimeout(sumoTurn, 1200);
   }
@@ -7705,7 +7732,7 @@
     let dmg = attacker.effStr * 0.5 - defender.effEnd * 0.3;
     dmg += Math.random() * 30 - 5;
     // 技ごとの威力倍率
-    dmg *= (SUMO_TECH_POWER[technique] || 1.0);
+    dmg *= (_techPower()[technique] || 1.0);
 
     // 会心の一撃：強い方は3%、弱い方は15%（弱い力士の逆転を後押し）
     let crit = false;
@@ -7743,11 +7770,11 @@
     const secondColor = second.palette.bg;
 
     // 先手の攻撃
-    const tech1 = SUMO_TECHNIQUES[Math.floor(Math.random() * SUMO_TECHNIQUES.length)];
+    const tech1 = _techList()[Math.floor(Math.random() * _techList().length)];
 
     // 8%で空振り
     if (Math.random() < 0.08) {
-      addSumoLog(`<span style="color:${firstColor};font-weight:bold;">${first.name}</span> の <strong>${tech1}</strong>... <span style="color:#888;">空振り！</span>`);
+      addSumoLog(`<span style="color:${firstColor};font-weight:bold;">${first.name}</span> の <strong>${tech1}</strong>... <span style="color:#888;">${_words().miss}</span>`);
       sumoTimer = setTimeout(sumoTurn, 1000);
       return;
     }
@@ -7758,8 +7785,8 @@
     setTimeout(() => firstFighterEl.classList.remove(`sumo-attack-${firstSide}`), 300);
 
     let msg1 = `<span style="color:${firstColor};font-weight:bold;">${first.name}</span> の<strong>${tech1}</strong>！`;
-    if (r1.crit)  msg1 += ` <span style="color:#e67e22;font-weight:bold;">⚡会心の一撃！</span>`;
-    if (r1.upset) msg1 += ` <span style="color:#9b59b6;font-weight:bold;">✨金星なるか！</span>`;
+    if (r1.crit)  msg1 += ` <span style="color:#e67e22;font-weight:bold;">${_words().crit}</span>`;
+    if (r1.upset) msg1 += ` <span style="color:#9b59b6;font-weight:bold;">${_words().upset}</span>`;
     msg1 += ` <span style="color:#c0392b;">${r1.damage}ダメージ</span>`;
     addSumoLog(msg1);
     updateSumoHp();
@@ -7767,7 +7794,7 @@
     if (second.hp <= 0) { sumoFinish(first, second, tech1); return; }
 
     setTimeout(() => {
-      const tech2 = SUMO_TECHNIQUES[Math.floor(Math.random() * SUMO_TECHNIQUES.length)];
+      const tech2 = _techList()[Math.floor(Math.random() * _techList().length)];
 
       if (Math.random() < 0.08) {
         addSumoLog(`<span style="color:${secondColor};font-weight:bold;">${second.name}</span> の反撃<strong>${tech2}</strong>... <span style="color:#888;">かわされた！</span>`);
@@ -7781,8 +7808,8 @@
       setTimeout(() => secondFighterEl.classList.remove(`sumo-attack-${secondSide}`), 300);
 
       let msg2 = `<span style="color:${secondColor};font-weight:bold;">${second.name}</span> の反撃<strong>${tech2}</strong>！`;
-      if (r2.crit)  msg2 += ` <span style="color:#e67e22;font-weight:bold;">⚡会心の一撃！</span>`;
-      if (r2.upset) msg2 += ` <span style="color:#9b59b6;font-weight:bold;">✨金星なるか！</span>`;
+      if (r2.crit)  msg2 += ` <span style="color:#e67e22;font-weight:bold;">${_words().crit}</span>`;
+      if (r2.upset) msg2 += ` <span style="color:#9b59b6;font-weight:bold;">${_words().upset}</span>`;
       msg2 += ` <span style="color:#c0392b;">${r2.damage}ダメージ</span>`;
       addSumoLog(msg2);
       updateSumoHp();
@@ -7824,7 +7851,7 @@
       // 結果オーバーレイは力士アニメが終わってから表示
       setTimeout(() => {
         document.getElementById('sumo-result-name').textContent = `🏆 ${winner.name}`;
-        document.getElementById('sumo-result-text').textContent = technique ? `${technique}！` : '勝負あり！';
+        document.getElementById('sumo-result-text').textContent = technique ? `${technique}！` : _words().end;
         document.getElementById('sumo-result').style.display = 'block';
       }, 1400);
     }, 600);
