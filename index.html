@@ -128,6 +128,40 @@
   @media (min-width: 769px) {
     body.kurosawa .character { transform: scale(0.6); transform-origin: bottom left; }
   }
+  /* ===== KUROSAWA mode：決闘の演出（2026-09-04）=====
+     相撲の演出（幕・観客席・土俵・押し出し・座布団）を、body.kurosawa のときだけ夜の河原の斬り合いに変える。 */
+  body.kurosawa #sumo-maku, body.kurosawa #sumo-crowd { display: none; }           /* 幕と観客席は無し */
+  body.kurosawa #sumo-dohyo { background: linear-gradient(180deg, #0b0b12 0%, #1a1a22 55%, #2a2a2a 56%, #1c1c1c 100%); } /* 夜空＋河原 */
+  body.kurosawa #sumo-dohyo-ring { display: none; }                                  /* 土俵の楕円は消す */
+  body.kurosawa #sumo-dohyo::before { /* 月 */
+    content: ''; position: absolute; left: 72%; top: 18px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #e8e8e8; box-shadow: 0 0 18px 6px rgba(255,255,255,.25);
+  }
+  body.kurosawa #sumo-p1-fighter, body.kurosawa #sumo-p2-fighter { position: relative; }
+  /* 踏み込み：短く鋭く */
+  body.kurosawa .sumo-attack-left  { animation: kzDashL 0.28s cubic-bezier(.2,.9,.3,1); }
+  body.kurosawa .sumo-attack-right { animation: kzDashR 0.28s cubic-bezier(.2,.9,.3,1); }
+  @keyframes kzDashL { 0% { transform: translateX(0); } 35% { transform: translateX(64px) rotate(4deg); } 100% { transform: translateX(0); } }
+  @keyframes kzDashR { 0% { transform: translateX(0); } 35% { transform: translateX(-64px) rotate(-4deg); } 100% { transform: translateX(0); } }
+  /* 斬撃：相手の上を白い線が斜めに走る */
+  .kz-slash {
+    position: absolute; left: 50%; top: 45%;
+    width: 110px; height: 4px; margin-left: -55px;
+    background: #fff; box-shadow: 0 0 8px 2px rgba(255,255,255,.8);
+    transform: rotate(-35deg) scaleX(0); transform-origin: left center;
+    pointer-events: none; z-index: 6;
+    animation: kzSlash 0.32s ease-out forwards;
+  }
+  .kz-slash.rev { transform: rotate(35deg) scaleX(0); transform-origin: right center; }
+  @keyframes kzSlash { 0% { opacity: 1; transform: rotate(-35deg) scaleX(0); } 40% { transform: rotate(-35deg) scaleX(1); } 100% { opacity: 0; transform: rotate(-35deg) scaleX(1); } }
+  .kz-slash.rev { animation-name: kzSlashRev; }
+  @keyframes kzSlashRev { 0% { opacity: 1; transform: rotate(35deg) scaleX(0); } 40% { transform: rotate(35deg) scaleX(1); } 100% { opacity: 0; transform: rotate(35deg) scaleX(1); } }
+  /* 一閃：画面が一瞬白く光る */
+  .kz-flash { position: absolute; inset: 0; background: #fff; pointer-events: none; z-index: 30; border-radius: 14px; animation: kzFlash 0.45s ease-out forwards; }
+  @keyframes kzFlash { 0% { opacity: .95; } 100% { opacity: 0; } }
+  /* 座布団 → 白い花びら */
+  body.kurosawa .zabuton { width: 8px; height: 8px; border-radius: 50% 0; background: #f2f2f2; border: 1px solid #bbb; box-shadow: none; }
   .phone-frame {
     width: 100vw;
     height: 100vh;
@@ -4838,20 +4872,20 @@
         </div>
 
         <!-- 紫の幕 -->
-        <div style="height:14px;background:linear-gradient(180deg,#8b1e9c 0%,#6c1493 50%,#4a0a6c 100%);border-bottom:2px solid #2a0530;box-shadow:inset 0 -3px 6px rgba(0,0,0,0.4);"></div>
+        <div id="sumo-maku" style="height:14px;background:linear-gradient(180deg,#8b1e9c 0%,#6c1493 50%,#4a0a6c 100%);border-bottom:2px solid #2a0530;box-shadow:inset 0 -3px 6px rgba(0,0,0,0.4);"></div>
 
         <!-- 観客席（黒・緑・オレンジの縦縞） -->
-        <div style="height:18px;background:repeating-linear-gradient(90deg,
+        <div id="sumo-crowd" style="height:18px;background:repeating-linear-gradient(90deg,
             #000000 0,#000000 8px,
             #0e6e4f 8px,#0e6e4f 16px,
             #e87830 16px,#e87830 24px);
           border-bottom:3px solid #000;"></div>
 
         <!-- 土俵 -->
-        <div style="background:#a8703c;padding:8px 0 0;position:relative;overflow:hidden;min-height:178px;image-rendering:pixelated;">
+        <div id="sumo-dohyo" style="background:#a8703c;padding:8px 0 0;position:relative;overflow:hidden;min-height:178px;image-rendering:pixelated;">
 
           <!-- 土俵：ピクセルアートSVG -->
-          <div style="position:absolute;left:50%;top:14px;transform:translateX(-50%);width:80%;max-width:310px;height:144px;pointer-events:none;z-index:0;">
+          <div id="sumo-dohyo-ring" style="position:absolute;left:50%;top:14px;transform:translateX(-50%);width:80%;max-width:310px;height:144px;pointer-events:none;z-index:0;">
             <svg viewBox="0 0 32 16" preserveAspectRatio="none" style="width:100%;height:100%;shape-rendering:crispEdges;display:block;">
               <!-- 白い土俵縁（ステップ状の楕円） -->
               <rect x="9"  y="1" width="14" height="1" fill="#fff5d8"/>
@@ -6564,8 +6598,8 @@
       <div class="nav-label">漢たち</div>
     </div>
     <div class="nav-item" data-tab="5" onclick="setTab(5)">
-      <div class="nav-icon">🏟️</div>
-      <div class="nav-label">SUMO</div>
+      <div class="nav-icon" id="sumo-nav-icon">🏟️</div>
+      <div class="nav-label" id="sumo-nav-label">SUMO</div>
     </div>
   </div>
 
@@ -7476,6 +7510,7 @@
     // 以降のタスクでここに「アバター再描画」「SUMOの文言差し替え」を足す
     try { if (typeof _refreshKurosawaAvatars === 'function') _refreshKurosawaAvatars(); } catch (e) {}
     try { if (typeof _applySumoWords === 'function') _applySumoWords(); } catch (e) {}
+    try { if (typeof _applySumoSprites === 'function') _applySumoSprites(); } catch (e) {}
   }
   function toggleKurosawaMode() {
     try { localStorage.setItem('kurosawa_mode', isKurosawa() ? '0' : '1'); } catch (e) {}
@@ -7591,8 +7626,8 @@
     '受け流し': 0.7, '小手打ち': 0.8,
     '抜刀術': 1.4, '一閃': 1.6, '燕返し': 1.2
   };
-  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO',    east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO' };
-  const KZ_WORDS   = { title:'🎬 決闘 KUROSAWA', east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KUROSAWA' };
+  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO', east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO',  navIcon:'🏟️', navLabel:'SUMO' };
+  const KZ_WORDS   = { title:'⚔️ 決闘 KETTO',    east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KETTO', navIcon:'⚔️', navLabel:'KETTO' };
   function _techList()  { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECHNIQUES : SUMO_TECHNIQUES; }
   function _techPower() { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECH_POWER  : SUMO_TECH_POWER; }
   function _words()     { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_WORDS       : SUMO_WORDS; }
@@ -7622,6 +7657,75 @@
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     set('sumo-title', w.title); set('sumo-east-label', w.east); set('sumo-west-label', w.west);
     set('sumo-start-btn', w.start); set('sumo-badge', w.badge);
+    set('sumo-nav-icon', w.navIcon); set('sumo-nav-label', w.navLabel); // ナビバーのタブも切り替える
+  }
+
+  // ===== KUROSAWA mode：決闘の演出（2026-09-04）=====
+  // 武士のドット絵（20×25・東向き。西は scaleX(-1) で反転）。正眼に構えた浪人。
+  const KZ_SAMURAI_SVG = `
+    <svg width="80" height="100" viewBox="0 0 20 25" xmlns="http://www.w3.org/2000/svg" style="image-rendering:pixelated;">
+      <!-- 髷・月代・髪（左右） -->
+      <rect x="9" y="0" width="2" height="2" fill="#1a1a1a"/>
+      <rect x="7" y="2" width="1" height="4" fill="#1a1a1a"/>
+      <rect x="12" y="2" width="1" height="4" fill="#1a1a1a"/>
+      <!-- 顔 -->
+      <rect x="8" y="2" width="4" height="4" fill="#f4c2a1"/>
+      <rect x="9" y="4" width="1" height="1" fill="#000"/>
+      <rect x="11" y="4" width="1" height="1" fill="#000"/>
+      <!-- 着物 -->
+      <rect x="6" y="6" width="8" height="9" fill="#2c2c2c"/>
+      <rect x="9" y="6" width="2" height="4" fill="#e8e8e8"/>
+      <rect x="6" y="13" width="8" height="2" fill="#777"/>
+      <!-- 腕（前へ構える） -->
+      <rect x="13" y="8" width="3" height="2" fill="#2c2c2c"/>
+      <rect x="15" y="8" width="2" height="3" fill="#f4c2a1"/>
+      <!-- 刀（鍔・刀身） -->
+      <rect x="15" y="11" width="2" height="1" fill="#5a3a1a"/>
+      <rect x="16" y="7" width="1" height="1" fill="#eeeeee"/>
+      <rect x="17" y="5" width="1" height="2" fill="#eeeeee"/>
+      <rect x="18" y="3" width="1" height="2" fill="#eeeeee"/>
+      <rect x="19" y="1" width="1" height="2" fill="#eeeeee"/>
+      <!-- 袴 -->
+      <rect x="5" y="15" width="10" height="8" fill="#3a3a3a"/>
+      <rect x="9" y="15" width="2" height="8" fill="#2a2a2a"/>
+      <!-- 足 -->
+      <rect x="4" y="23" width="6" height="2" fill="#1a1a1a"/>
+      <rect x="10" y="23" width="6" height="2" fill="#1a1a1a"/>
+    </svg>`;
+
+  // 対戦画面の力士2体を武士に差し替える／戻す（applyKurosawaMode から呼ばれる）。
+  // 元の力士SVGは初回に dataset.kzOrig へ退避し、OFF で戻す。
+  function _applySumoSprites() {
+    const on = (typeof isKurosawa === 'function') && isKurosawa();
+    [['sumo-p1-fighter', false], ['sumo-p2-fighter', true]].forEach(([id, mirror]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (!el.dataset.kzOrig) el.dataset.kzOrig = el.innerHTML;
+      el.innerHTML = on ? KZ_SAMURAI_SVG.replace('image-rendering:pixelated;', 'image-rendering:pixelated;' + (mirror ? 'transform:scaleX(-1);' : '')) : el.dataset.kzOrig;
+    });
+  }
+
+  // 斬撃：相手の上に白い線を一瞬走らせる（決闘モードのときだけ）
+  function _kzSlash(targetEl, fromLeft) {
+    try {
+      if (!(typeof isKurosawa === 'function' && isKurosawa()) || !targetEl) return;
+      const d = document.createElement('div');
+      d.className = 'kz-slash' + (fromLeft ? '' : ' rev');
+      targetEl.appendChild(d);
+      setTimeout(() => { try { d.remove(); } catch (e) {} }, 380);
+    } catch (e) {}
+  }
+  // 一閃：画面が一瞬白く光る（決闘モードのときだけ）
+  function _kzFlash() {
+    try {
+      if (!(typeof isKurosawa === 'function' && isKurosawa())) return;
+      const arena = document.getElementById('sumo-arena');
+      if (!arena) return;
+      const d = document.createElement('div');
+      d.className = 'kz-flash';
+      arena.appendChild(d);
+      setTimeout(() => { try { d.remove(); } catch (e) {} }, 500);
+    } catch (e) {}
   }
 
   function makeSumoAvatar(fighter) {
@@ -7782,6 +7886,7 @@
     const r1 = sumoCalcDamage(first, second, tech1);
     second.hp -= r1.damage;
     firstFighterEl.classList.add(`sumo-attack-${firstSide}`);
+    setTimeout(() => _kzSlash(secondFighterEl, firstSide === 'left'), 90); // 決闘：踏み込んだ先で斬撃
     setTimeout(() => firstFighterEl.classList.remove(`sumo-attack-${firstSide}`), 300);
 
     let msg1 = `<span style="color:${firstColor};font-weight:bold;">${first.name}</span> の<strong>${tech1}</strong>！`;
@@ -7805,6 +7910,7 @@
       const r2 = sumoCalcDamage(second, first, tech2);
       first.hp -= r2.damage;
       secondFighterEl.classList.add(`sumo-attack-${secondSide}`);
+      setTimeout(() => _kzSlash(firstFighterEl, secondSide === 'left'), 90);
       setTimeout(() => secondFighterEl.classList.remove(`sumo-attack-${secondSide}`), 300);
 
       let msg2 = `<span style="color:${secondColor};font-weight:bold;">${second.name}</span> の反撃<strong>${tech2}</strong>！`;
@@ -7831,6 +7937,8 @@
       loseFighterEl.classList.remove('sumo-attack-left','sumo-attack-right');
 
       // 決まり手で演出を分岐（敗者）
+      if (technique === '一閃') _kzFlash(); // 決闘：一閃は画面が白く光る
+      // 決闘の技名は SUMO_PUSH_TECHS に無いので、KUROSAWA mode では常に「斬られて倒れる」になる（場外は無し）
       if (SUMO_PUSH_TECHS.includes(technique)) {
         loseFighterEl.classList.add(loserIsP1 ? 'sumo-pushed-left' : 'sumo-pushed-right');
       } else {

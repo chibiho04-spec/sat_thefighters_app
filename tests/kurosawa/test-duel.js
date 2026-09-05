@@ -29,9 +29,10 @@ ok(_techList() === SUMO_TECHNIQUES && _techPower() === SUMO_TECH_POWER, 'OFF：�
 ok(_words().title === '🏟️ 大相撲 SUMO', 'OFF：相撲の言葉');
 localStorage.setItem('kurosawa_mode', '1');
 ok(_techList() === KZ_TECHNIQUES && _techPower() === KZ_TECH_POWER, 'ON：斬り合いのテーブル');
-ok(_words().title === '🎬 決闘 KUROSAWA' && _words().east === '東 武士' && _words().start === '⚔️ いざ尋常に！', 'ON：斬り合いの言葉');
+ok(_words().title === '⚔️ 決闘 KETTO' && _words().east === '東 武士' && _words().start === '⚔️ いざ尋常に！', 'ON：斬り合いの言葉');
+ok(_words().badge === 'KETTO' && _words().navIcon === '⚔️' && _words().navLabel === 'KETTO', 'ON：バッジとナビが KETTO');
 ok(_words().miss === '空を斬る！' && /一刀両断/.test(_words().crit) && /下剋上/.test(_words().upset), 'ON：実況の言葉');
-['title','east','west','start','miss','crit','upset','end','badge','referee'].forEach(k =>
+['title','east','west','start','miss','crit','upset','end','badge','referee','navIcon','navLabel'].forEach(k =>
   ok(typeof SUMO_WORDS[k] === 'string' && typeof KZ_WORDS[k] === 'string', '言葉 ' + k + ' が両方にある'));
 
 console.log('\n=== 直書きが残っていないか ===');
