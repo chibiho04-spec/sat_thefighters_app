@@ -69,6 +69,7 @@
 - 機材マスター編集（青ヘッダー、案件編集画面から開く）
 - データ管理画面（上部「データ管理」ボタンから開く・合言葉/再送/バックアップ/復元/リセット）
 - ⚠️ `tab-2 スケジュール` はナビに項目が無い孤立タブ（ホームカレンダーと重複・整理候補 2026-07-11）
+- **🎬 KUROSAWA mode（2026-09-04）**：上部バーのボタンで見た目だけ黒澤映画風に。白黒は最前面の膜2枚（`#kz-overlay`＝`backdrop-filter`、`#kz-grain`＝粒子と影。同じ要素に `mix-blend-mode`/`opacity` を付けると Chrome で backdrop-filter が効かないので分けている。祖先に filter を付けると fixed 画面がずれるため膜方式）。ホーム上部の川崎会長は `body.kurosawa .character` 系の CSS で浪人（月代＋髷・着物・刀）。スタッフ一覧の16×16ドット絵は変えない。SUMOは `_techList/_techPower/_words` でテーブルを切り替えるだけ（倍率同じ）。状態は `kurosawa_mode`（端末ごと・同期しない）。印刷は別ウィンドウなので影響なし。テストは `tests/kurosawa/run.sh`。設計: `docs/superpowers/specs/2026-09-04-kurosawa-mode-design.md`。戻す目印: タグ `pre-kurosawa-mode`
 
 ### 2026-07-08〜11 の主な仕様変更（要点）
 - **外注費はワークシートで一元管理**：請求書の外注費記入欄・明細の「外注」列を廃止。売上の外注費集計はWS（外注リスト＋レンタル）のみ参照（二重計上防止）
