@@ -47,4 +47,27 @@ console.log('\n=== スコープ：トップレベル ===');
   const m = src.match(new RegExp('^( *)function ' + fn + '\\(', 'm'));
   ok(!!m && m[1].length === 2, fn + ' がトップレベル（字下げ ' + (m ? m[1].length : '?') + '）');
 });
+
+console.log('\n=== ホーム上部の稽古：武士が竹を切る ===');
+const tk = styles.slice(styles.indexOf('KUROSAWA mode：ホーム上部の稽古を「武士が竹を切る」に'), styles.indexOf('.phone-frame {'));
+ok(tk.length > 0, '稽古用の CSS ブロックがある');
+ok(/body\.kurosawa \.teppou-post\s*\{[\s\S]*?repeating-linear-gradient/.test(tk), '柱が節のある竹になる');
+ok(/body\.kurosawa \.teppou-post::before[\s\S]*?top: -16px/.test(tk), '竹の上部（切り落とされる部分）がある');
+ok(/body\.kurosawa \.teppou-post\.cut::before\s*\{\s*animation: kzBambooCut/.test(tk) && /@keyframes kzBambooCut/.test(tk), '切られた上部が飛ぶアニメ');
+ok(/body\.kurosawa \.teppou-char\.swing\s*\{\s*animation: kzPracticeCut/.test(tk) && /@keyframes kzPracticeCut/.test(tk), '振りかぶって振り下ろすアニメ');
+ok(/scale\(0\.7\)/.test(tk), '振り下ろし中もデスクトップの縮小(0.7)を保つ（動作中に大きくならない）');
+const psvg = src.match(/const KZ_PRACTICE_SVG = `([\s\S]*?)`;/);
+ok(!!psvg && /viewBox="0 0 16 24"/.test(psvg[1]), '稽古用の武士 SVG（16×24）がある');
+ok(/x="2" y="0" width="1" height="7" fill="#eeeeee"/.test(psvg[1]), '刀を頭上に振りかぶっている');
+const tp = grabFunction(src, '_applyTeppouSprite');
+ok(/dataset\.kzOrig/.test(tp) && /KZ_PRACTICE_SVG/.test(tp), '元の力士を退避して武士に差し替え、OFF で戻す');
+ok(/_applyTeppouSprite\(\)/.test(grabFunction(src, 'applyKurosawaMode')), 'applyKurosawaMode が稽古キャラも差し替える');
+const loop = grabFunction(src, 'teppouLoop');
+ok(/_words\(\)\.cries/.test(loop), '掛け声は言葉テーブルから');
+ok(/isKurosawa\(\)[\s\S]*?classList\.add\('cut'\)/.test(loop), '決闘モードのときだけ竹を切る');
+const W = eval('(' + src.match(/const KZ_WORDS\s*=\s*(\{[\s\S]*?\});/)[1] + ')');
+const S = eval('(' + src.match(/const SUMO_WORDS\s*=\s*(\{[\s\S]*?\});/)[1] + ')');
+ok(Array.isArray(W.cries) && W.cries.length >= 3 && W.cries.includes('スパッ！'), '決闘の掛け声（スパッ！など）');
+ok(Array.isArray(S.cries) && S.cries.includes('バシッ！'), '相撲の掛け声は従来どおり（バシッ！）');
+{ const m = src.match(/^( *)function _applyTeppouSprite\(/m); ok(!!m && m[1].length === 2, '_applyTeppouSprite がトップレベル'); }
 ok.done();

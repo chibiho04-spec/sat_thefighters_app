@@ -162,6 +162,36 @@
   @keyframes kzFlash { 0% { opacity: .95; } 100% { opacity: 0; } }
   /* 座布団 → 白い花びら */
   body.kurosawa .zabuton { width: 8px; height: 8px; border-radius: 50% 0; background: #f2f2f2; border: 1px solid #bbb; box-shadow: none; }
+  /* ===== KUROSAWA mode：ホーム上部の稽古を「武士が竹を切る」に（2026-09-04）=====
+     通常はテッポウ稽古（力士が柱を突く）。body.kurosawa のときだけ、柱を竹に・突きを振り下ろしに・
+     竹の上部が切れて飛ぶ演出に変える。キャラの絵は JS（_applyTeppouSprite）で差し替える。 */
+  body.kurosawa .teppou-post { /* 竹：節のある薄緑（白黒化で灰色になる） */
+    width: 9px;
+    background: repeating-linear-gradient(180deg, #c8d4b4 0 11px, #6e7e5e 11px 13px);
+    border: 1.5px solid #3a4a3a;
+    border-radius: 2px 2px 1px 1px;
+  }
+  body.kurosawa .teppou-post::before { /* 切り落とされる竹の上部 */
+    content: ''; position: absolute; left: -1.5px; top: -16px;
+    width: 9px; height: 15px;
+    background: repeating-linear-gradient(180deg, #c8d4b4 0 11px, #6e7e5e 11px 13px);
+    border: 1.5px solid #3a4a3a; border-radius: 2px 2px 0 0;
+    transform-origin: bottom left;
+  }
+  body.kurosawa .teppou-post.cut::before { animation: kzBambooCut 0.7s ease-out; }
+  @keyframes kzBambooCut {
+    0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+    30%  { transform: translate(-10px,-14px) rotate(-40deg); opacity: 1; }
+    100% { transform: translate(-26px, 26px) rotate(-120deg); opacity: 0; }
+  }
+  body.kurosawa .teppou-char.swing { animation: kzPracticeCut 0.45s ease-in; } /* 振りかぶって一気に振り下ろす */
+  @keyframes kzPracticeCut {
+    0%   { transform: scale(0.7) rotate(0deg); }
+    30%  { transform: scale(0.7) rotate(-18deg) translateY(-3px); }  /* 振りかぶる */
+    45%  { transform: scale(0.7) rotate(28deg)  translateX(-4px); }  /* 振り下ろす */
+    70%  { transform: scale(0.7) rotate(22deg)  translateX(-3px); }
+    100% { transform: scale(0.7) rotate(0deg); }
+  }
   .phone-frame {
     width: 100vw;
     height: 100vh;
@@ -7511,6 +7541,7 @@
     try { if (typeof _refreshKurosawaAvatars === 'function') _refreshKurosawaAvatars(); } catch (e) {}
     try { if (typeof _applySumoWords === 'function') _applySumoWords(); } catch (e) {}
     try { if (typeof _applySumoSprites === 'function') _applySumoSprites(); } catch (e) {}
+    try { if (typeof _applyTeppouSprite === 'function') _applyTeppouSprite(); } catch (e) {}
   }
   function toggleKurosawaMode() {
     try { localStorage.setItem('kurosawa_mode', isKurosawa() ? '0' : '1'); } catch (e) {}
@@ -7626,8 +7657,8 @@
     '受け流し': 0.7, '小手打ち': 0.8,
     '抜刀術': 1.4, '一閃': 1.6, '燕返し': 1.2
   };
-  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO', east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO',  navIcon:'🏟️', navLabel:'SUMO',  changeBtn:'⬅️ 力士変更', againBtn:'🔄 もう一番！', sameErr:'同じ力士は選べません！別の力士を選んでください。' };
-  const KZ_WORDS   = { title:'⚔️ 決闘 KETTO',    east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KETTO', navIcon:'⚔️', navLabel:'KETTO', changeBtn:'⬅️ 武士変更', againBtn:'🔄 もう一戦！', sameErr:'同じ武士は選べません！別の武士を選んでください。' };
+  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO', east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO',  navIcon:'🏟️', navLabel:'SUMO',  changeBtn:'⬅️ 力士変更', againBtn:'🔄 もう一番！', sameErr:'同じ力士は選べません！別の力士を選んでください。', cries:['バシッ！','ドン！','ズドン！','ガッ！','スパァン！'] };
+  const KZ_WORDS   = { title:'⚔️ 決闘 KETTO',    east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KETTO', navIcon:'⚔️', navLabel:'KETTO', changeBtn:'⬅️ 武士変更', againBtn:'🔄 もう一戦！', sameErr:'同じ武士は選べません！別の武士を選んでください。', cries:['スパッ！','ザンッ！','シュッ！','パカッ！','一刀！'] };
   function _techList()  { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECHNIQUES : SUMO_TECHNIQUES; }
   function _techPower() { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECH_POWER  : SUMO_TECH_POWER; }
   function _words()     { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_WORDS       : SUMO_WORDS; }
@@ -7726,6 +7757,44 @@
       d.className = 'kz-flash';
       arena.appendChild(d);
       setTimeout(() => { try { d.remove(); } catch (e) {} }, 500);
+    } catch (e) {}
+  }
+
+  // ホーム上部の稽古：竹を切る武士（16×24・上段の構え。力士と同じ40×60px枠）
+  const KZ_PRACTICE_SVG = `
+    <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;image-rendering:pixelated;">
+      <!-- 刀（頭上に振りかぶる） -->
+      <rect x="2" y="0" width="1" height="7" fill="#eeeeee"/>
+      <rect x="1" y="7" width="3" height="1" fill="#5a3a1a"/>
+      <!-- 髷・髪（左右）・顔 -->
+      <rect x="7" y="0" width="2" height="2" fill="#1a1a1a"/>
+      <rect x="5" y="2" width="1" height="3" fill="#1a1a1a"/>
+      <rect x="10" y="2" width="1" height="3" fill="#1a1a1a"/>
+      <rect x="6" y="2" width="4" height="4" fill="#f4c2a1"/>
+      <rect x="6" y="4" width="1" height="1" fill="#1a1a1a"/>
+      <rect x="9" y="4" width="1" height="1" fill="#1a1a1a"/>
+      <!-- 腕（両手で柄を握る） -->
+      <rect x="2" y="8" width="2" height="2" fill="#f4c2a1"/>
+      <rect x="3" y="9" width="2" height="3" fill="#2c2c2c"/>
+      <!-- 着物・襟・帯 -->
+      <rect x="4" y="6" width="8" height="9" fill="#2c2c2c"/>
+      <rect x="7" y="6" width="2" height="4" fill="#e8e8e8"/>
+      <rect x="4" y="13" width="8" height="2" fill="#777"/>
+      <!-- 袴 -->
+      <rect x="3" y="15" width="10" height="7" fill="#3a3a3a"/>
+      <rect x="7" y="15" width="2" height="7" fill="#2a2a2a"/>
+      <!-- 足 -->
+      <rect x="2" y="22" width="5" height="2" fill="#1a1a1a"/>
+      <rect x="9" y="22" width="5" height="2" fill="#1a1a1a"/>
+    </svg>`;
+  // 稽古キャラを力士⇄武士に差し替える（applyKurosawaMode から呼ばれる）。元の力士は dataset.kzOrig に退避
+  function _applyTeppouSprite() {
+    try {
+      const el = document.getElementById('teppou-char');
+      if (!el) return;
+      const on = (typeof isKurosawa === 'function') && isKurosawa();
+      if (!el.dataset.kzOrig) el.dataset.kzOrig = el.innerHTML;
+      el.innerHTML = on ? KZ_PRACTICE_SVG : el.dataset.kzOrig;
     } catch (e) {}
   }
 
@@ -19225,9 +19294,18 @@ ${tableHTML}
     // reflow
     void charEl.offsetWidth;
     charEl.classList.add('swing');
+    // KUROSAWA mode：振り下ろしに合わせて竹の上部が切れて飛ぶ（.cut を付け直して再生）
+    try {
+      const post = document.querySelector('.teppou-post');
+      if (post && typeof isKurosawa === 'function' && isKurosawa()) {
+        post.classList.remove('cut'); void post.offsetWidth;
+        setTimeout(() => post.classList.add('cut'), 180);
+      }
+    } catch (e) {}
     if (impactEl) {
-      // 「バシッ！」「ドン！」「ズドン！」をローテーション
-      const cries = ['バシッ！','ドン！','ズドン！','ガッ！','スパァン！'];
+      // 掛け声（相撲：バシッ！／決闘：スパッ！）は言葉テーブルから
+      const cries = (typeof _words === 'function' && Array.isArray(_words().cries) && _words().cries.length)
+        ? _words().cries : ['バシッ！','ドン！','ズドン！','ガッ！','スパァン！'];
       impactEl.textContent = cries[Math.floor(Math.random() * cries.length)];
       void impactEl.offsetWidth;
       impactEl.classList.add('pop');
