@@ -31,8 +31,12 @@ localStorage.setItem('kurosawa_mode', '1');
 ok(_techList() === KZ_TECHNIQUES && _techPower() === KZ_TECH_POWER, 'ON：斬り合いのテーブル');
 ok(_words().title === '⚔️ 決闘 KETTO' && _words().east === '東 武士' && _words().start === '⚔️ いざ尋常に！', 'ON：斬り合いの言葉');
 ok(_words().badge === 'KETTO' && _words().navIcon === '⚔️' && _words().navLabel === 'KETTO', 'ON：バッジとナビが KETTO');
+ok(_words().changeBtn === '⬅️ 武士変更' && /同じ武士/.test(_words().sameErr), 'ON：結果パネルは「武士変更」・エラー文も武士');
+ok(/id="sumo-change-btn"/.test(src) && /id="sumo-again-btn"/.test(src), '結果パネルの2ボタンに id');
+ok(/set\('sumo-change-btn', w\.changeBtn\)/.test(grabFunction(src, '_applySumoWords')), '_applySumoWords がボタンも差し替える');
+ok(!/alert\('同じ力士/.test(src) && /alert\(_words\(\)\.sameErr\)/.test(src), '同じ力士エラーの直書きが無い');
 ok(_words().miss === '空を斬る！' && /一刀両断/.test(_words().crit) && /下剋上/.test(_words().upset), 'ON：実況の言葉');
-['title','east','west','start','miss','crit','upset','end','badge','referee','navIcon','navLabel'].forEach(k =>
+['title','east','west','start','miss','crit','upset','end','badge','referee','navIcon','navLabel','changeBtn','againBtn','sameErr'].forEach(k =>
   ok(typeof SUMO_WORDS[k] === 'string' && typeof KZ_WORDS[k] === 'string', '言葉 ' + k + ' が両方にある'));
 
 console.log('\n=== 直書きが残っていないか ===');

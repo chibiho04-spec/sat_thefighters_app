@@ -5014,8 +5014,8 @@
               <div id="sumo-result-text" style="font-size:23px;font-weight:bold;color:#5d4037;text-shadow:2px 2px 0 #fff;letter-spacing:4px;">勝負あり！</div>
               <div id="sumo-result-name" style="font-size:17px;color:#5d0d0d;margin-top:4px;font-weight:bold;"></div>
               <div style="display:flex;gap:6px;justify-content:center;margin-top:10px;">
-                <button onclick="resetSumo()" style="font-family:'DotGothic16',monospace;font-size:12px;background:#34495e;border:2px solid #1a252f;color:white;padding:6px 16px;border-radius:3px;cursor:pointer;white-space:nowrap;">⬅️ 力士変更</button>
-                <button onclick="startSumo()" style="font-family:'DotGothic16',monospace;font-size:12px;background:#e67e22;border:2px solid #8b4500;color:white;padding:6px 16px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 もう一番！</button>
+                <button id="sumo-change-btn" onclick="resetSumo()" style="font-family:'DotGothic16',monospace;font-size:12px;background:#34495e;border:2px solid #1a252f;color:white;padding:6px 16px;border-radius:3px;cursor:pointer;white-space:nowrap;">⬅️ 力士変更</button>
+                <button id="sumo-again-btn" onclick="startSumo()" style="font-family:'DotGothic16',monospace;font-size:12px;background:#e67e22;border:2px solid #8b4500;color:white;padding:6px 16px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 もう一番！</button>
               </div>
             </div>
           </div>
@@ -7626,8 +7626,8 @@
     '受け流し': 0.7, '小手打ち': 0.8,
     '抜刀術': 1.4, '一閃': 1.6, '燕返し': 1.2
   };
-  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO', east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO',  navIcon:'🏟️', navLabel:'SUMO' };
-  const KZ_WORDS   = { title:'⚔️ 決闘 KETTO',    east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KETTO', navIcon:'⚔️', navLabel:'KETTO' };
+  const SUMO_WORDS = { title:'🏟️ 大相撲 SUMO', east:'東 力士', west:'西 力士', start:'⚔️ はっけよい！',   referee:'行司「はっけよい、のこった！」', miss:'空振り！',   crit:'⚡会心の一撃！', upset:'✨金星なるか！', end:'勝負あり！', badge:'SUMO',  navIcon:'🏟️', navLabel:'SUMO',  changeBtn:'⬅️ 力士変更', againBtn:'🔄 もう一番！', sameErr:'同じ力士は選べません！別の力士を選んでください。' };
+  const KZ_WORDS   = { title:'⚔️ 決闘 KETTO',    east:'東 武士', west:'西 武士', start:'⚔️ いざ尋常に！', referee:'「いざ尋常に、勝負！」',           miss:'空を斬る！', crit:'⚡一刀両断！',   upset:'✨下剋上！',     end:'勝負あり！', badge:'KETTO', navIcon:'⚔️', navLabel:'KETTO', changeBtn:'⬅️ 武士変更', againBtn:'🔄 もう一戦！', sameErr:'同じ武士は選べません！別の武士を選んでください。' };
   function _techList()  { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECHNIQUES : SUMO_TECHNIQUES; }
   function _techPower() { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_TECH_POWER  : SUMO_TECH_POWER; }
   function _words()     { return (typeof isKurosawa === 'function' && isKurosawa()) ? KZ_WORDS       : SUMO_WORDS; }
@@ -7658,6 +7658,7 @@
     set('sumo-title', w.title); set('sumo-east-label', w.east); set('sumo-west-label', w.west);
     set('sumo-start-btn', w.start); set('sumo-badge', w.badge);
     set('sumo-nav-icon', w.navIcon); set('sumo-nav-label', w.navLabel); // ナビバーのタブも切り替える
+    set('sumo-change-btn', w.changeBtn); set('sumo-again-btn', w.againBtn); // 結果パネルのボタン
   }
 
   // ===== KUROSAWA mode：決闘の演出（2026-09-04）=====
@@ -7746,7 +7747,7 @@
     const i1 = parseInt(document.getElementById('sumo-p1-select').value);
     const i2 = parseInt(document.getElementById('sumo-p2-select').value);
     if (i1 === i2) {
-      alert('同じ力士は選べません！別の力士を選んでください。');
+      alert(_words().sameErr);
       return;
     }
     const p1 = { ...SUMO_FIGHTERS[i1] };
