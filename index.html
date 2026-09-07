@@ -8188,7 +8188,7 @@
     '3f319aada04d0f2a943c6e5f72e45f5eb9e93a43432bc7801ad8062011b74777': 'uehara',   // 上原
     '9614629677a84b89dd471295c41acf380f3db1f66bd1445d4f8e959c3b06040a': 'matsuda',  // 松田
     'cc6aba02309d4d8f358df7291d3cf891f128f07934fdcf77e54b289438ddbca1': 'kawano',   // 川野（ドローン用の2つ目・2026-08-25追加）
-    '5b235a158a425810d86092416d5fb9da94e00bd3322311136b8e9b8075251bd3': null,       // 会社の代表アドレス（info@）。誰にも紐付けない＝ログイン後にスタッフ選択画面（2026-09-07追加）
+    '5b235a158a425810d86092416d5fb9da94e00bd3322311136b8e9b8075251bd3': 'office',   // 会社の代表アドレス（info@）。事務用の身分＝誰の名前にもならない（OFFICE_LOGIN_KEY・2026-09-07）
   };
 
   // ===== スタッフキー一覧（SUMO_FIGHTERSのインデックスと対応） =====
@@ -8244,8 +8244,8 @@
 
       // ハッシュ → スタッフキーが紐付いていれば自動ログイン
       const staffKey = STAFF_EMAIL_HASHES[emailHash];
-      if (staffKey && STAFF_KEYS.includes(staffKey)) {
-        loginSuccess(staffKey);
+      if (staffKey && (STAFF_KEYS.includes(staffKey) || staffKey === OFFICE_LOGIN_KEY)) {
+        loginSuccess(staffKey); // スタッフ、または事務用の身分（誰の名前にもならない）
       } else {
         // 紐付けなし → スタッフ選択画面を表示
         showStaffPicker(googleName, googleEmail);
@@ -8508,6 +8508,7 @@
   function renderUserStaffCard(loginName) {
     const card = document.getElementById('user-staff-card');
     if (!card) return;
+    if (typeof _isOfficeLogin === 'function' && _isOfficeLogin(loginName)) { card.style.display = 'none'; return; } // 事務用は個人カードを出さない
     _applyCachedWorklog(loginName); // 取り込み済みの勤務時間があれば反映
     const staff = USER_STAFF[loginName] || _fallbackUserStaff(loginName);
     if (!staff) {
@@ -8556,6 +8557,32 @@
     card.style.display = 'flex';
   }
 
+  // ===== 事務用アカウント（スタッフではないログイン身分・2026-09-07）=====
+  // 共有PCなどで「誰の名前にもならずに」使うための身分。STAFF_KEYS には入れない
+  // （10人のカード・力士・スタッフマスタの並びと対応しているため）。
+  // ステータスカードと勤務時間の取り込みは出ない（誰のデータでもないため）。
+  // 編集部判定・管理者判定・スタッフ詳細の「本人」判定はすべて偽になる。
+  const OFFICE_LOGIN_KEY = 'office';
+  function _isOfficeLogin(name) {
+    try { return String(name == null ? localStorage.getItem('last_login_name') : name) === OFFICE_LOGIN_KEY; }
+    catch (e) { return false; }
+  }
+  // ログイン名 → 画面に出す名前（スタッフは日本語名、事務は「事務」、それ以外は頭文字を大文字に）
+  function _loginDisplayName(name) {
+    name = String(name || '');
+    if (name === OFFICE_LOGIN_KEY) return '事務';
+    const f = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS : [];
+    const i = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(name) : -1;
+    return (i >= 0 && f[i]) ? f[i].name : (name.charAt(0).toUpperCase() + name.slice(1));
+  }
+  // ログイン直後の吹き出し
+  function _loginGreeting(name) {
+    if (name === OFFICE_LOGIN_KEY) {
+      return '🎬 事務用アカウントでログイン中<br>（個人のステータスは表示されません）<span class="blink">█</span>';
+    }
+    return `🎬 おかえり、${_loginDisplayName(name)}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
+  }
+
   function loginSuccess(name) {
     // 最終ログイン情報を保存
     try {
@@ -8566,18 +8593,10 @@
     const screen = document.getElementById('login-screen');
     screen.classList.add('login-fade-out');
 
-    // SUMO_FIGHTERSから日本語名を取得
-    const _fighters = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS : [];
-    const _staffIdx  = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(name) : -1;
-    const displayName = (_staffIdx >= 0 && _fighters[_staffIdx])
-      ? _fighters[_staffIdx].name
-      : (name.charAt(0).toUpperCase() + name.slice(1));
-
     setTimeout(() => {
       screen.style.display = 'none';
       const bubble = document.querySelector('.speech-bubble');
-      if (bubble) bubble.innerHTML =
-        `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
+      if (bubble) bubble.innerHTML = _loginGreeting(name); // スタッフは「おかえり、◯◯！」、事務は専用の文言
       try { renderUserStaffCard(name); } catch(e) { console.warn(e); }
       // ログイン後、作業日報から最新の勤務時間を取り込む
       try { if (typeof fetchWorklog === 'function') fetchWorklog(name).catch(e => console.warn('login worklog', e)); } catch(e) { console.warn(e); }
@@ -8648,9 +8667,9 @@
     const savedName = localStorage.getItem('last_login_name');
     const savedTime = parseInt(localStorage.getItem('last_login_time') || '0');
     const elapsed   = Date.now() - savedTime;
-    const validUser = (typeof STAFF_KEYS !== 'undefined')
+    const validUser = (savedName === OFFICE_LOGIN_KEY) || ((typeof STAFF_KEYS !== 'undefined')
       ? STAFF_KEYS.includes(savedName)
-      : !!(typeof USERS !== 'undefined' && USERS[savedName]);
+      : !!(typeof USERS !== 'undefined' && USERS[savedName]));
     return !!(savedName && validUser && elapsed < SESSION_TIMEOUT_MS);
   }
 
@@ -8680,12 +8699,8 @@
     localStorage.setItem('last_login_time', Date.now());
     const screen = document.getElementById('login-screen');
     if (screen) screen.style.display = 'none';
-    const _f2 = (typeof SUMO_FIGHTERS !== 'undefined') ? SUMO_FIGHTERS : [];
-    const _si2 = (typeof STAFF_KEYS !== 'undefined') ? STAFF_KEYS.indexOf(savedName) : -1;
-    const displayName = (_si2 >= 0 && _f2[_si2]) ? _f2[_si2].name : (savedName.charAt(0).toUpperCase() + savedName.slice(1));
     const bubble = document.querySelector('.speech-bubble');
-    if (bubble) bubble.innerHTML =
-      `🎬 おかえり、${displayName}！<br>今日もいい仕事をしよう！<span class="blink">█</span>`;
+    if (bubble) bubble.innerHTML = _loginGreeting(savedName);
     renderUserStaffCard(savedName);
   }
 
