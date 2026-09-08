@@ -15659,8 +15659,7 @@ ${tableHTML}
       .filter(o => String(o && o.name || '').trim() || Number(o && o.cost) > 0)
       .map(o => {
         const nm = String(o.name || '').trim() || '（名目なし）';
-        const cost = Number(o.cost) || 0;
-        return cost ? `${nm}　¥${cost.toLocaleString()}${o.taxable === false ? '（非課税）' : ''}` : nm;
+        return nm; // 印刷には金額を載せない（外注先に渡る紙なので・本人要望 2026-09-08）。金額は画面と売上集計だけで使う
       }).join('\n');
     const memoTxt    = document.getElementById('wsv-memo-val')?.textContent    || '';
     const reportTxt  = document.getElementById('wsv-report-val')?.textContent  || '';
