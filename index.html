@@ -18813,38 +18813,60 @@ ${tableHTML}
 
     // 統合エンジンで親（案件）＋子（ワークシート詳細）を送信
     const btn = document.getElementById('wsd-save-btn');
+    // ボタンの表示（本人要望 2026-09-10）：「📤 同期中…」→ 同期が終わったら「✓ 保存しました！」→ 少し見せて編集画面を閉じる。
+    // 以前は「保存しました！ 同期中…」を同時に出していて、終わったのかどうか分かりにくかった。
+    // 同期が長引いても閉じられなくならないよう、8秒で打ち切って閉じる（送信自体は裏で続き、失敗分は再送キューへ）。
+    let _closed = false;
+    const finish = (delay) => {
+      if (_closed) return;
+      _closed = true;
+      setTimeout(() => {
+        btn.textContent = '💾 保存する（Sheets同期）';
+        btn.style.background = '';
+        renderWsView(num, data);
+        toggleWsEdit(false);
+      }, delay);
+    };
     if (!_gasUrlOne()) {
-      btn.textContent = '✓ 保存（URL未設定のためシート同期スキップ）';
-    } else {
-      btn.textContent = '✓ 保存しました！ 📤 同期中…';
+      btn.textContent = '✓ 保存しました（URL未設定のため同期なし）';
       btn.style.background = '#27ae60';
+      finish(1500);
+    } else {
+      btn.textContent = '📤 同期中…';
+      btn.style.background = '#2980b9';
       Promise.all([
         pushKind('order', [{ '受注No': num, _project: wsData[num] || {}, _updatedAt: _now }])
           .catch(e => { try { pendingAdd('order', num); } catch(_){} return { ok: false, error: e.message }; }),
         pushKind('child', [Object.assign({}, data, { '受注No': num })])
           .catch(e => { try { pendingAdd('child', num); } catch(_){} return { ok: false, error: e.message }; })
       ]).then(([parentRes, childRes]) => {
+        if (_closed) return; // 打ち切り後に届いた結果で、閉じたボタンの文字を書き換えない
         const ok = parentRes && parentRes.ok && childRes && childRes.ok;
         if (ok) {
-          btn.textContent = '✓ 同期OK';
+          btn.textContent = '✓ 保存しました！';
+          btn.style.background = '#27ae60';
+          finish(1500);
         } else {
           btn.style.background = '#e67e22';
-          btn.textContent = '⚠️ 一部同期失敗';
+          btn.textContent = '⚠️ 保存済み・一部同期失敗（あとで再送）';
           console.warn('sheet sync partial failure', { parentRes, childRes });
+          finish(2500);
         }
       }).catch(e => {
+        if (_closed) return;
         btn.style.background = '#c0392b';
-        btn.textContent = '⚠️ 同期エラー';
+        btn.textContent = '⚠️ 保存済み・同期エラー（あとで再送）';
         console.warn('sheet sync error', e);
+        finish(2500);
       });
+      // 安全弁：8秒たっても返事が無ければ、保存自体は済んでいるので閉じる
+      setTimeout(() => {
+        if (_closed) return;
+        btn.textContent = '✓ 保存しました（同期は続行中）';
+        btn.style.background = '#27ae60';
+        finish(1200);
+      }, 8000);
     }
-
-    setTimeout(() => {
-      btn.textContent = '💾 保存する（Sheets同期）';
-      btn.style.background = '';
-      renderWsView(num, data);
-      toggleWsEdit(false);
-    }, 3000);
   }
 
   function loadWS(num) {
