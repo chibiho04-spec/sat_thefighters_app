@@ -1,6 +1,7 @@
 // tests/worksheet/test-busy-buttons.js — 通信を待つボタンの「処理中」表示（共通部品と3か所）
 const { html, grabFunction, makeOk } = require('../kurosawa/_extract');
 const ok = makeOk();
+process.exitCode = 1; // 最後まで走って ok.done() が呼ばれたときだけ 0 に戻る（途中で止まったら失敗扱い）
 const src = html();
 const asyncGrab = (n) => 'async ' + grabFunction(src, n);
 
@@ -25,7 +26,7 @@ eval(grabFunction(src, '_setRegisterBusy'));
 
   console.log('\n=== ワークシート一覧の「🔄 更新」 ===');
   const wb = mk('wsl-refresh-btn', '🔄 更新');
-  let release; global.pullKind = () => new Promise(res => { release = res; });
+  const releases = []; global.pullKind = () => new Promise(res => { releases.push(res); }); // 3回呼ばれる（order/child/invoice）
   global._gasUrlOne = () => 'https://script.google.com/x';
   global.renderWorksheetList = () => { calls.render++; }; const calls = { render: 0 };
   eval(asyncGrab('refreshWorksheetListFromSheet'));
@@ -33,7 +34,7 @@ eval(grabFunction(src, '_setRegisterBusy'));
   ok(wb.disabled && wb.textContent === '🔄 取得中…', '押した瞬間に「🔄 取得中…」で押せなくなる');
   await refreshWorksheetListFromSheet();
   ok(wb.textContent === '🔄 取得中…', '取得中の二重押しは無視');
-  release({}); await p;
+  releases.forEach(r => r({})); await p;
   ok(!wb.disabled && wb.textContent === '🔄 更新' && calls.render === 1, '終わったら戻り、一覧を描き直す');
   global.pullKind = () => Promise.reject(new Error('x'));
   await refreshWorksheetListFromSheet();
@@ -52,7 +53,7 @@ eval(grabFunction(src, '_setRegisterBusy'));
   const verifyIdx = sv.indexOf('_verifyOrderNumFreeRemote(num, _invOrderPrefix).then(');
   ok(busyIdx > 0 && busyIdx < verifyIdx, '通信に出る前に「⏳ 受注番号を確認中…」');
   ok(/\.then\(chk => \{\s*_setBtnBusy\('invd-save-btn', false\);/.test(sv), '返ってきたら最初に戻す（衝突の警告や再保存の前）');
-  ok(/\.catch\(e => \{ _setBtnBusy\('invd-save-btn', false\);/.test(sv), '通信に失敗しても戻す');
+  ok(/\.catch\(\(\) => \{ _setBtnBusy\('invd-save-btn', false\); _invRemoteChecked = true; saveInvDoc\(\); \}\)/.test(sv), '通信に失敗してもボタンを戻してから続行する');
   ok(/id="invd-save-btn"/.test(src), '請求書の保存ボタンに id がある（既存）');
 
   console.log('\n=== スコープ ===');

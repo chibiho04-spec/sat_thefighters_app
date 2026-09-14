@@ -10869,7 +10869,7 @@
             _invRemoteChecked = true;
             saveInvDoc(); // 確認OK → 本保存へ再実行
           }
-        }).catch(() => { _invRemoteChecked = true; saveInvDoc(); }); // 取り込み失敗時はローカル判定で続行
+        }).catch(() => { _setBtnBusy('invd-save-btn', false); _invRemoteChecked = true; saveInvDoc(); }); // 取り込み失敗時はボタンを戻してローカル判定で続行
         return; // 非同期チェック中はここで一旦終了
       }
     }

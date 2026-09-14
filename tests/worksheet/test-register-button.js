@@ -7,6 +7,7 @@ const btn = { textContent: '✚ 登録してワークシートを入力する �
 global.document = { getElementById: (id) => (id === 'np-register-btn' ? btn : null) };
 global.console = Object.assign({}, console, { warn: () => {} });
 let alerts = []; global.alert = (m) => alerts.push(m);
+eval(grabFunction(src, '_setBtnBusy'));      // _setRegisterBusy はこれを使う
 eval(grabFunction(src, '_setRegisterBusy'));
 eval('async ' + grabFunction(src, 'registerNewProject')); // grabFunction は先頭の async を含めないので付け直す
 
