@@ -6597,7 +6597,7 @@
 
       <!-- 登録ボタン -->
       <div style="padding:12px 12px 8px;">
-        <button class="wsd-save-btn" style="background:#27ae60;border-color:#1a7a40;box-shadow:4px 4px 0 #1a7a40;"
+        <button id="np-register-btn" class="wsd-save-btn" style="background:#27ae60;border-color:#1a7a40;box-shadow:4px 4px 0 #1a7a40;"
           onclick="registerNewProject()">
           ✚ 登録してワークシートを入力する →
         </button>
@@ -17720,7 +17720,40 @@ ${tableHTML}
     document.getElementById('np-num-preview').textContent = val ? '→ ' + _npPrefix + val : '→ ' + _npPrefix + '?';
   }
 
+  // 登録ボタンの「処理中」表示（2026-09-14 本人要望）。
+  // 登録は他端末との番号衝突を確認するためシートを取りに行ってから保存するので、回線次第で数秒かかる。
+  // その間ボタンが無反応に見えていたため、押した瞬間に文言を変えて押せなくし、終わったら戻す。
+  function _setRegisterBusy(on, text) {
+    const btn = document.getElementById('np-register-btn');
+    if (!btn) return;
+    if (on) {
+      if (!btn.dataset.origText) btn.dataset.origText = btn.textContent.trim();
+      btn.disabled = true;
+      btn.textContent = text || '⏳ 登録中… ワークシートを作成しています';
+      btn.style.opacity = '0.75';
+      btn.style.cursor = 'wait';
+    } else {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.origText || '✚ 登録してワークシートを入力する →';
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+    }
+  }
+  // 入口：押した瞬間に表示を切り替え、二重押しを防ぎ、終わったら（成功・失敗・例外とも）必ず戻す
   async function registerNewProject() {
+    const btn = document.getElementById('np-register-btn');
+    if (btn && btn.disabled) return; // 処理中の二重押しは無視
+    _setRegisterBusy(true, '⏳ 登録中… ワークシートを作成しています');
+    try {
+      await _registerNewProjectInner();
+    } catch (e) {
+      console.warn('registerNewProject', e);
+      try { alert('登録中にエラーが起きました。もう一度お試しください。'); } catch (_) {}
+    } finally {
+      _setRegisterBusy(false);
+    }
+  }
+  async function _registerNewProjectInner() {
     // 番号は英数字とハイフンのみ許可（' や < 等の記号はボタンや画面表示を壊すため除去）
     const num     = (_npPrefix + document.getElementById('np-num').value.trim()).replace(/[^0-9A-Za-z\-_]/g, '');
     const company = document.getElementById('np-company').value.trim();
