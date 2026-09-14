@@ -5555,7 +5555,7 @@
         <div class="wsd-header-num" style="color:#fadbd8;">ワークシート</div>
         <div class="wsd-header-title" id="wl-header-title">案件一覧</div>
       </div>
-      <button onclick="refreshWorksheetListFromSheet()"
+      <button id="wsl-refresh-btn" onclick="refreshWorksheetListFromSheet()"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;"
         title="シートから最新を取得">🔄 更新</button>
       <a href="https://docs.google.com/spreadsheets/d/1-4JZsI7Hq21cBYh9EUDX-CGErm5ba5Lj6gj86IQiWnE/edit#gid=567658269" target="_blank"
@@ -10858,7 +10858,9 @@
       }
       // 【再発防止】他端末との衝突を、シート最新を取り込んで最終確認（一度だけ非同期で実施→確認後に再保存）
       if (_gasUrlOne() && !_invRemoteChecked) {
+        _setBtnBusy('invd-save-btn', true, '⏳ 受注番号を確認中…'); // 押した瞬間の表示（2026-09-14）。確認後に saveInvDoc() が再実行され通常の保存表示へ
         _verifyOrderNumFreeRemote(num, _invOrderPrefix).then(chk => {
+          _setBtnBusy('invd-save-btn', false);
           if (!chk.ok) {
             const inp = document.getElementById('inv-order-num');
             if (inp) { inp.value = chk.free.replace(/^[TEPB]/i, ''); _applyInvOrderNum(); }
@@ -13445,6 +13447,7 @@ ${_body}
   // ===== メディア管理 / 運転記録表：共通ヘルパー =====
   async function _genericFetch(url, cacheKey, statusMsgPrefix, showStatus, rerender) {
     if (!url) { if (showStatus) setGasStatus(statusMsgPrefix + 'URLが未設定です', '#c0392b'); return []; }
+    if (showStatus) setGasStatus('🔄 ' + statusMsgPrefix + '取得中…', '#2980b9'); // 押した瞬間の表示（2026-09-14）
     try {
       const res = await fetch(url + '?action=list&_ts=' + Date.now(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
       const data = await res.json();
@@ -16588,6 +16591,9 @@ ${tableHTML}
   // ワークシート一覧の「🔄 更新」：シートから最新(案件/子/請求書)を取り込んで一覧を再描画。
   // 旧コードは未定義の fetchOrderMaster を呼んでいてボタンが機能していなかった（2026-07-07 修正）。
   async function refreshWorksheetListFromSheet() {
+    const btn = document.getElementById('wsl-refresh-btn');
+    if (btn && btn.disabled) return; // 取得中の二重押しは無視
+    _setBtnBusy(btn, true, '🔄 取得中…');   // 押した瞬間の表示（2026-09-14）
     try {
       if (typeof pullKind === 'function' && typeof _gasUrlOne === 'function' && _gasUrlOne()) {
         await Promise.all([
@@ -16597,6 +16603,7 @@ ${tableHTML}
         ]);
       }
     } catch (e) { console.warn('refreshWorksheetListFromSheet', e); }
+    finally { _setBtnBusy(btn, false); }
     try { renderWorksheetList(); } catch (e) {}
   }
 
@@ -17723,21 +17730,26 @@ ${tableHTML}
   // 登録ボタンの「処理中」表示（2026-09-14 本人要望）。
   // 登録は他端末との番号衝突を確認するためシートを取りに行ってから保存するので、回線次第で数秒かかる。
   // その間ボタンが無反応に見えていたため、押した瞬間に文言を変えて押せなくし、終わったら戻す。
-  function _setRegisterBusy(on, text) {
-    const btn = document.getElementById('np-register-btn');
+  // 共通：ボタンを「処理中」にする／戻す（id か要素を渡す）。元の文言は dataset に退避して戻す。
+  // 通信を待つボタンは、押した瞬間にこれで文言を変え、終わったら（成功・失敗とも）必ず戻す。
+  function _setBtnBusy(btnOrId, on, text) {
+    const btn = (typeof btnOrId === 'string') ? document.getElementById(btnOrId) : btnOrId;
     if (!btn) return;
     if (on) {
       if (!btn.dataset.origText) btn.dataset.origText = btn.textContent.trim();
       btn.disabled = true;
-      btn.textContent = text || '⏳ 登録中… ワークシートを作成しています';
+      btn.textContent = text || '⏳ 処理中…';
       btn.style.opacity = '0.75';
       btn.style.cursor = 'wait';
     } else {
       btn.disabled = false;
-      btn.textContent = btn.dataset.origText || '✚ 登録してワークシートを入力する →';
+      btn.textContent = btn.dataset.origText || btn.textContent;
       btn.style.opacity = '';
       btn.style.cursor = '';
     }
+  }
+  function _setRegisterBusy(on, text) {
+    _setBtnBusy('np-register-btn', on, text || '⏳ 登録中… ワークシートを作成しています');
   }
   // 入口：押した瞬間に表示を切り替え、二重押しを防ぎ、終わったら（成功・失敗・例外とも）必ず戻す
   async function registerNewProject() {
