@@ -12258,18 +12258,39 @@ ${_body}
     const t = el ? staffTenureText(el.value) : '';
     out.textContent = t ? '▶ 今日で ' + t : '';
   }
+  // 下の名前・英語表記は公式サイト（okinawa-sat.com/staff.html）に合わせる（2026-09-17）。
+  // 平岡はサイトに載っていないが、既存データ（担当クルー等）が参照するためアプリには残す。
   const _defaultStaffMaster = [
     { key:'kawasaki', name:'川崎', firstName:'哲也', english:'Tetsuya Kawasaki', reading:'かわさき', position:'社長', joinDate:'2011-04-01', role:'カメラマン / ディレクター', stars:5 },
-    { key:'uehara',   name:'上原', firstName:'健二', english:'Kenji Uehara',     reading:'うえはら', position:'社員', joinDate:'2016-04-01', role:'カメラマン', stars:3 },
+    { key:'uehara',   name:'上原', firstName:'覚史', english:'Masura Uehara',    reading:'うえはら', position:'社員', joinDate:'2016-04-01', role:'カメラマン', stars:3 },
     { key:'hiraoka',  name:'平岡', firstName:'誠',   english:'Makoto Hiraoka',   reading:'ひらおか', position:'社員', joinDate:'2021-04-01', role:'カメラアシスタント', stars:1 },
-    { key:'kawano',   name:'川野', firstName:'大輔', english:'Daisuke Kawano',   reading:'かわの',   position:'役員', joinDate:'2014-04-01', role:'プロデューサー / PM', stars:4 },
+    { key:'kawano',   name:'川野', firstName:'健治', english:'Kenji Kawano',     reading:'かわの',   position:'役員', joinDate:'2014-04-01', role:'プロデューサー / PM', stars:4 },
     { key:'shin',     name:'城間', firstName:'心',   english:'Shin Shiroma',     reading:'しろま',   position:'社員', joinDate:'2018-04-01', role:'カメラマン', stars:2 },
-    { key:'arasaki',  name:'新崎', firstName:'博',   english:'Hiroshi Arasaki',  reading:'あらさき', position:'社員', joinDate:'2017-04-01', role:'音声・サウンドエンジニア', stars:3 },
-    { key:'hazama',   name:'玻座真', firstName:'光', english:'Hikaru Hazama',    reading:'はざま',   position:'社員', joinDate:'2023-04-01', role:'カメラアシスタント', stars:1 },
-    { key:'morita',   name:'森田', firstName:'直人', english:'Naoto Morita',     reading:'もりた',   position:'社員', joinDate:'2015-04-01', role:'映像編集・カラコレ', stars:3 },
-    { key:'kamiji',   name:'上地', firstName:'剛',   english:'Tsuyoshi Uechi',   reading:'うえち',   position:'社員', joinDate:'2024-04-01', role:'カメラアシスタント', stars:0 },
-    { key:'matsuda',  name:'松田', firstName:'義明', english:'Yoshiaki Matsuda', reading:'まつだ',   position:'役員', joinDate:'2013-04-01', role:'ディレクター', stars:4 }
+    { key:'arasaki',  name:'新崎', firstName:'盛斗', english:'Morito Arasaki',   reading:'あらさき', position:'社員', joinDate:'2017-04-01', role:'音声・サウンドエンジニア', stars:3 },
+    { key:'hazama',   name:'玻座真', firstName:'世', english:'Sei Hazama',       reading:'はざま',   position:'社員', joinDate:'2023-04-01', role:'カメラアシスタント', stars:1 },
+    { key:'morita',   name:'森田', firstName:'祥悟', english:'Shogo Morita',     reading:'もりた',   position:'社員', joinDate:'2015-04-01', role:'映像編集・カラコレ', stars:3 },
+    { key:'kamiji',   name:'上地', firstName:'博隆', english:'Hirotaka Uechi',   reading:'うえち',   position:'社員', joinDate:'2024-04-01', role:'カメラアシスタント', stars:0 },
+    { key:'matsuda',  name:'松田', firstName:'広一', english:'Hirokazu Matsuda', reading:'まつだ',   position:'役員', joinDate:'2013-04-01', role:'ディレクター', stars:4 }
   ];
+  // 2026-09-17 の名前修正より前に保存・同期された「昔の（間違った）下の名前」を、読み込み時に正しい方へ寄せる。
+  // staff_master は端末保存＋シート同期されるため、既定値を直しただけでは古い値が残り続ける。
+  // 本人が編集画面で別の名前に変えていた場合（ここに無い値）はそのまま尊重する。
+  const _STAFF_NAME_FIX = {
+    uehara:  { oldFirst: '健二', first: '覚史', oldEnglish: 'Kenji Uehara',     english: 'Masura Uehara' },
+    kawano:  { oldFirst: '大輔', first: '健治', oldEnglish: 'Daisuke Kawano',   english: 'Kenji Kawano' },
+    arasaki: { oldFirst: '博',   first: '盛斗', oldEnglish: 'Hiroshi Arasaki',  english: 'Morito Arasaki' },
+    hazama:  { oldFirst: '光',   first: '世',   oldEnglish: 'Hikaru Hazama',    english: 'Sei Hazama' },
+    morita:  { oldFirst: '直人', first: '祥悟', oldEnglish: 'Naoto Morita',     english: 'Shogo Morita' },
+    kamiji:  { oldFirst: '剛',   first: '博隆', oldEnglish: 'Tsuyoshi Uechi',   english: 'Hirotaka Uechi' },
+    matsuda: { oldFirst: '義明', first: '広一', oldEnglish: 'Yoshiaki Matsuda', english: 'Hirokazu Matsuda' }
+  };
+  function _fixStaffName(rec) {
+    const f = rec && _STAFF_NAME_FIX[rec.key];
+    if (!f) return rec;
+    if (!rec.firstName || rec.firstName === f.oldFirst) rec.firstName = f.first;
+    if (!rec.english   || rec.english   === f.oldEnglish) rec.english = f.english;
+    return rec;
+  }
   function loadStaffMaster() {
     try {
       const raw = JSON.parse(localStorage.getItem('staff_master') || 'null');
@@ -12277,7 +12298,7 @@ ${_body}
         return STAFF_KEYS.map(k => {
           const def = _defaultStaffMaster.find(s => s.key === k) || {};
           const found = raw.find(s => s && s.key === k);
-          return Object.assign({}, def, found || {});
+          return _fixStaffName(Object.assign({}, def, found || {}));
         });
       }
     } catch {}
