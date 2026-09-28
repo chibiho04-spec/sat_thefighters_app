@@ -6728,6 +6728,12 @@
         <div id="wsv-postpro-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
       </div>
 
+      <!-- 💾 メディア（カード）使用記録（2026-09-28）。記録があるときだけ表示 -->
+      <div class="wsv-section" id="wsv-media-section" style="display:none;">
+        <div class="wsv-section-title">💾 メディア</div>
+        <div id="wsv-media-val" style="font-size:12px;color:var(--text-dark);line-height:1.7;"></div>
+      </div>
+
       <!-- レンタル・私物 -->
       <div class="wsv-section" id="wsv-rental-section" style="display:none;">
         <div class="wsv-section-title">📦 レンタル / 私物</div>
@@ -15940,6 +15946,7 @@ ${tableHTML}
         const nm = String(o.name || '').trim() || '（名目なし）';
         return nm; // 印刷には金額を載せない（外注先に渡る紙なので・本人要望 2026-09-08）。金額は画面と売上集計だけで使う
       }).join('\n');
+    const mediaLine = _mediaPrintLine(saved2.media); // 持ち出しだけ（本人決定 2026-09-28）。escapeHtml 済み
     const memoTxt    = document.getElementById('wsv-memo-val')?.textContent    || '';
     const reportTxt  = document.getElementById('wsv-report-val')?.textContent  || '';
 
@@ -15969,6 +15976,7 @@ ${tableHTML}
   </table>
   ${crewItems  ? secBar('担当クルー')            + hRow(crewItems) : ''}
   ${equipTable ? secBar('使用機材')              + equipTable     : ''}
+  ${mediaLine  ? secBar('メディア')              + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;">${mediaLine}</p>` : ''}
   ${rentalTxt  ? secBar('レンタル・私物')         + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;white-space:pre-wrap;">${rentalTxt}</p>` : ''}
   ${outsourceTxt ? secBar('外注・レンタル機材')   + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;white-space:pre-wrap;">${escapeHtml(outsourceTxt)}</p>` : ''}
   ${memoTxt   ? secBar('メモ',     '#27ae60') + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;border-left:3px solid #27ae60;">${memoTxt}</p>`   : ''}
@@ -18591,6 +18599,17 @@ ${tableHTML}
       vehicleSection.style.display = vehicle ? 'block' : 'none';
       const vehicleVal = document.getElementById('wsv-vehicle-val');
       if (vehicleVal) vehicleVal.textContent = vehicle;
+    }
+
+    // 💾 メディア（2026-09-28）
+    {
+      const sec = document.getElementById('wsv-media-section');
+      const val = document.getElementById('wsv-media-val');
+      if (sec && val) {
+        const m = _normalizeMedia(saved.media);
+        if (_mediaHasRecord(m)) { sec.style.display = 'block'; val.innerHTML = _mediaViewHtml(m); }
+        else sec.style.display = 'none';
+      }
     }
 
     // 私物・レンタル（レンタルは複数行対応、外注と同じ表示スタイル）

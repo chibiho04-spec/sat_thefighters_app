@@ -34,4 +34,14 @@ ok(/_wsEquipCats\(master, savedEquip\)/.test(rec), '機材チェックリスト�
 ok(/_setWsdMediaOpen\(open\)/.test(rec), '開閉の既定にメディア欄も含む');
 const hr = src.slice(src.indexOf('リスト系・機材選択があれば実データあり') - 400, src.indexOf('リスト系・機材選択があれば実データあり'));
 ok(/if \(_mediaHasRecord\(s\.media\) \|\| String\(\(s\.media && s\.media\.memo\) \|\| ''\)\.trim\(\) !== ''\) return true;/.test(hr), '実データ判定に media（記録と備考）を含む');
+
+console.log('\n=== Task 4: 閲覧画面と印刷 ===');
+ok(/id="wsv-media-section"/.test(src) && /id="wsv-media-val"/.test(src), '閲覧画面に節がある');
+ok(src.indexOf('id="wsv-media-section"') < src.indexOf('id="wsv-rental-section"'), 'レンタル/私物の前にある');
+const view = S.grabFunction(src, 'renderWsView');
+ok(/_mediaViewHtml\(/.test(view) && /wsv-media-section/.test(view), 'renderWsView が節を描く');
+const pr = S.grabFunction(src, 'openWorksheetPrint');
+ok(/const mediaLine = _mediaPrintLine\(saved2\.media\)/.test(pr), '印刷が持ち出しの1行を作る');
+ok(pr.indexOf("secBar('使用機材')") < pr.indexOf("secBar('メディア')") && pr.indexOf("secBar('メディア')") < pr.indexOf("secBar('レンタル・私物')"), '使用機材の直後に出る');
+
 ok.done();
