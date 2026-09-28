@@ -5919,7 +5919,7 @@
       </div>
       <input id="media-search" type="text" class="wsd-input" placeholder="🔍 現場・使用者・カード名で検索..." oninput="renderMediaList()" style="width:100%;font-size:14px;padding:8px;">
     </div>
-    <div id="media-items" class="wsd-scroll" style="padding:6px 8px;"></div>
+    <div id="media-items" class="wsd-scroll" style="padding:6px 8px;" onclick="_onMediaItemsClick(event)"></div>
   </div>
 
   <!-- 🎴 カード一覧（Task 7 で中身を作る） -->
@@ -12777,14 +12777,14 @@ ${_body}
                                     { '更新日時': rec._updatedAt || new Date().toISOString(), '削除フラグ': rec._deleted ? '1' : '' }),
       fromRow: (row) => { const p = orderRowToProject(row); return { 受注No: String(row['受注No'] || ''), _project: p,
                                     _updatedAt: String(row['更新日時'] || ''), 削除フラグ: String(row['削除フラグ'] || '') }; },
-      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} try { const _ln = localStorage.getItem('last_login_name'); if (_ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(_ln); } catch (e) {} }
+      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} try { const _ln = localStorage.getItem('last_login_name'); if (_ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(_ln); } catch (e) {} try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
     },
     child: {
       keyField: '受注No', keyHeader: '受注No',
       loadLocal: () => _loadChildRecords(), saveLocal: (list) => _saveChildRecords(list),
       toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
       fromRow: (row) => { const r = _jsonFromRow(row); r['受注No'] = String(row['受注No'] || r['受注No'] || ''); return r; },
-      redraw: () => {}
+      redraw: () => { try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
     },
     simpleWS: {
       keyField: 'id', keyHeader: 'id',
@@ -12792,7 +12792,7 @@ ${_body}
       saveLocal: (list) => saveSimpleWSList(list),
       toRow: (rec) => _jsonToRow(rec, 'id', 'id'),
       fromRow: (row) => { const r = _jsonFromRow(row); r.id = String(row['id'] || r.id || ''); return r; },
-      redraw: () => { try { _rerenderIfOpen('simple-ws-list-screen', renderSimpleWSList); } catch(e) {} }
+      redraw: () => { try { _rerenderIfOpen('simple-ws-list-screen', renderSimpleWSList); } catch(e) {} try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
     },
     config: { // 全端末共有の設定（カスタム受注分類など・2026-07-12）
       keyField: 'キー', keyHeader: 'キー',
@@ -12800,7 +12800,13 @@ ${_body}
       saveLocal: (list) => _saveConfigRecords(list),
       toRow: (rec) => _jsonToRow(rec, 'キー', 'キー'),
       fromRow: (row) => { const r = _jsonFromRow(row); r['キー'] = String(row['キー'] || r['キー'] || ''); return r; },
-      redraw: () => { try { _renderNpOrderButtons(); } catch(e) {} }
+      redraw: () => {
+        try { _renderNpOrderButtons(); } catch(e) {}
+        try { _rerenderIfOpen('media-cards-screen', renderMediaCards); } catch(e) {}
+        // 開いているワークシートのカードボタンにも反映（選択中は保ったまま描き直す）
+        try { _rerenderIfOpen('ws-detail-screen', () => _refreshMediaCardButtons('wsd-media', 'ws-detail-screen')); } catch(e) {}
+        try { _rerenderIfOpen('new-simple-ws-screen', () => _refreshMediaCardButtons('sw-media', 'new-simple-ws-screen')); } catch(e) {}
+      }
     }
   };
 
@@ -13735,7 +13741,7 @@ ${_body}
     return '';
   }
   function _splitCards(s) { return String(s || '').split(/[,、，\/／\s]+/).map(x => x.trim()).filter(Boolean); }
-  function _mediaBuFlag(v) { return /^(○|〇|⚪|OK|ok|済|完了)/.test(String(v || '').trim()); }
+  function _mediaBuFlag(v) { const s = String(v || '').trim(); return !!s && !/^(未|×|x|✕|なし|no)/i.test(s); } // 空・未・×以外は「済」（旧記録の BU確認 には日付が入っていることがある）
   // 出どころ3つ（通常WS・簡易WS・旧記録）を1本に並べる。使用日の新しい順（同日は更新日時）
   // 1件: { src:'ws'|'sw'|'line'|'old', key, label, date, site, media, updatedAt }
   function _mediaRecords() {
@@ -13771,7 +13777,8 @@ ${_body}
                                           bu: _mediaBuFlag(r['BU確認']), buBy, returnBy: r['返却者'], memo: isLine ? '' : memo }),
                  updatedAt: String(r['更新日時'] || r._updatedAt || '') });
     });
-    out.sort((a, b) => _mediaDateKey(b.date).localeCompare(_mediaDateKey(a.date)) || b.updatedAt.localeCompare(a.updatedAt));
+    out.forEach(r => { r._k = _mediaDateKey(r.date); });
+    out.sort((a, b) => b._k.localeCompare(a._k) || b.updatedAt.localeCompare(a.updatedAt));
     return out;
   }
   // 各カードの現在地。records は _mediaRecords()（新しい順）。旧記録（LINE・旧アプリ）はカード名が揃っていないので使わない
@@ -13804,7 +13811,7 @@ ${_body}
     _setBtnBusy(btn, true, '🔄 取得中…');
     try {
       if (!_gasUrlOne()) { setGasStatus('同期URLが未設定です', '#c0392b'); return; }
-      for (const k of ['order', 'child', 'simpleWS', 'media']) { try { await pullKind(k); } catch (e) { console.warn('media refresh', k, e); } }
+      for (const k of ['order', 'child', 'simpleWS', 'media', 'config']) { try { await pullKind(k); } catch (e) { console.warn('media refresh', k, e); } } // config＝カード一覧
       setGasStatus('✅ メディアの記録を読み込みました', '#27ae60');
     } finally {
       _setBtnBusy(btn, false);
@@ -13847,9 +13854,8 @@ ${_body}
     const COLOR = { ws: '#8e44ad', sw: '#16a085', line: '#7f8c8d', old: '#95a5a6' };
     list.innerHTML = rows.slice(0, 500).map(r => {
       const m = r.media;
-      const onclick = r.src === 'ws' ? `onclick="closeMediaList(); openWS('${escapeHtml(r.key)}')"`
-                    : r.src === 'sw' ? `onclick="openEditSimpleWS('${escapeHtml(r.key)}')"` : '';
-      return `<div ${onclick} style="background:white;border:2px solid #d1f2eb;border-left:4px solid #16a085;border-radius:3px;padding:8px 10px;margin-bottom:5px;box-shadow:2px 2px 0 #d1f2eb;${onclick ? 'cursor:pointer;' : 'opacity:.85;'}">
+      const clickable = r.src === 'ws' || r.src === 'sw';
+      return `<div data-src="${r.src}" data-key="${escapeHtml(r.key)}" style="background:white;border:2px solid #d1f2eb;border-left:4px solid #16a085;border-radius:3px;padding:8px 10px;margin-bottom:5px;box-shadow:2px 2px 0 #d1f2eb;${clickable ? 'cursor:pointer;' : 'opacity:.85;'}">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="font-weight:bold;color:#117a65;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.site || '(現場名なし)')}</div>
           <span style="font-size:10px;color:white;background:${COLOR[r.src]};padding:1px 6px;border-radius:8px;white-space:nowrap;">${escapeHtml(r.label)}</span>
@@ -13862,6 +13868,14 @@ ${_body}
       </div>`;
     }).join('');
   }
+  // 一覧の行はクリック委譲で開く（受注No は共有シート由来で任意の文字を含みうるため、onclick 文字列に埋め込まない）
+  function _onMediaItemsClick(ev) {
+    const row = ev.target && ev.target.closest ? ev.target.closest('[data-src]') : null;
+    if (!row) return;
+    const src = row.dataset.src, key = row.dataset.key || '';
+    if (src === 'ws') { closeMediaList(); openWS(key); }
+    else if (src === 'sw') { openEditSimpleWS(key); }
+  }
   // 旧記録の ID 採番（LINE 取込 L0001〜 で使う。M 形式の旧記録と同じ関数）
   function _nextId(cached, prefix) {
     const re = new RegExp('^' + prefix + '(\\d+)$');
@@ -13870,6 +13884,46 @@ ${_body}
       .filter(n => !isNaN(n));
     const max = nums.length ? Math.max(...nums) : 0;
     return prefix + String(max + 1).padStart(4, '0');
+  }
+
+  // ---- 🎴 カード一覧（追加・廃棄・復活。名前変更は無し） ----
+  function openMediaCards() { renderMediaCards(); document.getElementById('media-cards-screen').style.transform = 'translateX(0)'; }
+  function closeMediaCards() { document.getElementById('media-cards-screen').style.transform = 'translateX(100%)'; renderMediaList(); }
+  function renderMediaCards() {
+    const el = document.getElementById('media-cards-list');
+    if (!el) return;
+    const cards = getMediaCards();
+    const sub = document.getElementById('media-cards-sub');
+    if (sub) sub.textContent = `${cards.filter(c => !c.retired).length} 枚（廃棄 ${cards.filter(c => c.retired).length}）・全端末で共有`;
+    el.innerHTML = cards.map(c => `
+      <div style="display:flex;align-items:center;gap:8px;background:white;border:2px solid ${c.retired ? '#ddd' : '#d1f2eb'};border-left:4px solid ${c.retired ? '#bbb' : '#16a085'};border-radius:3px;padding:8px 10px;margin-bottom:5px;${c.retired ? 'opacity:.6;' : ''}">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:bold;color:#117a65;font-size:14px;">${escapeHtml(c.id)}${c.retired ? ' <span style="font-size:10px;color:#999;">（廃棄）</span>' : ''}</div>
+          <div style="font-size:11px;color:#666;">${escapeHtml(c.type || '―')}</div>
+        </div>
+        <button type="button" onclick="toggleMediaCardRetired('${escapeHtml(c.id)}')"
+          style="font-family:'DotGothic16',monospace;font-size:11px;padding:5px 10px;border:1px solid ${c.retired ? '#27ae60' : '#c0392b'};background:white;color:${c.retired ? '#1a7a40' : '#c0392b'};border-radius:3px;cursor:pointer;white-space:nowrap;">${c.retired ? '復活' : '廃棄'}</button>
+      </div>`).join('') || '<div style="padding:20px;text-align:center;color:#888;font-size:12px;">カードがありません</div>';
+  }
+  function addMediaCardFromList() { if (_promptNewMediaCard()) renderMediaCards(); }
+  function toggleMediaCardRetired(id) {
+    const c = getMediaCards().find(x => x.id === id);
+    if (!c) return;
+    if (!c.retired) {
+      const isOut = _mediaCardStatus(_mediaRecords(), [c]).find(s => s.id === id).state === 'out';
+      const msg = isOut
+        ? '「' + id + '」は貸出中です（返却が記録されていません）。\nそれでも廃棄しますか？\n選択ボタンに出なくなります（過去の記録は残ります）'
+        : '「' + id + '」を廃棄しますか？\n選択ボタンに出なくなります（過去の記録は残ります）';
+      if (!confirm(msg)) return;
+    }
+    _setMediaCardRetired(id, !c.retired);
+    renderMediaCards();
+  }
+  // 設定（カード一覧）が同期で届いたとき、開いている記入欄のボタン列を選択を保ったまま描き直す
+  function _refreshMediaCardButtons(prefix, screenId) {
+    if (!document.getElementById(prefix + '-out-group')) return;
+    _renderMediaCardGroup(prefix, 'out',  _getMediaCardSel(prefix, 'out'),  screenId);
+    _renderMediaCardGroup(prefix, 'used', _getMediaCardSel(prefix, 'used'), screenId);
   }
 
   // ===== 簡易ワークシート（単発の機材使用記録・simpleWS kind で同期） =====
@@ -14117,7 +14171,7 @@ ${_body}
     }
     status.style.color = '#27ae60';
     status.textContent = _swEditId ? '✅ 更新しました' : '✅ 保存しました';
-    setTimeout(() => { closeNewSimpleWS(); renderSimpleWSList(); }, 700);
+    setTimeout(() => { closeNewSimpleWS(); renderSimpleWSList(); try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }, 700);
   }
 
   function deleteSimpleWS() {
@@ -19205,6 +19259,7 @@ ${tableHTML}
         btn.style.background = '';
         renderWsView(num, data);
         toggleWsEdit(false);
+        try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {}
       }, delay);
     };
     if (!_gasUrlOne()) {

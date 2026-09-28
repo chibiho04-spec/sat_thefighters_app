@@ -66,6 +66,16 @@ ok(!/openNewMedia\(\)/.test(src), '「＋」ボタンが無い');
 ['id="media-refresh-btn"', 'id="media-cards-status"', 'id="media-filter-chips"', 'id="media-search"', 'id="media-items"'].forEach(id => ok(src.indexOf(id) >= 0, id + ' がある'));
 ['refreshMediaPage', 'setMediaFilter', 'renderMediaList', '_mediaRecords', '_mediaCardStatus'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
 ok(/async function refreshMediaPage/.test(src) && /_setBtnBusy\(btn, true, '🔄 取得中…'\)/.test(S.grabFunction(src, 'refreshMediaPage')), '更新ボタンは処理中表示');
-ok(/closeMediaList\(\); openWS\(/.test(S.grabFunction(src, 'renderMediaList')) && /openEditSimpleWS\(/.test(S.grabFunction(src, 'renderMediaList')), 'タップでワークシートを開く');
+ok(!/onclick=/.test(S.grabFunction(src, 'renderMediaList')) && /data-key="\$\{escapeHtml\(r\.key\)\}"/.test(S.grabFunction(src, 'renderMediaList')) && /closeMediaList\(\); openWS\(key\)/.test(S.grabFunction(src, '_onMediaItemsClick')) && /onclick="_onMediaItemsClick\(event\)"/.test(src), 'タップは委譲ハンドラで開く（onclick に受注No を埋め込まない）');
+
+console.log('\n=== Task 7: カード一覧の画面 ===');
+['openMediaCards', 'closeMediaCards', 'renderMediaCards', 'addMediaCardFromList', 'toggleMediaCardRetired', '_onMediaItemsClick', '_refreshMediaCardButtons'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
+ok(/_promptNewMediaCard\(\)/.test(S.grabFunction(src, 'addMediaCardFromList')), '記入欄と同じ追加の対話を使う');
+ok(/confirm\(/.test(S.grabFunction(src, 'toggleMediaCardRetired')), '廃棄は確認する');
+ok(/_rerenderIfOpen\('media-cards-screen', renderMediaCards\)/.test(src), '設定が同期で届いたらカード一覧を描き直す');
+ok(top('_refreshMediaCardButtons') && /_refreshMediaCardButtons\('wsd-media'/.test(src) && /_refreshMediaCardButtons\('sw-media'/.test(src), '開いている記入欄のボタンも描き直す');
+ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ幅のルール3か所に入っている');
+ok(/は貸出中です（返却が記録されていません）/.test(S.grabFunction(src, 'toggleMediaCardRetired')), '貸出中の廃棄は確認文にその旨を出す');
+ok((src.match(/_rerenderIfOpen\('media-list-screen', renderMediaList\)/g) || []).length >= 6, '保存後・同期後にメディア一覧を描き直す（media/order/child/simpleWS の redraw と saveWS/saveSimpleWS）');
 
 ok.done();
