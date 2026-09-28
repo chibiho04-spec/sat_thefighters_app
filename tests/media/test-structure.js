@@ -15,4 +15,6 @@ const rows = S.grabFunction(src, '_mediaFormRowsHtml');
 ["'user'", "'buby'", "'return'"].forEach(w => ok(rows.indexOf(w) >= 0, 'nameRow を ' + w + ' で呼んでいる'));
 ok(/持ち出しと同じ/.test(rows), '「持ち出しと同じ」ボタンがある');
 ok(/＋ 追加/.test(S.grabFunction(src, '_renderMediaCardGroup')), '持ち出し欄に「＋ 追加」がある');
+ok(!/<label[^>]*>[^<]*<button/.test(S.grabFunction(src, '_mediaFormRowsHtml')), '「使用したカード」の行は label で button を包まない');
+ok(/if \(!body \|\| !body\.dataset\.built\) return null;/.test(S.grabFunction(src, '_collectMediaForm')), '_collectMediaForm は未構築なら null');
 ok.done();

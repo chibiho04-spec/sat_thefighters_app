@@ -26,7 +26,8 @@ global.pushKind = (kind, rows) => { _calls.push.push({ kind, rows }); return Pro
 global.pendingAdd = (kind, id) => { _calls.pendingAdd.push({ kind, id }); };
 global.pendingClear = (kind, id) => { _calls.pendingClear.push({ kind, id }); };
 global.setGasStatus = () => {};
-global._markDirty = () => {};
+global._calls.markDirty = [];
+global._markDirty = (id) => { _calls.markDirty.push(id); };
 global.alert = () => {}; global.confirm = () => true; global.prompt = () => '';
 
 // 本体の小さな関数（依存が少ないもの）を先に読む

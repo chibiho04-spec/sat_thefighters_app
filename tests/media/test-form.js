@@ -26,17 +26,24 @@ function makeEl(id) {
   el.querySelector = sel => el.querySelectorAll(sel)[0] || null;
   return el;
 }
+// 擬似DOM の要素は、実際の記入欄 HTML（_mediaFormRowsHtml）から id を拾って作る（HTML と JS の id が本当に一致することを検証）
 const els = {};
-global.document = { getElementById: id => { if (!(id in els)) { if (!/^wsd-media-/.test(id)) return null; els[id] = makeEl(id); } return els[id]; }, querySelectorAll: () => [] };
+function buildFormEls(prefix, screenId) {
+  const html = _mediaFormRowsHtml(prefix, screenId);
+  const ids = [...html.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
+  ids.forEach(id => { els[id] = makeEl(id); });
+  els[prefix + '-body'] = makeEl(prefix + '-body');
+  return ids;
+}
+global.document = { getElementById: id => els[id] || null, querySelectorAll: () => [] };
 global.localStorage = S.fakeStorage();
-global._markDirty = () => {};
-// body に流し込むと中の要素が生える仕組みは無いので、_mediaFormRowsHtml の id を全部 makeEl で用意する
-['date','out-group','used-group','user-group','user','bu-group','buby-group','buby','return-group','return','memo','body'].forEach(s => { els['wsd-media-' + s] = makeEl('wsd-media-' + s); });
+const ids = buildFormEls('wsd-media', 'ws-detail-screen');
+ok(['date','out-group','used-group','user-group','user','bu-group','buby-group','buby','return-group','return','memo'].every(s => ids.includes('wsd-media-' + s)), 'HTML に必要な id が全部ある: ' + ids.join(','));
 
 console.log('=== 流し込み → 回収 ===');
 const src = { date: '2026/08/17', out: ['CF160_1', 'CF160_2'], used: ['CF160_1'], user: '城間', bu: true, buBy: '平岡', returnBy: '城間', memo: '約80GB' };
 _renderMediaForm('wsd-media', src, 'ws-detail-screen');
-ok(els['wsd-media-body'].dataset.built === '1' && /wsd-media-out-group/.test(els['wsd-media-body'].innerHTML), 'body に記入欄の HTML が入る');
+ok(els['wsd-media-body'].dataset.built === 'ws-detail-screen' && /wsd-media-out-group/.test(els['wsd-media-body'].innerHTML), 'body に記入欄の HTML が入る');
 ok(els['wsd-media-out-group']._children.filter(b => b._cls.has('selected')).map(b => b.dataset.card).join(',') === 'CF160_1,CF160_2', '持ち出しの選択が付く');
 ok(els['wsd-media-out-group']._children.length === 7, 'カード6枚＋「＋ 追加」');
 ok(els['wsd-media-used-group']._children.length === 6, '使用側に「＋ 追加」は無い');
@@ -69,7 +76,43 @@ ok(els['wsd-media-used-group']._children.some(b => b.dataset.card === 'CF256_3')
 answers = ['', '']; const before = getMediaCards().length; _addMediaCardFromForm('wsd-media', 'ws-detail-screen');
 ok(getMediaCards().length === before, '空で返せば何もしない');
 
-console.log('\n=== 廃棄カードと空の記録 ===');
+console.log('\n=== 空の記録 ===');
 _renderMediaForm('wsd-media', null, 'ws-detail-screen');
 ok(_collectMediaForm('wsd-media').out.length === 0 && _collectMediaForm('wsd-media').bu === false && els['wsd-media-user'].value === '', '空の記録は全部空');
+
+console.log('\n=== 未構築なら null（空で潰さない） ===');
+ok(_collectMediaForm('nope-media') === null, '要素が無ければ null');
+delete els['wsd-media-body'].dataset.built; els['wsd-media-body'].innerHTML = '';
+ok(_collectMediaForm('wsd-media') === null, 'body が未構築なら null');
+_renderMediaForm('wsd-media', { out: ['CF160_1'] }, 'ws-detail-screen');
+ok(els['wsd-media-body'].dataset.built === 'ws-detail-screen' && _collectMediaForm('wsd-media').out.join(',') === 'CF160_1', '描き直せば回収できる（built には screenId）');
+_renderMediaForm('wsd-media', { out: ['CF160_1'] }, 'other-screen');
+ok(els['wsd-media-body'].dataset.built === 'other-screen', '別の screenId で呼ばれたら作り直す');
+
+console.log('\n=== dirty の通知先 ===');
+_calls.markDirty = [];
+_renderMediaForm('wsd-media', null, 'ws-detail-screen');
+_toggleMediaCard(els['wsd-media-out-group']._children[0], 'wsd-media', 'ws-detail-screen');
+_copyMediaOutToUsed('wsd-media', 'ws-detail-screen');
+_pickMediaName(els['wsd-media-user-group']._children[0], 'wsd-media', 'user', 'ws-detail-screen');
+_pickMediaBu(els['wsd-media-bu-group']._children[1], 'wsd-media', 'ws-detail-screen');
+ok(_calls.markDirty.length === 4 && _calls.markDirty.every(id => id === 'ws-detail-screen'), 'ボタン操作4種が ws-detail-screen を dirty にする: ' + _calls.markDirty.join(','));
+
+console.log('\n=== 簡易WS の prefix（sw-media）でも同じ ===');
+buildFormEls('sw-media', 'new-simple-ws-screen');
+_calls.markDirty = [];
+_renderMediaForm('sw-media', { out: ['CF160_2'], used: ['CF160_2'], user: '上原', bu: false, returnBy: '' }, 'new-simple-ws-screen');
+const sw = _collectMediaForm('sw-media');
+ok(sw && sw.out.join(',') === 'CF160_2' && sw.user === '上原' && sw.bu === false, 'sw-media で流し込み→回収');
+_toggleMediaCard(els['sw-media-used-group']._children[0], 'sw-media', 'new-simple-ws-screen');
+ok(_calls.markDirty.join(',') === 'new-simple-ws-screen', 'sw-media の操作は new-simple-ws-screen を dirty にする');
+
+console.log('\n=== 廃棄カード（DOM 層） ===');
+global.localStorage = S.fakeStorage({ app_config_records: JSON.stringify([{ 'キー': 'mediaCards', list: [{ id: 'CF160_1' }, { id: 'CF160_2', retired: true }] }]) });
+_renderMediaForm('wsd-media', { out: ['CF160_2', 'OLD_9'] }, 'ws-detail-screen');
+const outIds = els['wsd-media-out-group']._children.filter(b => b.dataset.card).map(b => b.dataset.card);
+ok(outIds.join(',') === 'CF160_1,CF160_2,OLD_9', '廃棄済みでも選択済みなら出る・一覧に無い id は末尾: ' + outIds.join(','));
+ok(_collectMediaForm('wsd-media').out.join(',') === 'CF160_2,OLD_9', '選択状態も保たれる');
+_renderMediaForm('wsd-media', null, 'ws-detail-screen');
+ok(els['wsd-media-out-group']._children.filter(b => b.dataset.card).map(b => b.dataset.card).join(',') === 'CF160_1', '何も選んでいなければ廃棄カードは出ない');
 ok.done();

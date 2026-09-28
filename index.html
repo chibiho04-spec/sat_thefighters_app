@@ -13630,7 +13630,8 @@ ${_body}
           <div class="np-btn-group" id="${prefix}-out-group" style="margin-top:3px;"></div>
         </div>
         <div class="wsd-field-row">
-          <label class="wsd-label">💾 使用したカード <button type="button" onclick="_copyMediaOutToUsed('${prefix}','${screenId}')" style="font-family:'DotGothic16',monospace;font-size:11px;margin-left:8px;padding:3px 8px;border:1px solid #16a085;background:#e8f8f4;color:#117a65;border-radius:3px;cursor:pointer;">持ち出しと同じ</button></label>
+          <!-- label で button を包むとラベル文字のタップでボタンが発火する（HTML の仕様）ので div にする -->
+          <div class="wsd-label">💾 使用したカード <button type="button" onclick="_copyMediaOutToUsed('${prefix}','${screenId}')" style="font-family:'DotGothic16',monospace;font-size:11px;margin-left:8px;padding:3px 8px;border:1px solid #16a085;background:#e8f8f4;color:#117a65;border-radius:3px;cursor:pointer;">持ち出しと同じ</button></div>
           <div class="np-btn-group" id="${prefix}-used-group" style="margin-top:3px;"></div>
         </div>
         ${nameRow('👤', '使用者', 'user', 'または直接入力')}
@@ -13735,7 +13736,7 @@ ${_body}
   // 記入欄に media を流し込む（`${prefix}-body` が空なら中身の HTML を先に作る）
   function _renderMediaForm(prefix, media, screenId) {
     const body = document.getElementById(prefix + '-body');
-    if (body && !body.dataset.built) { body.innerHTML = _mediaFormRowsHtml(prefix, screenId); body.dataset.built = '1'; }
+    if (body && body.dataset.built !== screenId) { body.innerHTML = _mediaFormRowsHtml(prefix, screenId); body.dataset.built = screenId; }
     const m = _normalizeMedia(media);
     const d = document.getElementById(prefix + '-date'); if (d) d.value = m.date;
     _renderMediaCardGroup(prefix, 'out',  m.out,  screenId);
@@ -13746,7 +13747,11 @@ ${_body}
     _renderMediaNameGroup(prefix, 'return', m.returnBy, screenId);
     const memo = document.getElementById(prefix + '-memo'); if (memo) memo.value = m.memo;
   }
+  // 記入欄の値を回収。`${prefix}-body` が未構築なら null（「記入欄が無い」と「空の記録」を区別する。
+  // 呼ぶ側は null のとき既存の media を触らない＝空の新版で同期データを潰さない）
   function _collectMediaForm(prefix) {
+    const body = document.getElementById(prefix + '-body');
+    if (!body || !body.dataset.built) return null;
     const v = id => { const el = document.getElementById(prefix + '-' + id); return el ? String(el.value || '').trim() : ''; };
     return _normalizeMedia({
       date: v('date'), out: _getMediaCardSel(prefix, 'out'), used: _getMediaCardSel(prefix, 'used'),
