@@ -578,7 +578,8 @@ ok(/_renderMediaForm\('wsd-media'/.test(openWS) && /saved\['wsd-media'\]/.test(o
 const rec = S.grabFunction(src, 'renderEquipChecklist');
 ok(/_wsEquipCats\(master, savedEquip\)/.test(rec), '機材チェックリストが _wsEquipCats を使う');
 ok(/_setWsdMediaOpen\(open\)/.test(rec), '開閉の既定にメディア欄も含む');
-ok(/_mediaHasRecord\(s\.media\)/.test(src.slice(src.indexOf('リスト系・機材選択があれば実データあり') - 300, src.indexOf('リスト系・機材選択があれば実データあり'))), '実データ判定に media を含む');
+const hr = src.slice(src.indexOf('リスト系・機材選択があれば実データあり') - 400, src.indexOf('リスト系・機材選択があれば実データあり'));
+ok(/_mediaHasRecord\(s\.media\)/.test(hr) && /s\.media\.memo/.test(hr), '実データ判定に media（記録と備考）を含む');
 ```
 
 - [ ] **Step 2: テストを追記（`test-core.js` の `ok.done();` の前）**
@@ -770,7 +771,9 @@ Expected: Task 3 の項目が ❌
 `// リスト系・機材選択があれば実データあり` の直前に
 
 ```js
-    if (typeof _mediaHasRecord === 'function' && _mediaHasRecord(s.media)) return true; // 💾 メディアの記録（2026-09-28）
+    // 💾 メディアの記録（2026-09-28）。旧テキスト欄 wsd-media は備考（media.memo）へ移すので、備考だけの案件も実データとして残す
+    if (typeof _mediaHasRecord === 'function' && _mediaHasRecord(s.media)) return true;
+    if (s.media && String(s.media.memo || '').trim() !== '') return true;
 ```
 
 - [ ] **Step 11: 通ることを確認**
@@ -1293,6 +1296,7 @@ console.log('\n=== Task 7: カード一覧の画面 ===');
 ok(/_promptNewMediaCard\(\)/.test(S.grabFunction(src, 'addMediaCardFromList')), '記入欄と同じ追加の対話を使う');
 ok(/confirm\(/.test(S.grabFunction(src, 'toggleMediaCardRetired')), '廃棄は確認する');
 ok(/_rerenderIfOpen\('media-cards-screen', renderMediaCards\)/.test(src), '設定が同期で届いたらカード一覧を描き直す');
+ok(top('_refreshMediaCardButtons') && /_refreshMediaCardButtons\('wsd-media'/.test(src) && /_refreshMediaCardButtons\('sw-media'/.test(src), '開いている記入欄のボタンも描き直す');
 ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ幅のルール3か所に入っている');
 ```
 
@@ -1333,7 +1337,24 @@ ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ�
 `config` kind の `redraw: () => { try { _renderNpOrderButtons(); } catch(e) {} }` を
 
 ```js
-      redraw: () => { try { _renderNpOrderButtons(); } catch(e) {} try { _rerenderIfOpen('media-cards-screen', renderMediaCards); } catch(e) {} }
+      redraw: () => {
+        try { _renderNpOrderButtons(); } catch(e) {}
+        try { _rerenderIfOpen('media-cards-screen', renderMediaCards); } catch(e) {}
+        // 開いているワークシートのカードボタンにも反映（選択中は保ったまま描き直す）
+        try { _rerenderIfOpen('ws-detail-screen', () => _refreshMediaCardButtons('wsd-media', 'ws-detail-screen')); } catch(e) {}
+        try { _rerenderIfOpen('new-simple-ws-screen', () => _refreshMediaCardButtons('sw-media', 'new-simple-ws-screen')); } catch(e) {}
+      }
+```
+
+`_refreshMediaCardButtons` は Task 7 の JS ブロックに一緒に足す:
+
+```js
+  // 設定（カード一覧）が同期で届いたとき、開いている記入欄のボタン列を選択を保ったまま描き直す
+  function _refreshMediaCardButtons(prefix, screenId) {
+    if (!document.getElementById(prefix + '-out-group')) return;
+    _renderMediaCardGroup(prefix, 'out',  _getMediaCardSel(prefix, 'out'),  screenId);
+    _renderMediaCardGroup(prefix, 'used', _getMediaCardSel(prefix, 'used'), screenId);
+  }
 ```
 
 にする。
