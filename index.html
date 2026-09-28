@@ -13610,6 +13610,150 @@ ${_body}
     ].join('');
   }
 
+  // ---- 記入欄（通常WS: prefix 'wsd-media' ／ 簡易WS: prefix 'sw-media'）----
+  // 要素 id は `${prefix}-date / -out-group / -used-group / -user-group / -user / -bu-group / -buby-group / -buby / -return-group / -return / -memo`。
+  // 中身は _mediaFormRowsHtml で1か所から作り、`${prefix}-body` に最初の描画時に流し込む（HTML を2か所に書かない）。
+  function _mediaFormRowsHtml(prefix, screenId) {
+    const nameRow = (icon, lbl, which, ph) => `
+        <div class="wsd-field-row">
+          <label class="wsd-label">${icon} ${lbl}</label>
+          <div class="np-btn-group" id="${prefix}-${which}-group" style="margin-top:3px;"></div>
+          <input id="${prefix}-${which}" class="wsd-input" type="text" autocomplete="off" placeholder="${ph}" style="margin-top:4px;" oninput="_onMediaNameInput('${prefix}','${which}')">
+        </div>`;
+    return `
+        <div class="wsd-field-row">
+          <label class="wsd-label">📅 使用日</label>
+          <input id="${prefix}-date" class="wsd-input" type="text" autocomplete="off" placeholder="空なら日程と同じ（例: 2026/08/17, 08/18）">
+        </div>
+        <div class="wsd-field-row">
+          <label class="wsd-label">📤 持ち出したカード</label>
+          <div class="np-btn-group" id="${prefix}-out-group" style="margin-top:3px;"></div>
+        </div>
+        <div class="wsd-field-row">
+          <label class="wsd-label">💾 使用したカード <button type="button" onclick="_copyMediaOutToUsed('${prefix}','${screenId}')" style="font-family:'DotGothic16',monospace;font-size:11px;margin-left:8px;padding:3px 8px;border:1px solid #16a085;background:#e8f8f4;color:#117a65;border-radius:3px;cursor:pointer;">持ち出しと同じ</button></label>
+          <div class="np-btn-group" id="${prefix}-used-group" style="margin-top:3px;"></div>
+        </div>
+        ${nameRow('👤', '使用者', 'user', 'または直接入力')}
+        <div class="wsd-field-row">
+          <label class="wsd-label">💿 バックアップ</label>
+          <div class="np-btn-group" id="${prefix}-bu-group" style="margin-top:3px;"></div>
+        </div>
+        ${nameRow('🧑‍💻', 'バックアップした人', 'buby', 'または直接入力')}
+        ${nameRow('🔁', '返却者（空＝返却未）', 'return', 'または直接入力')}
+        <div class="wsd-field-row">
+          <label class="wsd-label">📝 備考</label>
+          <textarea id="${prefix}-memo" class="wsd-textarea" rows="2" placeholder="素材の容量など"></textarea>
+        </div>`;
+  }
+  function _mediaBtn(label, selected, attrs) {
+    return `<button type="button" class="np-select-btn${selected ? ' selected' : ''}" ${attrs}>${escapeHtml(label)}</button>`;
+  }
+  function _renderMediaCardGroup(prefix, which, selectedIds, screenId) {
+    const g = document.getElementById(prefix + '-' + which + '-group'); if (!g) return;
+    const sel = new Set(selectedIds || []);
+    let html = _mediaCardChoices([...sel]).map(c =>
+      _mediaBtn(c.id, sel.has(c.id), `data-card="${escapeHtml(c.id)}" title="${escapeHtml(c.type)}" onclick="_toggleMediaCard(this,'${prefix}','${screenId}')"`)).join('');
+    if (which === 'out') {
+      html += `<button type="button" onclick="_addMediaCardFromForm('${prefix}','${screenId}')" title="新しいカードを追加(全員に同期されます)"
+        style="font-family:'DotGothic16',monospace;font-size:13px;padding:6px 12px;border:2px dashed #27ae60;background:#f2fbf5;color:#1a7a40;border-radius:4px;cursor:pointer;">＋ 追加</button>`;
+    }
+    g.innerHTML = html;
+  }
+  function _getMediaCardSel(prefix, which) {
+    const g = document.getElementById(prefix + '-' + which + '-group'); if (!g) return [];
+    return [...g.querySelectorAll('.np-select-btn.selected')].map(b => String(b.dataset.card || '').trim()).filter(Boolean);
+  }
+  function _afterMediaChange(prefix, screenId) {
+    try { _markDirty(screenId); } catch (e) {}
+    if (prefix === 'wsd-media') { try { _updateWsdMediaCount(); } catch (e) {} }
+  }
+  function _toggleMediaCard(btn, prefix, screenId) {
+    btn.classList.toggle('selected');
+    _afterMediaChange(prefix, screenId);
+  }
+  function _copyMediaOutToUsed(prefix, screenId) {
+    _renderMediaCardGroup(prefix, 'used', _getMediaCardSel(prefix, 'out'), screenId);
+    _afterMediaChange(prefix, screenId);
+  }
+  // 「＋ 追加」の対話（記入欄・カード一覧の両方から使う）。追加できたら card、やめたら null
+  function _promptNewMediaCard() {
+    const id = (prompt('新しいカードの名前（例：CF256_3）\n英数字と _ だけ。追加すると全員のボタンに同期されます') || '').trim();
+    if (!id) return null;
+    const type = (prompt('種類（例：CFexpress Type A 256GB）※省略可') || '').trim();
+    const r = _addMediaCard(id, type);
+    if (!r.ok) { alert(r.error); return null; }
+    return r.card;
+  }
+  function _addMediaCardFromForm(prefix, screenId) {
+    const card = _promptNewMediaCard();
+    if (!card) return;
+    const out = _getMediaCardSel(prefix, 'out'); out.push(card.id);
+    _renderMediaCardGroup(prefix, 'out',  out, screenId);
+    _renderMediaCardGroup(prefix, 'used', _getMediaCardSel(prefix, 'used'), screenId);
+    _afterMediaChange(prefix, screenId);
+  }
+  // 名前ボタン（単一選択・もう一度押すと解除）＋直接入力。入力欄の値が正
+  function _renderMediaNameGroup(prefix, which, value, screenId) {
+    const g = document.getElementById(prefix + '-' + which + '-group');
+    const inp = document.getElementById(prefix + '-' + which);
+    if (inp) inp.value = value || '';
+    if (!g) return;
+    g.innerHTML = CREW_NAMES.map(n => _mediaBtn(n, n === value, `onclick="_pickMediaName(this,'${prefix}','${which}','${screenId}')"`)).join('');
+  }
+  function _pickMediaName(btn, prefix, which, screenId) {
+    const g = document.getElementById(prefix + '-' + which + '-group');
+    const inp = document.getElementById(prefix + '-' + which);
+    const wasSel = btn.classList.contains('selected');
+    if (g) g.querySelectorAll('.np-select-btn').forEach(b => b.classList.remove('selected'));
+    if (!wasSel) btn.classList.add('selected');
+    if (inp) inp.value = wasSel ? '' : btn.textContent.trim();
+    _afterMediaChange(prefix, screenId);
+  }
+  function _onMediaNameInput(prefix, which) {
+    const g = document.getElementById(prefix + '-' + which + '-group');
+    const inp = document.getElementById(prefix + '-' + which);
+    const v = inp ? inp.value.trim() : '';
+    if (g) g.querySelectorAll('.np-select-btn').forEach(b => b.classList.toggle('selected', v !== '' && b.textContent.trim() === v));
+    if (prefix === 'wsd-media') { try { _updateWsdMediaCount(); } catch (e) {} }
+  }
+  function _renderMediaBuGroup(prefix, bu, screenId) {
+    const g = document.getElementById(prefix + '-bu-group'); if (!g) return;
+    g.innerHTML = _mediaBtn('未', !bu, `data-bu="0" onclick="_pickMediaBu(this,'${prefix}','${screenId}')"`)
+                + _mediaBtn('○ 完了', !!bu, `data-bu="1" onclick="_pickMediaBu(this,'${prefix}','${screenId}')"`);
+  }
+  function _pickMediaBu(btn, prefix, screenId) {
+    const g = document.getElementById(prefix + '-bu-group');
+    if (g) g.querySelectorAll('.np-select-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    _afterMediaChange(prefix, screenId);
+  }
+  function _getMediaBu(prefix) {
+    const g = document.getElementById(prefix + '-bu-group'); if (!g) return false;
+    const s = g.querySelector('.np-select-btn.selected');
+    return !!(s && s.dataset.bu === '1');
+  }
+  // 記入欄に media を流し込む（`${prefix}-body` が空なら中身の HTML を先に作る）
+  function _renderMediaForm(prefix, media, screenId) {
+    const body = document.getElementById(prefix + '-body');
+    if (body && !body.dataset.built) { body.innerHTML = _mediaFormRowsHtml(prefix, screenId); body.dataset.built = '1'; }
+    const m = _normalizeMedia(media);
+    const d = document.getElementById(prefix + '-date'); if (d) d.value = m.date;
+    _renderMediaCardGroup(prefix, 'out',  m.out,  screenId);
+    _renderMediaCardGroup(prefix, 'used', m.used, screenId);
+    _renderMediaNameGroup(prefix, 'user',   m.user,     screenId);
+    _renderMediaBuGroup(prefix, m.bu, screenId);
+    _renderMediaNameGroup(prefix, 'buby',   m.buBy,     screenId);
+    _renderMediaNameGroup(prefix, 'return', m.returnBy, screenId);
+    const memo = document.getElementById(prefix + '-memo'); if (memo) memo.value = m.memo;
+  }
+  function _collectMediaForm(prefix) {
+    const v = id => { const el = document.getElementById(prefix + '-' + id); return el ? String(el.value || '').trim() : ''; };
+    return _normalizeMedia({
+      date: v('date'), out: _getMediaCardSel(prefix, 'out'), used: _getMediaCardSel(prefix, 'used'),
+      user: v('user'), bu: _getMediaBu(prefix), buBy: v('buby'), returnBy: v('return'), memo: v('memo')
+    });
+  }
+
   function openMediaList() {
     const s = document.getElementById('media-search');
     if (s) s.value = '';
