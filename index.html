@@ -6968,6 +6968,15 @@
         <!-- JSで動的生成 -->
       </div>
 
+      <!-- 💾 メディア（カード）使用記録（2026-09-28）。機材リストと同じ折りたたみ。中身は _mediaFormRowsHtml で生成 -->
+      <div id="wsd-media-toggle" onclick="toggleWsdMedia()" role="button" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdMedia();}"
+        style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 8px 0;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
+        <span style="min-width:0;">💾 メディア<span id="wsd-media-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
+        <span id="wsd-media-caret" style="font-size:12px;flex-shrink:0;">▼</span>
+      </div>
+      <div id="wsd-media-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;"></div>
+
       <div class="wsd-field-group">
         <div class="wsd-field-row">
           <label class="wsd-label">👤 私物機材</label>
@@ -7005,11 +7014,6 @@
 
       <div class="wsd-field-group">
         <div class="wsd-field-row">
-          <label class="wsd-label">💾 メディア使用記録</label>
-          <textarea id="wsd-media" class="wsd-textarea" rows="2"
-            placeholder="例: SDカード64GB × 2枚使用&#10;素材: 約80GB"></textarea>
-        </div>
-        <div class="wsd-field-row" style="margin-top:8px;">
           <label class="wsd-label">📝 報告事項</label>
           <textarea id="wsd-report" class="wsd-textarea" rows="4"
             placeholder="撮影終了後の報告内容を入力してください&#10;&#10;例: 予定通り撮影完了。&#10;特記事項: なし"></textarea>
@@ -17620,6 +17624,30 @@ ${tableHTML}
     _setWsdEquipOpen(box.style.display === 'none');
   }
 
+  // 💾 メディア欄の開閉（機材リストと同じ作り・2026-09-28）
+  function _setWsdMediaOpen(open) {
+    const box = document.getElementById('wsd-media-body');
+    if (box) box.style.display = open ? 'flex' : 'none';
+    const car = document.getElementById('wsd-media-caret');
+    if (car) car.textContent = open ? '▼' : '▶';
+  }
+  function toggleWsdMedia() {
+    const box = document.getElementById('wsd-media-body');
+    if (!box) return;
+    _setWsdMediaOpen(box.style.display === 'none');
+  }
+  // 畳んでいても状態が分かるようにバーへ出す
+  function _updateWsdMediaCount() {
+    const el = document.getElementById('wsd-media-count');
+    if (!el) return;
+    const m = _collectMediaForm('wsd-media');
+    if (!m) { el.textContent = ''; return; } // 記入欄が未構築
+    const parts = [m.out.length ? '持出 ' + m.out.length + '枚' : '未記録'];
+    if (m.out.length && !m.returnBy) parts.push('🔴 返却未');
+    if (m.used.length && !m.bu) parts.push('🟡 BU未');
+    el.textContent = parts.join('　');
+  }
+
   function _setWsdCrewOpen(open) {
     const box = document.getElementById('wsd-crew-body');
     if (box) box.style.display = open ? 'flex' : 'none'; // 元が flex 縦並びなので戻す値も flex
@@ -17664,12 +17692,21 @@ ${tableHTML}
     el.textContent = n ? '選択中 ' + n + '件' : '未選択';
   }
 
+  // ワークシートの機材チェックリストに出すカテゴリ。「💾 メディア」はカードの記録欄に移したので出さない（2026-09-28）。
+  // ただし、そのワークシートで既にチェック済みの品目があれば出す（外せなくなるのを防ぐ）。機材マスタ自体は変えない。
+  const _EQUIP_CATS_HIDDEN_IN_WS = ['💾 メディア'];
+  function _wsEquipCats(master, savedEquip) {
+    const cats    = CAT_ORDER.filter(c => master.some(e => e.cat === c));
+    const others  = [...new Set(master.map(e => e.cat))].filter(c => !CAT_ORDER.includes(c));
+    const eq = savedEquip || {};
+    const hasChecked = cat => master.some(e => e.cat === cat && eq[e.id] && eq[e.id].checked);
+    return [...cats, ...others].filter(c => !_EQUIP_CATS_HIDDEN_IN_WS.includes(c) || hasChecked(c));
+  }
+
   // ワークシート詳細画面の機材チェックリストを描画
   function renderEquipChecklist(wsNum, savedEquip) {
     const master  = loadEquipMaster();
-    const cats    = CAT_ORDER.filter(c => master.some(e => e.cat === c));
-    const others  = [...new Set(master.map(e => e.cat))].filter(c => !CAT_ORDER.includes(c));
-    const allCats = [...cats, ...others];
+    const allCats = _wsEquipCats(master, savedEquip);
     const el      = document.getElementById('wsd-equip-checklist');
     el.innerHTML  = '';
 
@@ -17723,6 +17760,7 @@ ${tableHTML}
       const open = !_isEditorLoggedIn();
       _setWsdEquipOpen(open);
       _setWsdCrewOpen(open); // 担当クルーも同じ既定（機材と別々にタップで開閉できる）
+      _setWsdMediaOpen(open); // メディア欄も同じ既定（編集部は畳む）
     }
   }
 
@@ -18726,7 +18764,7 @@ ${tableHTML}
     document.getElementById('wsd-order').textContent      = saved['edit_order']    || data.orderType || '';
 
     // テキスト系フィールド復元
-    ['wsd-private','wsd-media','wsd-report','wsd-memo','wsd-shootdate','wsd-crew-extra','wsd-order-amount'].forEach(id => {
+    ['wsd-private','wsd-report','wsd-memo','wsd-shootdate','wsd-crew-extra','wsd-order-amount'].forEach(id => {
       const el = document.getElementById(id);
       if (el && saved[id] !== undefined) el.value = saved[id];
     });
@@ -18819,6 +18857,15 @@ ${tableHTML}
 
     // 機材チェックリストを描画
     renderEquipChecklist(num, saved.equip || {});
+
+    // 💾 メディア（2026-09-28）：旧テキスト欄の文は備考へ、使用者が空ならカメラマンを初期値に（上書きはしない）
+    {
+      const m = _normalizeMedia(saved.media);
+      if (!m.memo && saved['wsd-media']) m.memo = String(saved['wsd-media']);
+      if (!m.user) m.user = saved['crew_c'] || data.crewC || '';
+      _renderMediaForm('wsd-media', m, 'ws-detail-screen');
+      _updateWsdMediaCount();
+    }
 
     // 撮影日程の初期値（保存済みがなければwsDataから）
     const shootEl = document.getElementById('wsd-shootdate');
@@ -19027,7 +19074,7 @@ ${tableHTML}
     // 既存の保存データを読み込む（equipなどを保持するため）
     const existing = loadWS(num);
 
-    const fields = ['wsd-private','wsd-media','wsd-report','wsd-memo','wsd-shootdate','wsd-order-amount'];
+    const fields = ['wsd-private','wsd-report','wsd-memo','wsd-shootdate','wsd-order-amount'];
     const data = { ...existing }; // 既存データをベースにマージ
     fields.forEach(id => {
       const el = document.getElementById(id);
@@ -19045,6 +19092,13 @@ ${tableHTML}
     data['edit_contact']  = document.getElementById('wsd-edit-contact')?.value || '';
     data['edit_type']     = document.getElementById('wsd-edit-type')?.value    || '';
     data['edit_order']    = _getWsEditOrder();
+
+    // 💾 メディア（カード）使用記録（2026-09-28）。記入欄が描けているときだけ書く（未構築なら null → 既存の media と旧欄を触らない。
+    // 空の新版で同期データを潰さないためのガード）。旧テキスト欄 wsd-media は開いたとき備考へ引き継いでいるので空にする（二重に残さない）
+    {
+      const m = _collectMediaForm('wsd-media');
+      if (m) { data.media = m; data['wsd-media'] = ''; }
+    }
 
     // 保存した値でwsDataも更新（閲覧パネルに即反映）
     const num2 = document.getElementById('ws-detail-num').textContent;
@@ -19282,6 +19336,9 @@ ${tableHTML}
       'crew_producer','crew_d','crew_pm1','crew_pm2','crew_c','crew_a','crew_a2',
       'crew_sound','crew_edit','crew_extra'];
     if (textFields.some(f => String(s[f] || '').trim() !== '')) return true;
+    // 💾 メディアの記録（2026-09-28）。旧テキスト欄 wsd-media は備考（media.memo）へ移すので、備考だけの案件も実データとして残す
+    if (typeof _mediaHasRecord === 'function' && _mediaHasRecord(s.media)) return true;
+    if (s.media && String(s.media.memo || '').trim() !== '') return true;
     // リスト系・機材選択があれば実データあり
     if (Array.isArray(s.rental_list)    && s.rental_list.length)    return true;
     if (Array.isArray(s.outsource_list) && s.outsource_list.length) return true;

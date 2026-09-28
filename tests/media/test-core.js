@@ -30,4 +30,15 @@ console.log('\n=== レビュー指摘（2026-09-28）===');
 ok(_normalizeMedia({ out: ['CF160_1', 'CF160_1', ' CF160_1 '] }).out.length === 1, '同じカードが2回あっても1枚');
 ok(_normalizeMedia({ memo: '   ' }).memo === '', '備考も余白を落とす');
 ok(_mediaViewHtml({}) === '' && _mediaViewHtml({ user: '城間' }) === '', '記録が無ければ閲覧HTMLは空');
+
+console.log('\n=== 機材チェックリストから「💾 メディア」を外す ===');
+S.load(['_wsEquipCats']); S.loadConst('_EQUIP_CATS_HIDDEN_IN_WS');
+const master = [{ id: 'a', cat: '📷 カメラ' }, { id: 'b', cat: '💾 メディア' }, { id: 'c', cat: '🧪 その他独自' }];
+let cats = _wsEquipCats(master, {});
+ok(cats.includes('📷 カメラ') && !cats.includes('💾 メディア') && cats.includes('🧪 その他独自'), '通常はメディアを出さない（独自カテゴリは末尾に出る）');
+cats = _wsEquipCats(master, { b: { checked: true } });
+ok(cats.includes('💾 メディア'), '既にチェック済みなら出す（外せるように）');
+cats = _wsEquipCats(master, { b: { checked: false } });
+ok(!cats.includes('💾 メディア'), 'チェックが外れていれば出さない');
+ok(_wsEquipCats([], {}).length === 0, 'マスタが空なら空');
 ok.done();

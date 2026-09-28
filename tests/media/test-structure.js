@@ -17,4 +17,20 @@ ok(/持ち出しと同じ/.test(rows), '「持ち出しと同じ」ボタンが�
 ok(/＋ 追加/.test(S.grabFunction(src, '_renderMediaCardGroup')), '持ち出し欄に「＋ 追加」がある');
 ok(!/<label[^>]*>[^<]*<button/.test(S.grabFunction(src, '_mediaFormRowsHtml')), '「使用したカード」の行は label で button を包まない');
 ok(/if \(!body \|\| !body\.dataset\.built\) return null;/.test(S.grabFunction(src, '_collectMediaForm')), '_collectMediaForm は未構築なら null');
+
+console.log('\n=== Task 3: ワークシート記入画面 ===');
+ok(!/id="wsd-media"/.test(src), '旧「メディア使用記録」textarea（#wsd-media）が無い');
+ok(/id="wsd-media-toggle"/.test(src) && /id="wsd-media-body"/.test(src) && /id="wsd-media-count"/.test(src), '折りたたみバーと本体がある');
+ok(src.indexOf('id="wsd-equip-checklist"') < src.indexOf('id="wsd-media-toggle"') && src.indexOf('id="wsd-media-body"') < src.indexOf('👤 私物機材'), '機材リストの後・私物機材の前にある');
+['_setWsdMediaOpen', 'toggleWsdMedia', '_updateWsdMediaCount', '_wsEquipCats'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
+const saveWS = S.grabFunction(src, 'saveWS');
+ok(/const m = _collectMediaForm\('wsd-media'\)/.test(saveWS) && /if \(m\) \{ data\.media = m; data\['wsd-media'\] = ''; \}/.test(saveWS), 'saveWS は記入欄が描けているときだけ media を保存し旧欄を空にする');
+ok(!/const fields = \[[^\]]*'wsd-media'/.test(saveWS), 'saveWS の fields から wsd-media を外した');
+const openWS = S.grabFunction(src, 'openWS');
+ok(/_renderMediaForm\('wsd-media'/.test(openWS) && /saved\['wsd-media'\]/.test(openWS) && /crew_c/.test(openWS), 'openWS が記入欄を復元し、旧欄の文と使用者の初期値を入れる');
+const rec = S.grabFunction(src, 'renderEquipChecklist');
+ok(/_wsEquipCats\(master, savedEquip\)/.test(rec), '機材チェックリストが _wsEquipCats を使う');
+ok(/_setWsdMediaOpen\(open\)/.test(rec), '開閉の既定にメディア欄も含む');
+const hr = src.slice(src.indexOf('リスト系・機材選択があれば実データあり') - 400, src.indexOf('リスト系・機材選択があれば実データあり'));
+ok(/_mediaHasRecord\(s\.media\)/.test(hr) && /s\.media\.memo/.test(hr), '実データ判定に media（記録と備考）を含む');
 ok.done();
