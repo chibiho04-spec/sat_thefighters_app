@@ -13508,6 +13508,99 @@ ${_body}
   }
   function getCachedMedia() { return _getCached('media_cache'); }
 
+  // ===== メディア（カード）使用記録（2026-09-28）=====
+  // LINE の「Sat メディア管理 Bot」を卒業し、記録はワークシート本体（ws_ / simple_ws）の media に持つ。
+  // 設計: docs/superpowers/specs/2026-09-28-media-record-design.md
+  const _DEFAULT_MEDIA_CARDS = [
+    { id: 'CF160_1', type: 'CFexpress Type A 160GB', retired: false },
+    { id: 'CF160_2', type: 'CFexpress Type A 160GB', retired: false },
+    { id: 'CF160_3', type: 'CFexpress Type A 160GB', retired: false },
+    { id: 'CF160_4', type: 'CFexpress Type A 160GB', retired: false },
+    { id: 'CF256_1', type: 'CFexpress Type A 256GB', retired: false },
+    { id: 'CF256_2', type: 'CFexpress Type A 256GB', retired: false }
+  ];
+  const MEDIA_CARDS_CONFIG_KEY = 'mediaCards'; // config kind のキー（受注分類 orderTypes と同じ経路で全端末共有）
+  function _isValidMediaCardId(id) { return /^[A-Za-z0-9_]{1,20}$/.test(String(id || '')); }
+  function getMediaCards() {
+    let list = null;
+    try {
+      const r = _loadConfigRecords().find(x => String(x['キー']) === MEDIA_CARDS_CONFIG_KEY);
+      if (r && Array.isArray(r.list) && r.list.length) list = r.list;
+    } catch (e) {}
+    return (list || _DEFAULT_MEDIA_CARDS)
+      .map(c => ({ id: String((c && c.id) || '').trim(), type: String((c && c.type) || ''), retired: !!(c && c.retired) }))
+      .filter(c => _isValidMediaCardId(c.id));
+  }
+  function _saveMediaCards(list) {
+    const recs = _loadConfigRecords().filter(x => String(x['キー']) !== MEDIA_CARDS_CONFIG_KEY);
+    const rec = { 'キー': MEDIA_CARDS_CONFIG_KEY, list: list, _updatedAt: new Date().toISOString() };
+    recs.push(rec);
+    _saveConfigRecords(recs);
+    try {
+      if (_gasUrlOne() && typeof pushKind === 'function') {
+        pushKind('config', [rec]).then(() => pendingClear('config', MEDIA_CARDS_CONFIG_KEY)).catch(() => pendingAdd('config', MEDIA_CARDS_CONFIG_KEY));
+      } else { pendingAdd('config', MEDIA_CARDS_CONFIG_KEY); }
+    } catch (e) {}
+  }
+  // 追加。戻り値 {ok, error, card}。名前変更は付けない（過去の記録に当時の id で残るため。廃棄→新規追加で対応）
+  function _addMediaCard(id, type) {
+    id = String(id || '').trim(); type = String(type || '').trim();
+    if (!_isValidMediaCardId(id)) return { ok: false, error: 'カードの名前は英数字と _ だけ（20文字まで）で入力してください' };
+    const list = getMediaCards();
+    if (list.some(c => c.id === id)) return { ok: false, error: '「' + id + '」は既にあります' };
+    const card = { id, type, retired: false };
+    list.push(card);
+    _saveMediaCards(list);
+    return { ok: true, card };
+  }
+  function _setMediaCardRetired(id, retired) {
+    const list = getMediaCards();
+    const c = list.find(x => x.id === id);
+    if (!c) return false;
+    c.retired = !!retired;
+    _saveMediaCards(list);
+    return true;
+  }
+  // 選択ボタンに出すカード：廃棄していないもの＋（廃棄済みでも）既に選ばれているもの＋一覧に無いのに選ばれているもの
+  function _mediaCardChoices(selectedIds) {
+    const sel = (selectedIds || []).map(s => String(s || '').trim()).filter(Boolean);
+    const out = getMediaCards().filter(c => !c.retired || sel.includes(c.id));
+    sel.forEach(id => { if (!out.some(c => c.id === id)) out.push({ id, type: '', retired: true }); });
+    return out;
+  }
+  function _normalizeMedia(m) {
+    const arr = v => Array.isArray(v) ? v.map(s => String(s || '').trim()).filter(Boolean) : [];
+    m = (m && typeof m === 'object') ? m : {};
+    return {
+      date: String(m.date || '').trim(), out: arr(m.out), used: arr(m.used),
+      user: String(m.user || '').trim(), bu: !!m.bu, buBy: String(m.buBy || '').trim(),
+      returnBy: String(m.returnBy || '').trim(), memo: String(m.memo || '')
+    };
+  }
+  function _mediaHasRecord(m) { const n = _normalizeMedia(m); return n.out.length > 0 || n.used.length > 0; }
+  // 印刷用の1行（持ち出しだけ・本人決定 2026-09-28）。無ければ ''。escapeHtml 済みの文字列を返す
+  function _mediaPrintLine(m) {
+    const n = _normalizeMedia(m);
+    return n.out.length ? '持ち出し: ' + escapeHtml(n.out.join(', ')) : '';
+  }
+  function _mediaStatusBadges(m) {
+    const n = _normalizeMedia(m); const b = [];
+    if (n.out.length && !n.returnBy) b.push('<span style="background:#c0392b;color:white;font-size:10px;padding:1px 6px;border-radius:8px;white-space:nowrap;">🔴 返却未</span>');
+    if (n.used.length && !n.bu)      b.push('<span style="background:#f39c12;color:white;font-size:10px;padding:1px 6px;border-radius:8px;white-space:nowrap;">🟡 BU未</span>');
+    return b.join(' ');
+  }
+  // 閲覧画面用
+  function _mediaViewHtml(m) {
+    const n = _normalizeMedia(m); const esc = escapeHtml;
+    const row = (lbl, val) => `<div style="padding:2px 0;border-bottom:1px dashed #eee;">${lbl} ${val}</div>`;
+    return [
+      n.out.length  ? row('📤 持出:', esc(n.out.join(', ')))  : '',
+      n.used.length ? row('💾 使用:', esc(n.used.join(', '))) : '',
+      row('👤 使用者: ' + esc(n.user || '―') + '　💿 BU: ' + (n.bu ? '○ ' + esc(n.buBy || '') : '未') + '　🔁 返却: ' + (n.returnBy ? esc(n.returnBy) : '未'), _mediaStatusBadges(n)),
+      n.memo ? row('📝', esc(n.memo)) : ''
+    ].join('');
+  }
+
   function openMediaList() {
     const s = document.getElementById('media-search');
     if (s) s.value = '';
