@@ -25,4 +25,9 @@ const v = _mediaViewHtml({ out: ['CF160_1'], used: ['CF160_1'], user: '城間', 
 ok(/持出:.*CF160_1/.test(v) && /使用:.*CF160_1/.test(v) && /使用者: 城間/.test(v) && /BU: ○ 平岡/.test(v) && /返却: 城間/.test(v) && /約80GB/.test(v), '全項目が出る');
 ok(/BU: 未/.test(_mediaViewHtml({ out: ['CF160_1'] })) && /返却: 未/.test(_mediaViewHtml({ out: ['CF160_1'] })), '未の表記');
 ok(/&lt;s&gt;/.test(_mediaViewHtml({ out: ['<s>'] })), 'escapeHtml を通す');
+
+console.log('\n=== レビュー指摘（2026-09-28）===');
+ok(_normalizeMedia({ out: ['CF160_1', 'CF160_1', ' CF160_1 '] }).out.length === 1, '同じカードが2回あっても1枚');
+ok(_normalizeMedia({ memo: '   ' }).memo === '', '備考も余白を落とす');
+ok(_mediaViewHtml({}) === '' && _mediaViewHtml({ user: '城間' }) === '', '記録が無ければ閲覧HTMLは空');
 ok.done();

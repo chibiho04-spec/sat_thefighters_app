@@ -13521,17 +13521,23 @@ ${_body}
   ];
   const MEDIA_CARDS_CONFIG_KEY = 'mediaCards'; // config kind のキー（受注分類 orderTypes と同じ経路で全端末共有）
   function _isValidMediaCardId(id) { return /^[A-Za-z0-9_]{1,20}$/.test(String(id || '')); }
-  function getMediaCards() {
-    let list = null;
+  // 保存されている生のリスト（レコードが無ければ既定のコピー）。追加・廃棄はこれを書き換えて保存する
+  // ＝正規化したリストで丸ごと上書きしない（未知の項目や他端末の追加分を落とさない）
+  function _rawMediaCards() {
     try {
       const r = _loadConfigRecords().find(x => String(x['キー']) === MEDIA_CARDS_CONFIG_KEY);
-      if (r && Array.isArray(r.list) && r.list.length) list = r.list;
+      if (r && Array.isArray(r.list)) return r.list.map(c => Object.assign({}, c)); // 空リストでも「設定あり」として尊重
     } catch (e) {}
-    return (list || _DEFAULT_MEDIA_CARDS)
+    return _DEFAULT_MEDIA_CARDS.map(c => Object.assign({}, c));
+  }
+  function getMediaCards() {
+    const seen = new Set();
+    return _rawMediaCards()
       .map(c => ({ id: String((c && c.id) || '').trim(), type: String((c && c.type) || ''), retired: !!(c && c.retired) }))
-      .filter(c => _isValidMediaCardId(c.id));
+      .filter(c => _isValidMediaCardId(c.id) && !seen.has(c.id) && seen.add(c.id)); // 同じ id は最初の1つだけ
   }
   function _saveMediaCards(list) {
+    if (!Array.isArray(list) || !list.length) return false; // 空にはしない（廃棄はあっても削除は無い）
     const recs = _loadConfigRecords().filter(x => String(x['キー']) !== MEDIA_CARDS_CONFIG_KEY);
     const rec = { 'キー': MEDIA_CARDS_CONFIG_KEY, list: list, _updatedAt: new Date().toISOString() };
     recs.push(rec);
@@ -13541,23 +13547,24 @@ ${_body}
         pushKind('config', [rec]).then(() => pendingClear('config', MEDIA_CARDS_CONFIG_KEY)).catch(() => pendingAdd('config', MEDIA_CARDS_CONFIG_KEY));
       } else { pendingAdd('config', MEDIA_CARDS_CONFIG_KEY); }
     } catch (e) {}
+    return true;
   }
   // 追加。戻り値 {ok, error, card}。名前変更は付けない（過去の記録に当時の id で残るため。廃棄→新規追加で対応）
   function _addMediaCard(id, type) {
     id = String(id || '').trim(); type = String(type || '').trim();
     if (!_isValidMediaCardId(id)) return { ok: false, error: 'カードの名前は英数字と _ だけ（20文字まで）で入力してください' };
-    const list = getMediaCards();
-    if (list.some(c => c.id === id)) return { ok: false, error: '「' + id + '」は既にあります' };
+    if (getMediaCards().some(c => c.id === id)) return { ok: false, error: '「' + id + '」は既にあります' };
+    const list = _rawMediaCards();
     const card = { id, type, retired: false };
     list.push(card);
     _saveMediaCards(list);
     return { ok: true, card };
   }
   function _setMediaCardRetired(id, retired) {
-    const list = getMediaCards();
-    const c = list.find(x => x.id === id);
-    if (!c) return false;
-    c.retired = !!retired;
+    const list = _rawMediaCards();
+    const hits = list.filter(c => c && String(c.id || '').trim() === id);
+    if (!hits.length) return false;
+    hits.forEach(c => { c.retired = !!retired; });
     _saveMediaCards(list);
     return true;
   }
@@ -13568,17 +13575,18 @@ ${_body}
     sel.forEach(id => { if (!out.some(c => c.id === id)) out.push({ id, type: '', retired: true }); });
     return out;
   }
+  // 記録の形を整える。ここに無いキーは落ちる（media に項目を足すときはここも足す）
   function _normalizeMedia(m) {
-    const arr = v => Array.isArray(v) ? v.map(s => String(s || '').trim()).filter(Boolean) : [];
+    const arr = v => Array.isArray(v) ? [...new Set(v.map(s => String(s || '').trim()).filter(Boolean))] : [];
     m = (m && typeof m === 'object') ? m : {};
     return {
       date: String(m.date || '').trim(), out: arr(m.out), used: arr(m.used),
       user: String(m.user || '').trim(), bu: !!m.bu, buBy: String(m.buBy || '').trim(),
-      returnBy: String(m.returnBy || '').trim(), memo: String(m.memo || '')
+      returnBy: String(m.returnBy || '').trim(), memo: String(m.memo || '').trim()
     };
   }
   function _mediaHasRecord(m) { const n = _normalizeMedia(m); return n.out.length > 0 || n.used.length > 0; }
-  // 印刷用の1行（持ち出しだけ・本人決定 2026-09-28）。無ければ ''。escapeHtml 済みの文字列を返す
+  // 印刷用の1行（持ち出しだけ・本人決定 2026-09-28）。無ければ ''。**戻り値は escapeHtml 済みの HTML 片**なので、呼ぶ側で再度 escapeHtml しない
   function _mediaPrintLine(m) {
     const n = _normalizeMedia(m);
     return n.out.length ? '持ち出し: ' + escapeHtml(n.out.join(', ')) : '';
@@ -13591,7 +13599,8 @@ ${_body}
   }
   // 閲覧画面用
   function _mediaViewHtml(m) {
-    const n = _normalizeMedia(m); const esc = escapeHtml;
+    const n = _normalizeMedia(m); if (!_mediaHasRecord(n)) return '';
+    const esc = escapeHtml;
     const row = (lbl, val) => `<div style="padding:2px 0;border-bottom:1px dashed #eee;">${lbl} ${val}</div>`;
     return [
       n.out.length  ? row('📤 持出:', esc(n.out.join(', ')))  : '',
