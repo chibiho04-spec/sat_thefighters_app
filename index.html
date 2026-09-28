@@ -5922,7 +5922,7 @@
     <div id="media-items" class="wsd-scroll" style="padding:6px 8px;" onclick="_onMediaItemsClick(event)"></div>
   </div>
 
-  <!-- 🎴 カード一覧（Task 7 で中身を作る） -->
+  <!-- 🎴 カード一覧（カードの追加・廃棄。全端末で共有） -->
   <div id="media-cards-screen" style="
     position:absolute; inset:0; z-index:183;
     background:var(--panel-bg);
@@ -9107,6 +9107,7 @@
     { id: 'client-master-screen',    close: () => closeClientMaster() },
     { id: 'product-master-screen',   close: () => closeProductMaster() },
     { id: 'media-list-screen',       close: () => closeMediaList() },
+    { id: 'media-cards-screen', close: () => closeMediaCards() },
     { id: 'simple-ws-list-screen',   close: () => closeSimpleWSList() },
     { id: 'driving-list-screen',     close: () => closeDrivingList() },
     { id: 'doc-list-screen',         close: () => closeDocList() },
@@ -13741,7 +13742,7 @@ ${_body}
     return '';
   }
   function _splitCards(s) { return String(s || '').split(/[,、，\/／\s]+/).map(x => x.trim()).filter(Boolean); }
-  function _mediaBuFlag(v) { const s = String(v || '').trim(); return !!s && !/^(未|×|x|✕|なし|no)/i.test(s); } // 空・未・×以外は「済」（旧記録の BU確認 には日付が入っていることがある）
+  function _mediaBuFlag(v) { const s = String(v || '').trim(); return !!s && !/^(未|×|x|✕|なし|no|-|—|―|ー|0|NG|不要)/i.test(s); } // 空・未・×以外は「済」（旧記録の BU確認 には日付が入っていることがある）
   // 出どころ3つ（通常WS・簡易WS・旧記録）を1本に並べる。使用日の新しい順（同日は更新日時）
   // 1件: { src:'ws'|'sw'|'line'|'old', key, label, date, site, media, updatedAt }
   function _mediaRecords() {
@@ -13888,7 +13889,7 @@ ${_body}
 
   // ---- 🎴 カード一覧（追加・廃棄・復活。名前変更は無し） ----
   function openMediaCards() { renderMediaCards(); document.getElementById('media-cards-screen').style.transform = 'translateX(0)'; }
-  function closeMediaCards() { document.getElementById('media-cards-screen').style.transform = 'translateX(100%)'; renderMediaList(); }
+  function closeMediaCards() { document.getElementById('media-cards-screen').style.transform = 'translateX(100%)'; try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
   function renderMediaCards() {
     const el = document.getElementById('media-cards-list');
     if (!el) return;
@@ -13924,6 +13925,90 @@ ${_body}
     if (!document.getElementById(prefix + '-out-group')) return;
     _renderMediaCardGroup(prefix, 'out',  _getMediaCardSel(prefix, 'out'),  screenId);
     _renderMediaCardGroup(prefix, 'used', _getMediaCardSel(prefix, 'used'), screenId);
+  }
+
+  // ---- 📥 LINE取込：bot のシートを「ファイル → ダウンロード → CSV」したものを media kind に入れる（閲覧用・1回だけ） ----
+  function _parseCsv(text) {
+    const rows = []; let row = [], cell = '', inQ = false;
+    const s = String(text || '').replace(/^﻿/, '');
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inQ) {
+        if (ch === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+        else cell += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && s[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => String(c).trim() !== ''));
+  }
+  // 見出しの候補（bot のシートの列名は順番も表記も揺れる可能性があるので複数）
+  const _MEDIA_CSV_COLS = {
+    date: ['使用日', '日付'],
+    out:  ['持ち出したメディア', '持ち出し', '持出'],
+    used: ['使用メディア', '使用したメディア', '使用'],
+    site: ['現場名', '現場'],
+    bu:   ['バックアップ', 'BU', 'BU確認'],
+    user: ['使用者'],
+    buBy: ['バックアップした人', 'BU担当'],
+    ret:  ['返却者', '返却']
+  };
+  // CSV文字列 → media kind の行（10列に収める。持出とBU担当は備考へ、種別 'LINE' が取込の印）。{ rows, error }
+  function _parseMediaCSV(text) {
+    const rows = _parseCsv(text);
+    if (!rows.length) return { rows: [], error: 'CSVが空です' };
+    const head = rows[0].map(h => String(h || '').trim());
+    const idx = {};
+    Object.keys(_MEDIA_CSV_COLS).forEach(k => { idx[k] = head.findIndex(h => _MEDIA_CSV_COLS[k].includes(h)); });
+    if (idx.date < 0 || idx.site < 0) return { rows: [], error: '見出しに「使用日」と「現場名」が必要です（1行目: ' + head.join(' | ') + '）' };
+    const get = (r, k) => idx[k] >= 0 ? String(r[idx[k]] || '').trim() : '';
+    const out = rows.slice(1).map(r => {
+      const memo = [get(r, 'out') ? '持出: ' + get(r, 'out') : '', get(r, 'buBy') ? 'BU担当: ' + get(r, 'buBy') : ''].filter(Boolean).join('／');
+      return {
+        '使用日': get(r, 'date'), 'メディア種別': 'LINE', '使用カード': get(r, 'used'), '使用者': get(r, 'user'),
+        '現場名': get(r, 'site'), '受注No': '', 'BU確認': _mediaBuFlag(get(r, 'bu')) ? '○' : '', '返却者': get(r, 'ret'), '備考': memo
+      };
+    }).filter(r => r['使用日'] || r['現場名']);
+    return { rows: out, error: '' };
+  }
+  // 既存キャッシュ（と CSV の中）の重複＝使用日＋現場名＋使用者が同じ行を除き、ID（L0001〜）を振る。{ toAdd, dup }
+  function _importMediaCsvRows(rows, existing) {
+    const key = r => [r['使用日'], r['現場名'], r['使用者']].map(v => String(v || '').trim()).join('|');
+    const seen = new Set((existing || []).map(key));
+    let n = parseInt(String(_nextId(existing || [], 'L')).slice(1), 10);
+    const toAdd = []; let dup = 0;
+    rows.forEach(r => {
+      const k = key(r);
+      if (seen.has(k)) { dup++; return; }
+      seen.add(k);
+      toAdd.push(Object.assign({ 'ID': 'L' + String(n++).padStart(4, '0') }, r));
+    });
+    return { toAdd, dup };
+  }
+  async function importMediaCsvFile(file) {
+    if (!file) return;
+    if (!_gasUrlOne()) { alert('同期URLが未設定のため取り込めません（データ管理で合言葉を設定してください）'); return; }
+    let text = '';
+    try { text = await file.text(); } catch (e) { alert('ファイルを読めませんでした'); return; }
+    const parsed = _parseMediaCSV(text);
+    if (parsed.error) { alert('❌ ' + parsed.error); return; }
+    const { toAdd, dup } = _importMediaCsvRows(parsed.rows, getCachedMedia());
+    if (!toAdd.length) { alert('取り込む行がありません（重複 ' + dup + ' 件）'); return; }
+    if (!confirm(toAdd.length + ' 件を取り込みます。よろしいですか？' + (dup ? '\n（重複 ' + dup + ' 件は飛ばします）' : ''))) return;
+    setGasStatus('📤 LINEの記録を送信中…', '#2980b9');
+    try {
+      const stamped = toAdd.map(r => _stampNow(r));
+      const data = await pushKind('media', stamped);
+      if (!data.ok) throw new Error(data.error || '不明なエラー');
+      localStorage.setItem('media_cache', JSON.stringify({ at: Date.now(), rows: getCachedMedia().concat(stamped) }));
+      setGasStatus('✅ LINEの記録 ' + stamped.length + ' 件を取り込みました', '#27ae60');
+      renderMediaList();
+    } catch (err) {
+      setGasStatus('❌ 取り込み失敗：' + err.message, '#c0392b');
+      alert('取り込みに失敗しました: ' + err.message);
+    }
   }
 
   // ===== 簡易ワークシート（単発の機材使用記録・simpleWS kind で同期） =====

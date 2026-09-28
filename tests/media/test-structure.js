@@ -77,5 +77,12 @@ ok(top('_refreshMediaCardButtons') && /_refreshMediaCardButtons\('wsd-media'/.te
 ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ幅のルール3か所に入っている');
 ok(/は貸出中です（返却が記録されていません）/.test(S.grabFunction(src, 'toggleMediaCardRetired')), '貸出中の廃棄は確認文にその旨を出す');
 ok((src.match(/_rerenderIfOpen\('media-list-screen', renderMediaList\)/g) || []).length >= 6, '保存後・同期後にメディア一覧を描き直す（media/order/child/simpleWS の redraw と saveWS/saveSimpleWS）');
+ok(/id: 'media-cards-screen', close: \(\) => closeMediaCards\(\)/.test(src), 'カード一覧はナビタブで閉じる（_NAV_LIST_PANELS）');
+
+console.log('\n=== Task 8: LINE取込 ===');
+ok(/id="media-csv-file"/.test(src) && /importMediaCsvFile\(this\.files/.test(src), 'ファイル選択がある');
+ok(/async function importMediaCsvFile/.test(src), '取込関数がある');
+const imp = S.grabFunction(src, 'importMediaCsvFile');
+ok(/confirm\(/.test(imp) && /pushKind\('media'/.test(imp) && /media_cache/.test(imp), '確認→送信→キャッシュ反映');
 
 ok.done();

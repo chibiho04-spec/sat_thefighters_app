@@ -11,6 +11,7 @@ console.log('\n=== 分割・BU判定 ===');
 ok(_splitCards('CF160_1, CF160_2、CF160_3／CF256_1').join('|') === 'CF160_1|CF160_2|CF160_3|CF256_1', '区切りは , 、 ／ / 空白');
 ok(_mediaBuFlag('○') && _mediaBuFlag('済') && _mediaBuFlag('OK') && !_mediaBuFlag('') && !_mediaBuFlag('未') && !_mediaBuFlag('×'), 'BU の印');
 ok(_mediaBuFlag('2026/05/21') && _mediaBuFlag('○ 完了') && !_mediaBuFlag('なし') && !_mediaBuFlag('x'), '日付や「○ 完了」も済、なし/x は未');
+ok(!_mediaBuFlag('-') && !_mediaBuFlag('—') && !_mediaBuFlag('0') && !_mediaBuFlag('NG') && !_mediaBuFlag('不要'), '記号・NG・不要も未');
 
 console.log('\n=== 集計 ===');
 global.localStorage = S.fakeStorage({
