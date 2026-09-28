@@ -38,10 +38,10 @@ function buildFormEls(prefix, screenId) {
 global.document = { getElementById: id => els[id] || null, querySelectorAll: () => [] };
 global.localStorage = S.fakeStorage();
 const ids = buildFormEls('wsd-media', 'ws-detail-screen');
-ok(['date','out-group','used-group','user-group','user','bu-group','buby-group','buby','return-group','return','memo'].every(s => ids.includes('wsd-media-' + s)), 'HTML に必要な id が全部ある: ' + ids.join(','));
+ok(['out-group','used-group','user-group','user','bu-group','buby-group','buby','return-group','return','memo'].every(s => ids.includes('wsd-media-' + s)), 'HTML に必要な id が全部ある: ' + ids.join(','));
 
 console.log('=== 流し込み → 回収 ===');
-const src = { date: '2026/08/17', out: ['CF160_1', 'CF160_2'], used: ['CF160_1'], user: '城間', bu: true, buBy: '平岡', returnBy: '城間', memo: '約80GB' };
+const src = { out: ['CF160_1', 'CF160_2'], used: ['CF160_1'], user: '城間', bu: true, buBy: '平岡', returnBy: '城間', memo: '約80GB' };
 _renderMediaForm('wsd-media', src, 'ws-detail-screen');
 ok(els['wsd-media-body'].dataset.built === 'ws-detail-screen' && /wsd-media-out-group/.test(els['wsd-media-body'].innerHTML), 'body に記入欄の HTML が入る');
 ok(els['wsd-media-out-group']._children.filter(b => b._cls.has('selected')).map(b => b.dataset.card).join(',') === 'CF160_1,CF160_2', '持ち出しの選択が付く');
@@ -51,6 +51,7 @@ ok(els['wsd-media-user'].value === '城間' && els['wsd-media-user-group']._chil
 ok(_getMediaBu('wsd-media') === true, 'BU ○ が選ばれている');
 const back = _collectMediaForm('wsd-media');
 ok(JSON.stringify(back) === JSON.stringify(_normalizeMedia(src)), '回収した値が元と同じ: ' + JSON.stringify(back));
+ok(_collectMediaForm('wsd-media').date === '' , '使用日は持たない（日程と同じ）');
 
 console.log('\n=== ボタン操作 ===');
 _toggleMediaCard(els['wsd-media-out-group']._children[2], 'wsd-media', 'ws-detail-screen'); // CF160_3 を追加

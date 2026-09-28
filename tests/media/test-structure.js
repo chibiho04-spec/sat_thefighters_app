@@ -10,7 +10,7 @@ console.log('=== Task 2: 記入欄の共通部品 ===');
  '_getMediaBu', '_renderMediaForm', '_collectMediaForm'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
 const rows = S.grabFunction(src, '_mediaFormRowsHtml');
 // 名前の3欄（user/buby/return）は nameRow で `${prefix}-${which}` として作られる
-['-date"', '-out-group"', '-used-group"', '-bu-group"', '-memo"', '-${which}-group"', '-${which}"'].forEach(id =>
+['-out-group"', '-used-group"', '-bu-group"', '-memo"', '-${which}-group"', '-${which}"'].forEach(id =>
   ok(rows.indexOf('${prefix}' + id) >= 0, '記入欄に ' + id + ' がある'));
 ["'user'", "'buby'", "'return'"].forEach(w => ok(rows.indexOf(w) >= 0, 'nameRow を ' + w + ' で呼んでいる'));
 ok(/持ち出しと同じ/.test(rows), '「持ち出しと同じ」ボタンがある');
@@ -21,7 +21,8 @@ ok(/if \(!body \|\| !body\.dataset\.built\) return null;/.test(S.grabFunction(sr
 console.log('\n=== Task 3: ワークシート記入画面 ===');
 ok(!/id="wsd-media"/.test(src), '旧「メディア使用記録」textarea（#wsd-media）が無い');
 ok(/id="wsd-media-toggle"/.test(src) && /id="wsd-media-body"/.test(src) && /id="wsd-media-count"/.test(src), '折りたたみバーと本体がある');
-ok(src.indexOf('id="wsd-equip-checklist"') < src.indexOf('id="wsd-media-toggle"') && src.indexOf('id="wsd-media-body"') < src.indexOf('👤 私物機材'), '機材リストの後・私物機材の前にある');
+ok(src.indexOf('id="wsd-vehicle-extra"') < src.indexOf('id="wsd-media-toggle"') && src.indexOf('id="wsd-media-body"') < src.indexOf('セクション3: 作業後記入'), '使用車両の後・作業後記入の前にある（2026-09-29 本人決定）');
+ok(!/\$\{prefix\}-date/.test(S.grabFunction(src, '_mediaFormRowsHtml')) && /date: ''/.test(S.grabFunction(src, '_collectMediaForm')), '使用日の欄は無い（日程と同じ）');
 ['_setWsdMediaOpen', 'toggleWsdMedia', '_updateWsdMediaCount', '_wsEquipCats'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
 const saveWS = S.grabFunction(src, 'saveWS');
 ok(/const m = _collectMediaForm\('wsd-media'\)/.test(saveWS) && /if \(m\) \{ data\.media = m; data\['wsd-media'\] = ''; \}/.test(saveWS), 'saveWS は記入欄が描けているときだけ media を保存し旧欄を空にする');

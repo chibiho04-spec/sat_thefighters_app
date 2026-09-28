@@ -6945,14 +6945,6 @@
         <!-- JSで動的生成 -->
       </div>
 
-      <!-- 💾 メディア（カード）使用記録（2026-09-28）。機材リストと同じ折りたたみ。中身は _mediaFormRowsHtml で生成 -->
-      <div id="wsd-media-toggle" onclick="toggleWsdMedia()" role="button" tabindex="0"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdMedia();}"
-        style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 8px 0;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
-        <span style="min-width:0;">💾 メディア<span id="wsd-media-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
-        <span id="wsd-media-caret" style="font-size:12px;flex-shrink:0;">▼</span>
-      </div>
-      <div id="wsd-media-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;"></div>
 
       <div class="wsd-field-group">
         <div class="wsd-field-row">
@@ -6985,6 +6977,15 @@
           <input id="wsd-vehicle-extra" class="wsd-input" type="text" autocomplete="off" placeholder="その他の車両（自由記入）" style="margin-top:4px;">
         </div>
       </div>
+
+      <!-- 💾 メディア（カード）使用記録（2026-09-28）。使用車両の下・機材リストと同じ折りたたみ（本人決定 2026-09-29）。中身は _mediaFormRowsHtml で生成 -->
+      <div id="wsd-media-toggle" onclick="toggleWsdMedia()" role="button" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleWsdMedia();}"
+        style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 8px 0;padding:10px 12px;background:#eaf5ee;border:2px solid #27ae60;border-radius:4px;cursor:pointer;font-family:'DotGothic16',monospace;font-size:13px;color:#1a7a40;font-weight:bold;">
+        <span style="min-width:0;">💾 メディア<span id="wsd-media-count" style="color:#7f8c8d;font-size:11px;font-weight:normal;margin-left:8px;white-space:nowrap;"></span></span>
+        <span id="wsd-media-caret" style="font-size:12px;flex-shrink:0;">▼</span>
+      </div>
+      <div id="wsd-media-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;"></div>
 
       <!-- ===== セクション3: 作業後記入 ===== -->
       <div class="wsd-section-head wsd-sec-orange">📤 作業後記入・終了報告</div>
@@ -13595,10 +13596,6 @@ ${_body}
         </div>`;
     return `
         <div class="wsd-field-row">
-          <label class="wsd-label">📅 使用日</label>
-          <input id="${prefix}-date" class="wsd-input" type="text" autocomplete="off" placeholder="空なら日程と同じ（例: 2026/08/17, 08/18）">
-        </div>
-        <div class="wsd-field-row">
           <label class="wsd-label">📤 持ち出したカード</label>
           <div class="np-btn-group" id="${prefix}-out-group" style="margin-top:3px;"></div>
         </div>
@@ -13711,7 +13708,6 @@ ${_body}
     const body = document.getElementById(prefix + '-body');
     if (body && body.dataset.built !== screenId) { body.innerHTML = _mediaFormRowsHtml(prefix, screenId); body.dataset.built = screenId; }
     const m = _normalizeMedia(media);
-    const d = document.getElementById(prefix + '-date'); if (d) d.value = m.date;
     _renderMediaCardGroup(prefix, 'out',  m.out,  screenId);
     _renderMediaCardGroup(prefix, 'used', m.used, screenId);
     _renderMediaNameGroup(prefix, 'user',   m.user,     screenId);
@@ -13727,7 +13723,8 @@ ${_body}
     if (!body || !body.dataset.built) return null;
     const v = id => { const el = document.getElementById(prefix + '-' + id); return el ? String(el.value || '').trim() : ''; };
     return _normalizeMedia({
-      date: v('date'), out: _getMediaCardSel(prefix, 'out'), used: _getMediaCardSel(prefix, 'used'),
+      date: '', // 使用日は持たない＝ワークシートの日程（簡易は日付）と同じ（本人決定 2026-09-29）。一覧は date が空なら日程を使う
+      out: _getMediaCardSel(prefix, 'out'), used: _getMediaCardSel(prefix, 'used'),
       user: v('user'), bu: _getMediaBu(prefix), buBy: v('buby'), returnBy: v('return'), memo: v('memo')
     });
   }
