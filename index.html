@@ -2353,7 +2353,7 @@
     #product-master-screen,
     #new-product-screen,
     #media-list-screen,
-    #new-media-screen,
+    #media-cards-screen,
     #simple-ws-list-screen,
     #new-simple-ws-screen,
     #driving-list-screen,
@@ -2427,7 +2427,7 @@
     #product-master-screen,
     #new-product-screen,
     #media-list-screen,
-    #new-media-screen,
+    #media-cards-screen,
     #simple-ws-list-screen,
     #new-simple-ws-screen,
     #driving-list-screen,
@@ -3094,7 +3094,7 @@
   #product-master-screen,
   #new-product-screen,
   #media-list-screen,
-  #new-media-screen,
+  #media-cards-screen,
   #simple-ws-list-screen,
   #new-simple-ws-screen,
   #driving-list-screen,
@@ -4401,7 +4401,7 @@
           </button>
           <button onclick="openMediaList()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#16a085 0%,#117a65 100%);border:3px solid #0b5345;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #0b5345;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #0b5345;letter-spacing:2px;">
             <span style="font-size:32px;line-height:1;">💾</span>
-            <span style="flex:1;">メディア管理<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">SD/CFexpress 等の使用記録</div></span>
+            <span style="flex:1;">メディア管理<div style="font-size:11px;opacity:0.85;margin-top:3px;letter-spacing:1px;">カードの持ち出し・BU・返却の一覧</div></span>
             <span style="font-size:23px;">▶</span>
           </button>
           <button onclick="openDrivingList()" style="font-family:'DotGothic16',monospace;font-size:16px;background:linear-gradient(180deg,#34495e 0%,#2c3e50 100%);border:3px solid #1a252f;color:white;padding:18px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #1a252f;text-align:left;display:flex;align-items:center;gap:14px;text-shadow:1px 1px 0 #1a252f;letter-spacing:2px;">
@@ -5884,96 +5884,63 @@
     </div>
   </div><!-- /new-product-screen -->
 
-  <!-- ========== メディア管理画面 ========== -->
+  <!-- ========== メディア管理画面（2026-09-28 作り直し）==========
+       記録の入口はワークシート（通常・簡易）の「💾 メディア」欄。ここは一覧とカードの現在地。
+       単独の「新規メディア記録」画面は廃止（設計書 §5）。旧記録（M/L）は閲覧のみ -->
   <div id="media-list-screen" style="
     position:absolute; inset:0; z-index:173;
     background:var(--panel-bg);
     transform:translateX(100%);
     transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
     display:flex; flex-direction:column; overflow:hidden;">
-    <div style="display:flex;align-items:center;gap:10px;background:#16a085;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #0b5345;">
+    <div style="display:flex;align-items:center;gap:6px;background:#16a085;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #0b5345;flex-wrap:wrap;">
       <button class="wsd-back" onclick="closeMediaList()">◀ 戻る</button>
-      <div class="wsd-header-info" style="flex:1;">
+      <div class="wsd-header-info" style="flex:1;min-width:120px;">
         <div class="wsd-header-num" style="color:#d1f2eb;">💾 メディア管理</div>
         <div class="wsd-header-title" id="media-count-label">使用記録</div>
       </div>
-      <button onclick="fetchMediaList(true); setTimeout(renderMediaList, 800);"
-        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 更新</button>
-      <a href="https://docs.google.com/spreadsheets/d/1-4JZsI7Hq21cBYh9EUDX-CGErm5ba5Lj6gj86IQiWnE/edit#gid=1323418612" target="_blank"
-        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;text-decoration:none;"
-        title="スプレッドシートを開く">📊 スプレッドシート</a>
+      <button id="media-refresh-btn" onclick="refreshMediaPage()"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 更新</button>
+      <button onclick="openMediaCards()" title="カードの追加・廃棄（全端末で共有）"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">🎴 カード一覧</button>
+      <button onclick="document.getElementById('media-csv-file').click()" title="LINE bot のシートを CSV にしたものを取り込む"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 LINE取込</button>
+      <input id="media-csv-file" type="file" accept=".csv,text/csv" style="display:none;" onchange="importMediaCsvFile(this.files && this.files[0]); this.value='';">
+      <a href="https://docs.google.com/spreadsheets/d/1-4JZsI7Hq21cBYh9EUDX-CGErm5ba5Lj6gj86IQiWnE/edit#gid=1323418612" target="_blank" title="スプレッドシートを開く"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;text-decoration:none;">📊</a>
     </div>
-    <div style="padding:10px 12px;background:#e8f8f4;border-bottom:2px solid #a3e4d7;flex-shrink:0;">
-      <input id="media-search" type="text" class="wsd-input" placeholder="🔍 メディア種別・現場・使用者で検索..." oninput="renderMediaList()" style="width:100%;font-size:14px;padding:8px;">
+    <div style="padding:8px 12px;background:#e8f8f4;border-bottom:2px solid #a3e4d7;flex-shrink:0;">
+      <div id="media-cards-status" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+      <div class="np-btn-group" id="media-filter-chips" style="margin-bottom:6px;">
+        <button type="button" class="np-select-btn selected" data-f="all" onclick="setMediaFilter('all')">すべて</button>
+        <button type="button" class="np-select-btn" data-f="bu" onclick="setMediaFilter('bu')">🟡 BU未</button>
+        <button type="button" class="np-select-btn" data-f="return" onclick="setMediaFilter('return')">🔴 返却未</button>
+        <button type="button" class="np-select-btn" data-f="line" onclick="setMediaFilter('line')">LINE</button>
+      </div>
+      <input id="media-search" type="text" class="wsd-input" placeholder="🔍 現場・使用者・カード名で検索..." oninput="renderMediaList()" style="width:100%;font-size:14px;padding:8px;">
     </div>
     <div id="media-items" class="wsd-scroll" style="padding:6px 8px;"></div>
-    <button onclick="openNewMedia()" title="メディア使用を新規記録"
-      style="position:absolute;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;background:#27ae60;color:white;border:3px solid #1a7a40;font-size:28px;cursor:pointer;box-shadow:3px 4px 0 #1a7a40;font-family:'DotGothic16',monospace;line-height:1;">＋</button>
   </div>
 
-  <!-- メディア新規記録画面 -->
-  <div id="new-media-screen" style="
+  <!-- 🎴 カード一覧（Task 7 で中身を作る） -->
+  <div id="media-cards-screen" style="
     position:absolute; inset:0; z-index:183;
     background:var(--panel-bg);
     transform:translateX(100%);
     transition:transform 0.28s cubic-bezier(.4,0,0.2,1);
     display:flex; flex-direction:column; overflow:hidden;">
     <div style="display:flex;align-items:center;gap:10px;background:#27ae60;padding:10px 12px;flex-shrink:0;border-bottom:3px solid #1a7a40;">
-      <button class="wsd-back" onclick="closeNewMedia()">◀ 戻る</button>
-      <div class="wsd-header-info">
-        <div class="wsd-header-num" id="nm-title-num" style="color:#a8f0c0;">新規メディア記録</div>
-        <div class="wsd-header-title" id="nm-title-sub">メディア使用を1件追加</div>
+      <button class="wsd-back" onclick="closeMediaCards()">◀ 戻る</button>
+      <div class="wsd-header-info" style="flex:1;">
+        <div class="wsd-header-num" style="color:#a8f0c0;">🎴 カード一覧</div>
+        <div class="wsd-header-title" id="media-cards-sub">全端末で共有</div>
       </div>
+      <button onclick="addMediaCardFromList()"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">＋ 追加</button>
     </div>
-    <div class="wsd-scroll" style="padding:0 0 20px;">
-      <div class="wsd-section-head" style="background:#16a085;text-shadow:1px 1px 0 #0b5345;">💾 基本情報</div>
-      <div class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;">
-        <div class="wsd-field-row" style="flex-direction:row;align-items:center;gap:10px;">
-          <label class="wsd-label" style="white-space:nowrap;">ID</label>
-          <span id="nm-id-preview" style="font-family:'DotGothic16',monospace;font-size:17px;color:#16a085;font-weight:bold;">M????</span>
-          <span style="font-size:11px;color:#888;">自動採番</span>
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">📅 使用日（必須）</label>
-          <input id="nm-date" class="wsd-input" type="text" placeholder="2026/05/20">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">💾 メディア種別</label>
-          <input id="nm-type" class="wsd-input" type="text" placeholder="CFexpress Type A / SDカード 等">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">🎴 使用カード</label>
-          <input id="nm-cards" class="wsd-input" type="text" placeholder="例: No.1=R-1, No.2=R-2">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">👤 使用者</label>
-          <input id="nm-user" class="wsd-input" type="text" placeholder="例: 城間">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">🎬 現場名</label>
-          <input id="nm-site" class="wsd-input" type="text" placeholder="例: ファミマ撮影">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">🔗 受注No（任意）</label>
-          <input id="nm-orderno" class="wsd-input" type="text" placeholder="T26050 等">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">✅ BU確認</label>
-          <input id="nm-bu" class="wsd-input" type="text" placeholder="2026/05/21">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">↩ 返却者</label>
-          <input id="nm-return" class="wsd-input" type="text" placeholder="例: 玻座真">
-        </div>
-        <div class="wsd-field-row">
-          <label class="wsd-label">📝 備考</label>
-          <textarea id="nm-memo" class="wsd-textarea" rows="2"></textarea>
-        </div>
-      </div>
-      <div id="nm-status" style="margin:10px 14px;font-size:12px;color:#666;min-height:14px;"></div>
-      <div style="padding:12px 14px 8px;">
-        <button id="nm-save-btn" class="wsd-save-btn" style="width:100%;background:#27ae60;border-color:#1a7a40;box-shadow:4px 4px 0 #1a7a40;" onclick="saveNewMedia()">💾 記録を保存</button>
-      </div>
+    <div class="wsd-scroll" style="padding:8px;">
+      <div style="font-size:11px;color:#888;padding:4px 6px 8px;line-height:1.6;">名前の変更はできません（過去の記録に当時の名前で残るため）。変えたいときは「廃棄」して新しい名前で追加してください。廃棄したカードは選択ボタンに出なくなります。</div>
+      <div id="media-cards-list"></div>
     </div>
   </div>
 
@@ -9155,7 +9122,6 @@
     { id: 'new-project-screen',close: () => closeNewProject(), save: () => registerNewProject(),  label: '新規案件' },
     { id: 'new-client-screen', close: () => closeNewClient(),  save: () => registerNewClient(),   label: '新規取引先' },
     { id: 'new-product-screen',close: () => closeNewProduct(), save: () => registerNewProduct(),  label: '新規商品' },
-    { id: 'new-media-screen',  close: () => closeNewMedia(),   save: () => saveNewMedia(),        label: '新規メディア記録' },
     { id: 'new-simple-ws-screen', close: () => closeNewSimpleWS(), save: () => saveSimpleWS(),     label: '簡易ワークシート' },
     { id: 'new-driving-screen',close: () => closeNewDriving(), save: () => saveNewDriving(),      label: '新規運転記録' },
   ];
@@ -13506,20 +13472,6 @@ ${_body}
   }
 
   // ===== メディア管理 =====
-  async function fetchMediaList(showStatus) {
-    if (!_gasUrlOne()) { if (showStatus) setGasStatus('同期URLが未設定です', '#c0392b'); return []; }
-    if (showStatus) setGasStatus('📥 メディアを取り込み中...', '#2980b9');
-    try {
-      await pullKind('media');
-      const rows = getCachedMedia();
-      if (showStatus) setGasStatus('✅ メディア' + rows.length + ' 件を読み込み', '#27ae60');
-      return rows;
-    } catch (err) {
-      console.warn('fetchMediaList failed', err);
-      if (showStatus) setGasStatus('❌ メディア取得失敗：' + err.message, '#c0392b');
-      return [];
-    }
-  }
   function getCachedMedia() { return _getCached('media_cache'); }
 
   // ===== メディア（カード）使用記録（2026-09-28）=====
@@ -13773,56 +13725,144 @@ ${_body}
     });
   }
 
+  // ---- 管理室：一覧とカードの現在地 ----
+  function _mediaDateKey(s) {
+    const t = String(s || '').trim();
+    let m = t.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    m = t.match(/(\d{1,2})[\/\-.](\d{1,2})/);
+    if (m) return new Date().getFullYear() + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
+    return '';
+  }
+  function _splitCards(s) { return String(s || '').split(/[,、，\/／\s]+/).map(x => x.trim()).filter(Boolean); }
+  function _mediaBuFlag(v) { return /^(○|〇|⚪|OK|ok|済|完了)/.test(String(v || '').trim()); }
+  // 出どころ3つ（通常WS・簡易WS・旧記録）を1本に並べる。使用日の新しい順（同日は更新日時）
+  // 1件: { src:'ws'|'sw'|'line'|'old', key, label, date, site, media, updatedAt }
+  function _mediaRecords() {
+    const out = [];
+    const deleted = new Set(getDeletedWS());
+    const projects = getSavedProjects();
+    const numSet = new Set(projects.map(p => String(p.num)));
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('ws_')) numSet.add(k.substring(3)); }
+    numSet.forEach(num => {
+      if (deleted.has(num)) return;
+      const s = loadWS(num);
+      const m = _normalizeMedia(s.media);
+      if (!_mediaHasRecord(m)) return;
+      const p = projects.find(pp => String(pp.num) === num) || {};
+      out.push({ src: 'ws', key: num, label: num, date: m.date || s['wsd-shootdate'] || p.date || '',
+                 site: s['edit_title'] || p.title || '', media: m, updatedAt: String(s._updatedAt || '') });
+    });
+    loadSimpleWS().forEach(r => {
+      if (!r || !r.id) return;
+      const m = _normalizeMedia(r.media);
+      if (!_mediaHasRecord(m)) return;
+      out.push({ src: 'sw', key: String(r.id), label: '簡易', date: m.date || r.date || '',
+                 site: r.title || r.content || '簡易ワークシート', media: m, updatedAt: String(r._updatedAt || r.updatedAt || '') });
+    });
+    getCachedMedia().forEach(r => {
+      const isLine = String(r['メディア種別'] || '') === 'LINE';
+      const memo = String(r['備考'] || '');
+      const outM = isLine ? _splitCards((memo.match(/持出:\s*([^／\n]*)/) || [])[1]) : [];
+      const buBy = isLine ? String((memo.match(/BU担当:\s*([^／\n]*)/) || [])[1] || '').trim() : '';
+      out.push({ src: isLine ? 'line' : 'old', key: String(r['ID'] || ''), label: isLine ? 'LINE' : '旧',
+                 date: String(r['使用日'] || ''), site: String(r['現場名'] || ''),
+                 media: _normalizeMedia({ date: r['使用日'], out: outM, used: _splitCards(r['使用カード']), user: r['使用者'],
+                                          bu: _mediaBuFlag(r['BU確認']), buBy, returnBy: r['返却者'], memo: isLine ? '' : memo }),
+                 updatedAt: String(r['更新日時'] || r._updatedAt || '') });
+    });
+    out.sort((a, b) => _mediaDateKey(b.date).localeCompare(_mediaDateKey(a.date)) || b.updatedAt.localeCompare(a.updatedAt));
+    return out;
+  }
+  // 各カードの現在地。records は _mediaRecords()（新しい順）。旧記録（LINE・旧アプリ）はカード名が揃っていないので使わない
+  // state: 'out'（貸出中）| 'bu'（返却済だがBU未）| 'ok'（返却済）| 'none'（記録なし）
+  function _mediaCardStatus(records, cards) {
+    return cards.map(c => {
+      const r = records.find(x => (x.src === 'ws' || x.src === 'sw') && x.media.out.includes(c.id));
+      if (!r) return { id: c.id, type: c.type || '', state: 'none', rec: null };
+      const m = r.media;
+      const state = !m.returnBy ? 'out' : (m.used.includes(c.id) && !m.bu) ? 'bu' : 'ok';
+      return { id: c.id, type: c.type || '', state, rec: r };
+    });
+  }
+  let _mediaFilter = 'all';
+  function setMediaFilter(f) { _mediaFilter = f; renderMediaList(); }
   function openMediaList() {
     const s = document.getElementById('media-search');
     if (s) s.value = '';
+    _mediaFilter = 'all';
     renderMediaList();
     document.getElementById('media-list-screen').style.transform = 'translateX(0)';
   }
   function closeMediaList() {
     document.getElementById('media-list-screen').style.transform = 'translateX(100%)';
   }
-
+  // 🔄 更新：記録が入っている4種類を取り込む。押した瞬間「取得中…」、終わったら（失敗でも）戻す
+  async function refreshMediaPage() {
+    const btn = document.getElementById('media-refresh-btn');
+    if (btn && btn.disabled) return;
+    _setBtnBusy(btn, true, '🔄 取得中…');
+    try {
+      if (!_gasUrlOne()) { setGasStatus('同期URLが未設定です', '#c0392b'); return; }
+      for (const k of ['order', 'child', 'simpleWS', 'media']) { try { await pullKind(k); } catch (e) { console.warn('media refresh', k, e); } }
+      setGasStatus('✅ メディアの記録を読み込みました', '#27ae60');
+    } finally {
+      _setBtnBusy(btn, false);
+      renderMediaList();
+    }
+  }
   function renderMediaList() {
     const list = document.getElementById('media-items');
-    const search = document.getElementById('media-search');
     if (!list) return;
-    const q = _normalizeForSearch(search?.value || '');
-    const all = getCachedMedia();
-    const filtered = q ? all.filter(r => {
-      const hay = _normalizeForSearch([
-        r['使用日'], r['使用メディア'], r['持ち出したメディア'],
-        r['使用者'], r['現場名'], r['返却者'], r['バックアップした人']
-      ].join(' '));
-      return hay.indexOf(q) >= 0;
-    }) : all;
-    document.getElementById('media-count-label').textContent = `使用記録 ${filtered.length} / ${all.length} 件`;
-    if (!filtered.length) {
-      list.innerHTML = '<div style="padding:30px 14px;text-align:center;color:#888;font-size:13px;">記録がありません<br>（メディアURLを保存しましたか？）</div>';
+    const q = _normalizeForSearch(document.getElementById('media-search')?.value || '');
+    const all = _mediaRecords();
+    // 上段：カードの現在地
+    const st = document.getElementById('media-cards-status');
+    if (st) {
+      const STATE = { out: ['🔴 貸出中', '#c0392b', '#fdecea'], bu: ['🟡 BU未', '#d68910', '#fef5e7'], ok: ['🟢 返却済', '#1e8449', '#eafaf1'], none: ['⚪ 記録なし', '#7f8c8d', '#f4f6f6'] };
+      st.innerHTML = _mediaCardStatus(all, getMediaCards().filter(c => !c.retired)).map(s => {
+        const [lbl, col, bg] = STATE[s.state];
+        const sub = !s.rec ? '' : (s.state === 'out' ? [s.rec.media.user, s.rec.site, s.rec.date] : [s.rec.site, s.rec.date]).filter(Boolean).join('・');
+        return `<div style="flex:1 1 140px;min-width:0;background:${bg};border:2px solid ${col};border-radius:4px;padding:6px 8px;">
+          <div style="font-weight:bold;color:${col};font-size:13px;">${escapeHtml(s.id)}</div>
+          <div style="font-size:11px;color:${col};">${lbl}</div>
+          ${sub ? `<div style="font-size:10px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(sub)}</div>` : ''}
+        </div>`;
+      }).join('') || '<div style="font-size:12px;color:#888;">カードが登録されていません（🎴 カード一覧から追加）</div>';
+    }
+    // 絞り込み・検索
+    let rows = all;
+    if (_mediaFilter === 'bu')     rows = rows.filter(r => r.media.used.length && !r.media.bu);
+    if (_mediaFilter === 'return') rows = rows.filter(r => r.media.out.length && !r.media.returnBy);
+    if (_mediaFilter === 'line')   rows = rows.filter(r => r.src === 'line');
+    if (q) rows = rows.filter(r => _normalizeForSearch([r.date, r.site, r.label, r.media.out.join(' '), r.media.used.join(' '),
+      r.media.user, r.media.buBy, r.media.returnBy, r.media.memo].join(' ')).indexOf(q) >= 0);
+    document.querySelectorAll('#media-filter-chips .np-select-btn').forEach(b => b.classList.toggle('selected', b.dataset.f === _mediaFilter));
+    const cnt = document.getElementById('media-count-label');
+    if (cnt) cnt.textContent = `使用記録 ${rows.length} / ${all.length} 件`;
+    if (!rows.length) {
+      list.innerHTML = '<div style="padding:30px 14px;text-align:center;color:#888;font-size:13px;">記録がありません<br>ワークシートの「💾 メディア」欄から記録できます</div>';
       return;
     }
-    list.innerHTML = filtered.slice(0, 500).map((r, i) => {
-      const bu = String(r['バックアップ'] || '').trim();
-      const buOk = bu === '⚪︎' || bu === '○' || bu === '〇' || bu === 'OK' || bu === 'ok';
-      return `
-      <div data-i="${i}"
-        style="background:white;border:2px solid #d1f2eb;border-left:4px solid #16a085;border-radius:3px;padding:8px 10px;margin-bottom:5px;box-shadow:2px 2px 0 #d1f2eb;">
+    const COLOR = { ws: '#8e44ad', sw: '#16a085', line: '#7f8c8d', old: '#95a5a6' };
+    list.innerHTML = rows.slice(0, 500).map(r => {
+      const m = r.media;
+      const onclick = r.src === 'ws' ? `onclick="closeMediaList(); openWS('${escapeHtml(r.key)}')"`
+                    : r.src === 'sw' ? `onclick="openEditSimpleWS('${escapeHtml(r.key)}')"` : '';
+      return `<div ${onclick} style="background:white;border:2px solid #d1f2eb;border-left:4px solid #16a085;border-radius:3px;padding:8px 10px;margin-bottom:5px;box-shadow:2px 2px 0 #d1f2eb;${onclick ? 'cursor:pointer;' : 'opacity:.85;'}">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div style="font-weight:bold;color:#117a65;font-size:14px;flex:1;min-width:0;">${escapeHtml(r['現場名'] || '(現場名なし)')}</div>
-          ${buOk ? `<span style="font-size:11px;color:white;background:#27ae60;padding:2px 6px;border-radius:8px;white-space:nowrap;">✅ BU済</span>` : ''}
+          <div style="font-weight:bold;color:#117a65;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.site || '(現場名なし)')}</div>
+          <span style="font-size:10px;color:white;background:${COLOR[r.src]};padding:1px 6px;border-radius:8px;white-space:nowrap;">${escapeHtml(r.label)}</span>
         </div>
-        <div style="font-size:11px;color:#666;margin-top:3px;">
-          ${r['使用日'] ? '📅 ' + escapeHtml(r['使用日']) + '　' : ''}${r['使用者'] ? '👤 ' + escapeHtml(r['使用者']) : ''}
-        </div>
-        ${r['使用メディア'] ? `<div style="font-size:11px;color:#555;margin-top:2px;">🎴 使用: ${escapeHtml(r['使用メディア'])}</div>` : ''}
-        ${r['持ち出したメディア'] ? `<div style="font-size:11px;color:#888;margin-top:1px;">📦 持出: ${escapeHtml(r['持ち出したメディア'])}</div>` : ''}
-        ${r['バックアップした人'] ? `<div style="font-size:11px;color:#888;margin-top:1px;">💾 BU担当: ${escapeHtml(r['バックアップした人'])}</div>` : ''}
-        ${r['返却者'] ? `<div style="font-size:11px;color:#888;margin-top:1px;">↩ 返却: ${escapeHtml(r['返却者'])}</div>` : ''}
+        <div style="font-size:11px;color:#666;margin-top:3px;">📅 ${escapeHtml(r.date || '―')}　👤 ${escapeHtml(m.user || '―')}　${_mediaStatusBadges(m)}</div>
+        ${m.out.length ? `<div style="font-size:11px;color:#555;margin-top:2px;">📤 持出: ${escapeHtml(m.out.join(', '))}</div>` : ''}
+        ${m.used.length ? `<div style="font-size:11px;color:#555;margin-top:1px;">💾 使用: ${escapeHtml(m.used.join(', '))}</div>` : ''}
+        <div style="font-size:11px;color:#888;margin-top:1px;">💿 BU: ${m.bu ? '○ ' + escapeHtml(m.buBy || '') : '未'}　🔁 返却: ${m.returnBy ? escapeHtml(m.returnBy) : '未'}</div>
+        ${m.memo ? `<div style="font-size:11px;color:#888;margin-top:1px;">📝 ${escapeHtml(m.memo)}</div>` : ''}
       </div>`;
     }).join('');
-    list.dataset.filteredJson = JSON.stringify(filtered);
   }
-
+  // 旧記録の ID 採番（LINE 取込 L0001〜 で使う。M 形式の旧記録と同じ関数）
   function _nextId(cached, prefix) {
     const re = new RegExp('^' + prefix + '(\\d+)$');
     const nums = cached.map(c => String(c['ID']||'').trim())
@@ -13830,72 +13870,6 @@ ${_body}
       .filter(n => !isNaN(n));
     const max = nums.length ? Math.max(...nums) : 0;
     return prefix + String(max + 1).padStart(4, '0');
-  }
-
-  let _nmEditMode = false;
-  let _nmEditOriginalId = '';
-
-  function openNewMedia() {
-    _nmEditMode = false;
-    _nmEditOriginalId = '';
-    ['nm-date','nm-type','nm-cards','nm-user','nm-site','nm-orderno','nm-bu','nm-return','nm-memo']
-      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    document.getElementById('nm-id-preview').textContent = _nextId(getCachedMedia(), 'M');
-    document.getElementById('nm-title-num').textContent = '新規メディア記録';
-    document.getElementById('nm-title-sub').textContent = 'メディア使用を1件追加';
-    document.getElementById('nm-save-btn').textContent  = '💾 記録を保存';
-    document.getElementById('nm-status').textContent    = '';
-    document.getElementById('new-media-screen').style.transform = 'translateX(0)';
-  }
-  function closeNewMedia() {
-    document.getElementById('new-media-screen').style.transform = 'translateX(100%)';
-  }
-
-  async function saveNewMedia() {
-    const url = _gasUrlOne();
-    const status = document.getElementById('nm-status');
-    const btn    = document.getElementById('nm-save-btn');
-    if (!url) { status.style.color = '#c0392b'; status.textContent = '❌ 同期URLが未設定です'; return; }
-    const date = document.getElementById('nm-date').value.trim();
-    if (!date) { status.style.color = '#c0392b'; status.textContent = '❌ 使用日は必須です'; return; }
-    const targetId = _nmEditMode ? _nmEditOriginalId : _nextId(getCachedMedia(), 'M');
-    const row = {
-      'ID': targetId,
-      '使用日':      date,
-      'メディア種別': document.getElementById('nm-type').value.trim(),
-      '使用カード':   document.getElementById('nm-cards').value.trim(),
-      '使用者':       document.getElementById('nm-user').value.trim(),
-      '現場名':       document.getElementById('nm-site').value.trim(),
-      '受注No':       document.getElementById('nm-orderno').value.trim(),
-      'BU確認':       document.getElementById('nm-bu').value.trim(),
-      '返却者':       document.getElementById('nm-return').value.trim(),
-      '備考':         document.getElementById('nm-memo').value.trim()
-    };
-    btn.disabled = true; btn.textContent = '送信中...';
-    status.style.color = '#2980b9'; status.textContent = '📤 送信中...';
-    try {
-      const stamped = _stampNow(row);
-      const data = await pushKind('media', [stamped]);
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      // キャッシュ反映
-      const cached = getCachedMedia();
-      if (_nmEditMode) {
-        const idx = cached.findIndex(c => String(c['ID']||'').trim() === _nmEditOriginalId);
-        if (idx >= 0) cached[idx] = Object.assign({}, cached[idx], stamped); else cached.push(stamped);
-      } else cached.push(stamped);
-      localStorage.setItem('media_cache', JSON.stringify({ at: Date.now(), rows: cached }));
-      status.style.color = '#27ae60';
-      status.textContent = `✅ ${row['ID']} を${_nmEditMode ? '更新' : '保存'}しました`;
-      btn.textContent = '✓ 完了！';
-      const wasEdit = _nmEditMode;
-      setTimeout(() => {
-        btn.disabled = false; btn.textContent = wasEdit ? '💾 記録を更新' : '💾 記録を保存';
-        closeNewMedia(); renderMediaList();
-      }, 1200);
-    } catch (err) {
-      btn.disabled = false; btn.textContent = '💾 記録を保存';
-      status.style.color = '#c0392b'; status.textContent = '❌ 失敗: ' + err.message;
-    }
   }
 
   // ===== 簡易ワークシート（単発の機材使用記録・simpleWS kind で同期） =====

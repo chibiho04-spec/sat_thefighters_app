@@ -2,7 +2,7 @@
 const S = require('./_setup');
 const ok = S.makeOk();
 const src = S.src;
-const top = fn => { const m = src.match(new RegExp('^( *)function ' + fn + '\\(', 'm')); return !!m && m[1].length === 2; };
+const top = fn => { const m = src.match(new RegExp('^( *)(?:async )?function ' + fn + '\\(', 'm')); return !!m && m[1].length === 2; };
 
 console.log('=== Task 2: 記入欄の共通部品 ===');
 ['_mediaFormRowsHtml', '_renderMediaCardGroup', '_getMediaCardSel', '_toggleMediaCard', '_copyMediaOutToUsed', '_promptNewMediaCard',
@@ -53,9 +53,19 @@ ok(/_renderMediaForm\('sw-media', null, 'new-simple-ws-screen'\)/.test(S.grabFun
 const oe = S.grabFunction(src, 'openEditSimpleWS');
 ok(/_renderMediaForm\('sw-media'/.test(oe) && /rec\.user/.test(oe), '編集で復元（使用者が空なら簡易WSの使用者）');
 const ss = S.grabFunction(src, 'saveSimpleWS');
-ok(/const media = _collectMediaForm\('sw-media'\) \|\| _normalizeMedia\(_prev\)/.test(ss) && (ss.match(/\bmedia\b/g) || []).length >= 3, '保存が media を持つ（未構築なら既存を保つ・更新と新規の両方）');
+ok(/const media = _collectMediaForm\('sw-media'\) \|\| _normalizeMedia\(_prev\)/.test(ss) && (ss.match(/ memo, media,/g) || []).length === 2, '保存が media を持つ（未構築なら既存を保つ・更新と新規の両方）');
 ok(/_mediaPrintLine\(_collectMediaForm\('sw-media'\)\)/.test(S.grabFunction(src, 'openSimpleWSPrint')), '印刷に持ち出しの行');
 ok(/_wsEquipCats\(master, _swEquip\)/.test(S.grabFunction(src, 'renderSwEquipChecklist')), '簡易WSの機材リストもメディアを出さない');
 ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存のみ）/.test(src), '節の古いコメント「ローカル保存のみ」を直した');
+
+console.log('\n=== Task 6: メディア管理画面 ===');
+ok(!/id="new-media-screen"/.test(src) && !/#new-media-screen/.test(src), '単独の記録画面（HTML・CSS）が無い');
+['openNewMedia', 'closeNewMedia', 'saveNewMedia'].forEach(fn => ok(!new RegExp('function ' + fn + '\\(').test(src), fn + ' が無い'));
+ok(!/new-media-screen/.test(S.grabConst(src, '_NAV_EDIT_PANELS').map(p => p.id).join(',')), '_NAV_EDIT_PANELS から外した');
+ok(!/openNewMedia\(\)/.test(src), '「＋」ボタンが無い');
+['id="media-refresh-btn"', 'id="media-cards-status"', 'id="media-filter-chips"', 'id="media-search"', 'id="media-items"'].forEach(id => ok(src.indexOf(id) >= 0, id + ' がある'));
+['refreshMediaPage', 'setMediaFilter', 'renderMediaList', '_mediaRecords', '_mediaCardStatus'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
+ok(/async function refreshMediaPage/.test(src) && /_setBtnBusy\(btn, true, '🔄 取得中…'\)/.test(S.grabFunction(src, 'refreshMediaPage')), '更新ボタンは処理中表示');
+ok(/closeMediaList\(\); openWS\(/.test(S.grabFunction(src, 'renderMediaList')) && /openEditSimpleWS\(/.test(S.grabFunction(src, 'renderMediaList')), 'タップでワークシートを開く');
 
 ok.done();
