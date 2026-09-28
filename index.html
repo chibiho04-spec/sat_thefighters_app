@@ -12763,7 +12763,7 @@ ${_body}
       keyField: 'ID', keyHeader: 'ID',
       loadLocal: () => _loadMediaRows(), saveLocal: (list) => _saveMediaRows(list),
       toRow: (rec) => _plainToRow(rec), fromRow: (row) => _plainFromRow(row),
-      redraw: () => { try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
+      redraw: () => { try { _rerenderIfOpen('media-list-screen', () => { _mediaListInvalidate(); renderMediaList(); }); } catch (e) {} }
     },
     equip: {
       keyField: 'id', keyHeader: 'id',
@@ -12778,14 +12778,14 @@ ${_body}
                                     { '更新日時': rec._updatedAt || new Date().toISOString(), '削除フラグ': rec._deleted ? '1' : '' }),
       fromRow: (row) => { const p = orderRowToProject(row); return { 受注No: String(row['受注No'] || ''), _project: p,
                                     _updatedAt: String(row['更新日時'] || ''), 削除フラグ: String(row['削除フラグ'] || '') }; },
-      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} try { const _ln = localStorage.getItem('last_login_name'); if (_ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(_ln); } catch (e) {} try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
+      redraw: () => { try { _reconcileOrderCards(); } catch (e) {} try { const _ln = localStorage.getItem('last_login_name'); if (_ln && typeof renderUserStaffCard === 'function') renderUserStaffCard(_ln); } catch (e) {} try { _rerenderIfOpen('media-list-screen', () => { _mediaListInvalidate(); renderMediaList(); }); } catch (e) {} }
     },
     child: {
       keyField: '受注No', keyHeader: '受注No',
       loadLocal: () => _loadChildRecords(), saveLocal: (list) => _saveChildRecords(list),
       toRow: (rec) => _jsonToRow(rec, '受注No', '受注No'),
       fromRow: (row) => { const r = _jsonFromRow(row); r['受注No'] = String(row['受注No'] || r['受注No'] || ''); return r; },
-      redraw: () => { try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
+      redraw: () => { try { _rerenderIfOpen('media-list-screen', () => { _mediaListInvalidate(); renderMediaList(); }); } catch (e) {} }
     },
     simpleWS: {
       keyField: 'id', keyHeader: 'id',
@@ -12793,7 +12793,7 @@ ${_body}
       saveLocal: (list) => saveSimpleWSList(list),
       toRow: (rec) => _jsonToRow(rec, 'id', 'id'),
       fromRow: (row) => { const r = _jsonFromRow(row); r.id = String(row['id'] || r.id || ''); return r; },
-      redraw: () => { try { _rerenderIfOpen('simple-ws-list-screen', renderSimpleWSList); } catch(e) {} try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
+      redraw: () => { try { _rerenderIfOpen('simple-ws-list-screen', renderSimpleWSList); } catch(e) {} try { _rerenderIfOpen('media-list-screen', () => { _mediaListInvalidate(); renderMediaList(); }); } catch (e) {} }
     },
     config: { // 全端末共有の設定（カスタム受注分類など・2026-07-12）
       keyField: 'キー', keyHeader: 'キー',
@@ -13735,15 +13735,16 @@ ${_body}
   // ---- 管理室：一覧とカードの現在地 ----
   function _mediaDateKey(s) {
     const t = String(s || '').trim();
-    let m = t.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    let m = t.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);
     if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
-    m = t.match(/(\d{1,2})[\/\-.](\d{1,2})/);
-    if (m) { // 年なしは今年。ただし今日より未来なら前年とみなす（年越しで古い記録が最新扱いになるのを防ぐ）
+    m = t.match(/(\d{1,2})[\/\-.月](\d{1,2})/);
+    if (m) {
+      // 年なしは今年。ただし今日より 90日超 先なら前年とみなす（年越しで古い記録が最新扱いになるのを防ぐ。
+      // 数週間先の予定＝日程を先に入れた案件は今年のまま）
       const now = new Date(); let y = now.getFullYear();
-      const md = m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
-      const todayMd = String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-      if (md > todayMd) y -= 1;
-      return y + '-' + md;
+      const d = new Date(y, parseInt(m[1], 10) - 1, parseInt(m[2], 10));
+      if ((d - now) / 86400000 > 90) y -= 1;
+      return y + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
     }
     return '';
   }
@@ -13800,8 +13801,11 @@ ${_body}
     });
   }
   let _mediaFilter = 'all';
+  let _mediaRecordsCache = null; // _mediaRecords() は毎回全件を組み立て直すので、開いている間の入力のたびに走らせない（描画のたびキャッシュを使い、データが変わったところだけ捨てる）
+  function _mediaListInvalidate() { _mediaRecordsCache = null; }
   function setMediaFilter(f) { _mediaFilter = f; renderMediaList(); }
   function openMediaList() {
+    _mediaListInvalidate();
     const s = document.getElementById('media-search');
     if (s) s.value = '';
     _mediaFilter = 'all';
@@ -13822,14 +13826,16 @@ ${_body}
       setGasStatus('✅ メディアの記録を読み込みました', '#27ae60');
     } finally {
       _setBtnBusy(btn, false);
+      _mediaListInvalidate();
       renderMediaList();
     }
   }
   // 絞り込みチップと検索を適用する（純関数・テスト用に切り出し）。q は _normalizeForSearch 済みの文字列
   function _mediaFilterRows(rows, filter, q) {
     let out = rows;
-    if (filter === 'bu')     out = out.filter(r => r.media.used.length && !r.media.bu);
-    if (filter === 'return') out = out.filter(r => r.media.out.length && !r.media.returnBy);
+    const live = r => r.src === 'ws' || r.src === 'sw'; // 旧記録・LINE は編集できないので「やること」に混ぜない（カードの現在地と同じ基準）
+    if (filter === 'bu')     out = out.filter(r => live(r) && r.media.used.length && !r.media.bu);
+    if (filter === 'return') out = out.filter(r => live(r) && r.media.out.length && !r.media.returnBy);
     if (filter === 'line')   out = out.filter(r => r.src === 'line');
     if (q) out = out.filter(r => _normalizeForSearch([r.date, r.site, r.label, r.media.out.join(' '), r.media.used.join(' '),
       r.media.user, r.media.buBy, r.media.returnBy, r.media.memo].join(' ')).indexOf(q) >= 0);
@@ -13839,7 +13845,7 @@ ${_body}
     const list = document.getElementById('media-items');
     if (!list) return;
     const q = _normalizeForSearch(document.getElementById('media-search')?.value || '');
-    const all = _mediaRecords();
+    const all = _mediaRecordsCache || (_mediaRecordsCache = _mediaRecords());
     // 上段：カードの現在地
     const st = document.getElementById('media-cards-status');
     if (st) {
@@ -13885,7 +13891,7 @@ ${_body}
     const row = ev.target && ev.target.closest ? ev.target.closest('[data-src]') : null;
     if (!row) return;
     const src = row.dataset.src, key = row.dataset.key || '';
-    if (src === 'ws') { closeMediaList(); openWS(key); }
+    if (src === 'ws') { openWS(key); } // 一覧は閉じない（ws-detail-screen は上に重なる。閉じると絞り込んだ一覧に戻れない）
     else if (src === 'sw') { openEditSimpleWS(key); }
   }
   // 旧記録の ID 採番（LINE 取込 L0001〜 で使う。M 形式の旧記録と同じ関数）
@@ -13900,7 +13906,7 @@ ${_body}
 
   // ---- 🎴 カード一覧（追加・廃棄・復活。名前変更は無し） ----
   function openMediaCards() { renderMediaCards(); document.getElementById('media-cards-screen').style.transform = 'translateX(0)'; }
-  function closeMediaCards() { document.getElementById('media-cards-screen').style.transform = 'translateX(100%)'; try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
+  function closeMediaCards() { document.getElementById('media-cards-screen').style.transform = 'translateX(100%)'; _mediaListInvalidate(); try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }
   function renderMediaCards() {
     const el = document.getElementById('media-cards-list');
     if (!el) return;
@@ -13913,7 +13919,7 @@ ${_body}
           <div style="font-weight:bold;color:#117a65;font-size:14px;">${escapeHtml(c.id)}${c.retired ? ' <span style="font-size:10px;color:#999;">（廃棄）</span>' : ''}</div>
           <div style="font-size:11px;color:#666;">${escapeHtml(c.type || '―')}</div>
         </div>
-        <button type="button" onclick="toggleMediaCardRetired('${escapeHtml(c.id)}')"
+        <button type="button" data-card="${escapeHtml(c.id)}" onclick="toggleMediaCardRetired(this.dataset.card)"
           style="font-family:'DotGothic16',monospace;font-size:11px;padding:5px 10px;border:1px solid ${c.retired ? '#27ae60' : '#c0392b'};background:white;color:${c.retired ? '#1a7a40' : '#c0392b'};border-radius:3px;cursor:pointer;white-space:nowrap;">${c.retired ? '復活' : '廃棄'}</button>
       </div>`).join('') || '<div style="padding:20px;text-align:center;color:#888;font-size:12px;">カードがありません</div>';
   }
@@ -14011,19 +14017,25 @@ ${_body}
     if (!toAdd.length) { alert('取り込む行がありません（重複 ' + dup + ' 件）'); return; }
     if (!confirm(toAdd.length + ' 件を取り込みます。よろしいですか？' + (dup ? '\n（重複 ' + dup + ' 件は飛ばします）' : ''))) return;
     setGasStatus('📤 LINEの記録を送信中…', '#2980b9');
+    const stamped = toAdd.map(r => _stampNow(r));
+    let sent = 0; // 送信済み件数（途中で失敗しても、ここまでは相手のシートに届いている）
     try {
-      const stamped = toAdd.map(r => _stampNow(r));
       const CHUNK = 100; // GAS は1行ずつ追記するので、大量行は分けて送る（6分上限対策）
       for (let i = 0; i < stamped.length; i += CHUNK) {
         setGasStatus(`📤 LINEの記録を送信中… ${Math.min(i + CHUNK, stamped.length)}/${stamped.length} 件`, '#2980b9');
         await pushKind('media', stamped.slice(i, i + CHUNK));
+        sent += Math.min(CHUNK, stamped.length - i);
       }
       _saveMediaRows(getCachedMedia().concat(stamped));
       setGasStatus('✅ LINEの記録 ' + stamped.length + ' 件を取り込みました', '#27ae60');
+      _mediaListInvalidate();
       renderMediaList();
     } catch (err) {
-      setGasStatus('❌ 取り込み失敗：' + err.message, '#c0392b');
-      alert('取り込みに失敗しました: ' + err.message);
+      // 途中まで送信済みならキャッシュに反映し、その分は次回の重複判定で飛ばされる旨を伝える
+      const note = sent ? `\n（${sent} 件は送信済みです。同じCSVをもう一度取り込めば、送信済みの分は重複として飛ばされます）` : '';
+      if (sent > 0) _saveMediaRows(getCachedMedia().concat(stamped.slice(0, sent)));
+      setGasStatus('❌ 取り込み失敗：' + err.message + note, '#c0392b');
+      alert('取り込みに失敗しました: ' + err.message + note);
     }
   }
 
@@ -14272,7 +14284,7 @@ ${_body}
     }
     status.style.color = '#27ae60';
     status.textContent = _swEditId ? '✅ 更新しました' : '✅ 保存しました';
-    setTimeout(() => { closeNewSimpleWS(); renderSimpleWSList(); try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {} }, 700);
+    setTimeout(() => { closeNewSimpleWS(); renderSimpleWSList(); try { _rerenderIfOpen('media-list-screen', () => { _mediaListInvalidate(); renderMediaList(); }); } catch (e) {} }, 700);
   }
 
   function deleteSimpleWS() {
@@ -19360,7 +19372,7 @@ ${tableHTML}
         btn.style.background = '';
         renderWsView(num, data);
         toggleWsEdit(false);
-        try { _rerenderIfOpen('media-list-screen', renderMediaList); } catch (e) {}
+        try { _rerenderIfOpen('media-list-screen', () => { _mediaListInvalidate(); renderMediaList(); }); } catch (e) {}
       }, delay);
     };
     if (!_gasUrlOne()) {

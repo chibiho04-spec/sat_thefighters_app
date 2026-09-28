@@ -6,10 +6,13 @@ S.load(['_normalizeMedia', '_mediaHasRecord', '_mediaDateKey', '_splitCards', '_
 console.log('=== 日付キー ===');
 ok(_mediaDateKey('2026/08/17') === '2026-08-17' && _mediaDateKey('2026-8-7') === '2026-08-07' && _mediaDateKey('2026.08.17, 08/18') === '2026-08-17', '年付き');
 { const now = new Date(); const y = now.getFullYear();
-  const past = '1/1', future = '12/31';
-  const todayMd = String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-  ok(_mediaDateKey(past) === (('01-01' > todayMd) ? (y - 1) : y) + '-01-01', '年なしの過去の月日は今年');
-  ok(_mediaDateKey(future) === (('12-31' > todayMd) ? (y - 1) : y) + '-12-31', '年なしで今日より未来の月日は前年'); }
+  const md = d => String(d.getMonth() + 1) + '/' + d.getDate();
+  const key = (d, yy) => yy + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const soon = new Date(now.getTime() + 30 * 86400000), far = new Date(now.getTime() + 200 * 86400000), past = new Date(now.getTime() - 30 * 86400000);
+  ok(_mediaDateKey(md(past)) === key(past, past.getFullYear() === y ? y : y - 1), '年なしの過去の月日は今年（年始なら前年）');
+  ok(_mediaDateKey(md(soon)) === key(soon, soon.getFullYear()), '年なしで30日先はそのままの年（予定を先に入れた案件）');
+  ok(_mediaDateKey(md(far)) === key(far, far.getFullYear() - 1), '年なしで200日先は前年とみなす'); }
+ok(_mediaDateKey('2026年8月17日') === '2026-08-17' && _mediaDateKey('8月17日').endsWith('-08-17'), '年月日の書き方も読める');
 ok(_mediaDateKey('') === '' && _mediaDateKey('未定') === '', '読めなければ空');
 console.log('\n=== 分割・BU判定 ===');
 ok(_splitCards('CF160_1, CF160_2、CF160_3／CF256_1').join('|') === 'CF160_1|CF160_2|CF160_3|CF256_1', '区切りは , 、 ／ / 空白');
@@ -64,6 +67,7 @@ const all = _mediaRecords();
 ok(_mediaFilterRows(all, 'all', '').length === all.length, 'すべて');
 ok(_mediaFilterRows(all, 'bu', '').every(r => r.media.used.length && !r.media.bu) && _mediaFilterRows(all, 'bu', '').some(r => r.key === 'T26051'), '🟡 BU未');
 ok(_mediaFilterRows(all, 'return', '').every(r => r.media.out.length && !r.media.returnBy) && _mediaFilterRows(all, 'return', '').some(r => r.key === 'T26051'), '🔴 返却未');
+ok(_mediaFilterRows(all, 'return', '').every(r => r.src === 'ws' || r.src === 'sw') && _mediaFilterRows(all, 'bu', '').every(r => r.src === 'ws' || r.src === 'sw'), 'BU未・返却未は通常WS・簡易WSだけ（旧記録・LINE は混ぜない）');
 ok(_mediaFilterRows(all, 'line', '').every(r => r.src === 'line') && _mediaFilterRows(all, 'line', '').length === 1, 'LINE');
 ok(_mediaFilterRows(all, 'all', _normalizeForSearch('平岡')).some(r => r.key === 'L0001'), '検索は BU担当も対象');
 ok(_mediaFilterRows(all, 'all', _normalizeForSearch('素材80')).map(r => r.key).join(',') === 'T26051', '検索は備考も対象');
