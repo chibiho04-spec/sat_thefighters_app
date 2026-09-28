@@ -41,4 +41,23 @@ ok(cats.includes('💾 メディア'), '既にチェック済みなら出す（�
 cats = _wsEquipCats(master, { b: { checked: false } });
 ok(!cats.includes('💾 メディア'), 'チェックが外れていれば出さない');
 ok(_wsEquipCats([], {}).length === 0, 'マスタが空なら空');
+cats = _wsEquipCats(master, {});
+ok(cats.indexOf('📷 カメラ') < cats.indexOf('🧪 その他独自'), 'CAT_ORDER のカテゴリが先、独自カテゴリが後');
+
+console.log('\n=== 開くときの整え（_wsMediaForOpen） ===');
+S.load(['_wsMediaForOpen']);
+let o = _wsMediaForOpen({ 'wsd-media': 'SD64GB×2', crew_c: '城間' }, {});
+ok(o.memo === 'SD64GB×2' && o.user === '城間', '旧文→備考、記録が無ければ使用者はカメラマン');
+o = _wsMediaForOpen({ 'wsd-media': '旧文', media: { memo: '新しい備考' } }, {});
+ok(o.memo === '新しい備考\n旧文', '備考があれば旧文は末尾に追記（上書きしない）');
+o = _wsMediaForOpen({ 'wsd-media': '同じ', media: { memo: 'すでに 同じ が入っている' } }, {});
+ok(o.memo === 'すでに 同じ が入っている', '備考に含まれていれば二重に足さない');
+o = _wsMediaForOpen({ media: { out: ['CF160_1'], user: '' }, crew_c: '城間' }, {});
+ok(o.user === '', '記録がある案件は空の使用者を埋めない');
+o = _wsMediaForOpen({ media: { user: '上原' }, crew_c: '城間' }, {});
+ok(o.user === '上原', '使用者があれば触らない');
+o = _wsMediaForOpen({}, { crewC: '川野' });
+ok(o.user === '川野', 'saved に無ければ wsData のカメラマン');
+ok(_wsMediaForOpen(null, null).out.length === 0, 'null でも落ちない');
+
 ok.done();

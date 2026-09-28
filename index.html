@@ -17636,6 +17636,18 @@ ${tableHTML}
     if (!box) return;
     _setWsdMediaOpen(box.style.display === 'none');
   }
+  // ワークシートを開くときの media の整え（純関数・DOMを触らない）
+  //  - 旧テキスト欄 wsd-media の文は、備考に含まれていなければ末尾へ追記（上書きしない）
+  //  - まだ記録が無い（持出・使用とも空）ときだけ、使用者が空ならカメラマン（crew_c）を既定に
+  //    （記録がある案件は触らない＝意図的に空にした使用者を勝手に埋めない）
+  function _wsMediaForOpen(saved, data) {
+    saved = saved || {}; data = data || {};
+    const m = _normalizeMedia(saved.media);
+    const old = String(saved['wsd-media'] || '').trim();
+    if (old && m.memo.indexOf(old) < 0) m.memo = m.memo ? m.memo + '\n' + old : old;
+    if (!m.user && !_mediaHasRecord(m)) m.user = String(saved['crew_c'] || data.crewC || '').trim();
+    return m;
+  }
   // 畳んでいても状態が分かるようにバーへ出す
   function _updateWsdMediaCount() {
     const el = document.getElementById('wsd-media-count');
@@ -18858,14 +18870,9 @@ ${tableHTML}
     // 機材チェックリストを描画
     renderEquipChecklist(num, saved.equip || {});
 
-    // 💾 メディア（2026-09-28）：旧テキスト欄の文は備考へ、使用者が空ならカメラマンを初期値に（上書きはしない）
-    {
-      const m = _normalizeMedia(saved.media);
-      if (!m.memo && saved['wsd-media']) m.memo = String(saved['wsd-media']);
-      if (!m.user) m.user = saved['crew_c'] || data.crewC || '';
-      _renderMediaForm('wsd-media', m, 'ws-detail-screen');
-      _updateWsdMediaCount();
-    }
+    // 💾 メディア（2026-09-28）：開くときの整え（旧文の引き継ぎ・使用者の既定）は _wsMediaForOpen に集約
+    _renderMediaForm('wsd-media', _wsMediaForOpen(saved, data), 'ws-detail-screen');
+    _updateWsdMediaCount();
 
     // 撮影日程の初期値（保存済みがなければwsDataから）
     const shootEl = document.getElementById('wsd-shootdate');
@@ -19337,8 +19344,7 @@ ${tableHTML}
       'crew_sound','crew_edit','crew_extra'];
     if (textFields.some(f => String(s[f] || '').trim() !== '')) return true;
     // 💾 メディアの記録（2026-09-28）。旧テキスト欄 wsd-media は備考（media.memo）へ移すので、備考だけの案件も実データとして残す
-    if (typeof _mediaHasRecord === 'function' && _mediaHasRecord(s.media)) return true;
-    if (s.media && String(s.media.memo || '').trim() !== '') return true;
+    if (_mediaHasRecord(s.media) || String((s.media && s.media.memo) || '').trim() !== '') return true;
     // リスト系・機材選択があれば実データあり
     if (Array.isArray(s.rental_list)    && s.rental_list.length)    return true;
     if (Array.isArray(s.outsource_list) && s.outsource_list.length) return true;
