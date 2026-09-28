@@ -83,6 +83,7 @@ console.log('\n=== Task 8: LINE取込 ===');
 ok(/id="media-csv-file"/.test(src) && /importMediaCsvFile\(this\.files/.test(src), 'ファイル選択がある');
 ok(/async function importMediaCsvFile/.test(src), '取込関数がある');
 const imp = S.grabFunction(src, 'importMediaCsvFile');
-ok(/confirm\(/.test(imp) && /pushKind\('media'/.test(imp) && /media_cache/.test(imp), '確認→送信→キャッシュ反映');
+ok(/confirm\(/.test(imp) && /pushKind\('media'/.test(imp) && /_saveMediaRows\(/.test(imp), '確認→送信→キャッシュ反映');
+ok(/await pullKind\('media'\)/.test(imp) && /CHUNK = 100/.test(imp) && /_saveMediaRows\(/.test(imp), '取込前に media を取り込み、100件ずつ送り、キャッシュは共通関数で保存');
 
 ok.done();

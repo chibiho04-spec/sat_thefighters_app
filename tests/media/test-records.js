@@ -1,11 +1,15 @@
 // tests/media/test-records.js — 記録の集計（通常WS・簡易WS・旧記録）とカードの現在地
 const S = require('./_setup');
 const ok = S.makeOk();
-S.load(['_normalizeMedia', '_mediaHasRecord', '_mediaDateKey', '_splitCards', '_mediaBuFlag', '_mediaRecords', '_mediaCardStatus']);
+S.load(['_normalizeMedia', '_mediaHasRecord', '_mediaDateKey', '_splitCards', '_mediaBuFlag', '_mediaRecords', '_mediaCardStatus', '_mediaFilterRows']);
 
 console.log('=== 日付キー ===');
 ok(_mediaDateKey('2026/08/17') === '2026-08-17' && _mediaDateKey('2026-8-7') === '2026-08-07' && _mediaDateKey('2026.08.17, 08/18') === '2026-08-17', '年付き');
-ok(_mediaDateKey('8/17') === new Date().getFullYear() + '-08-17', '月日だけなら今年');
+{ const now = new Date(); const y = now.getFullYear();
+  const past = '1/1', future = '12/31';
+  const todayMd = String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  ok(_mediaDateKey(past) === (('01-01' > todayMd) ? (y - 1) : y) + '-01-01', '年なしの過去の月日は今年');
+  ok(_mediaDateKey(future) === (('12-31' > todayMd) ? (y - 1) : y) + '-12-31', '年なしで今日より未来の月日は前年'); }
 ok(_mediaDateKey('') === '' && _mediaDateKey('未定') === '', '読めなければ空');
 console.log('\n=== 分割・BU判定 ===');
 ok(_splitCards('CF160_1, CF160_2、CF160_3／CF256_1').join('|') === 'CF160_1|CF160_2|CF160_3|CF256_1', '区切りは , 、 ／ / 空白');
@@ -53,4 +57,15 @@ ok(_mediaCardStatus(_mediaRecords(), cards).find(s => s.id === 'CF160_1').state 
 // 同日は更新日時の新しい方
 global.localStorage.setItem('ws_T26051', JSON.stringify({ media: { date: '2026/08/20', out: ['CF256_1'], returnBy: '' }, _updatedAt: '2026-08-20T12:00:00Z' }));
 ok(_mediaCardStatus(_mediaRecords(), cards).find(s => s.id === 'CF256_1').rec.key === 'T26051', '同じ使用日なら更新日時が新しい記録で決める');
+
+console.log('\n=== 絞り込みと検索（_mediaFilterRows） ===');
+global.localStorage.setItem('ws_T26051', JSON.stringify({ 'wsd-shootdate': '2026/08/10', edit_title: '島じかん', media: { out: ['CF160_1', 'CF160_2'], used: ['CF160_1'], user: '城間', bu: false, buBy: '', returnBy: '', memo: '素材80GB' } }));
+const all = _mediaRecords();
+ok(_mediaFilterRows(all, 'all', '').length === all.length, 'すべて');
+ok(_mediaFilterRows(all, 'bu', '').every(r => r.media.used.length && !r.media.bu) && _mediaFilterRows(all, 'bu', '').some(r => r.key === 'T26051'), '🟡 BU未');
+ok(_mediaFilterRows(all, 'return', '').every(r => r.media.out.length && !r.media.returnBy) && _mediaFilterRows(all, 'return', '').some(r => r.key === 'T26051'), '🔴 返却未');
+ok(_mediaFilterRows(all, 'line', '').every(r => r.src === 'line') && _mediaFilterRows(all, 'line', '').length === 1, 'LINE');
+ok(_mediaFilterRows(all, 'all', _normalizeForSearch('平岡')).some(r => r.key === 'L0001'), '検索は BU担当も対象');
+ok(_mediaFilterRows(all, 'all', _normalizeForSearch('素材80')).map(r => r.key).join(',') === 'T26051', '検索は備考も対象');
+ok(_mediaFilterRows(all, 'all', _normalizeForSearch('ＣＦ２５６')).some(r => r.media.out.includes('CF256_1')), '全角でもカード名に当たる');
 ok.done();

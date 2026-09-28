@@ -1,7 +1,7 @@
 // tests/media/test-csv.js — LINE bot のシート（CSV）の読み取りと重複除外
 const S = require('./_setup');
 const ok = S.makeOk();
-S.load(['_mediaBuFlag', '_parseCsv', '_parseMediaCSV', '_importMediaCsvRows']);
+S.load(['_mediaBuFlag', '_mediaDateKey', '_parseCsv', '_parseMediaCSV', '_importMediaCsvRows']);
 S.loadConst('_MEDIA_CSV_COLS');
 
 console.log('=== CSV の読み取り ===');
@@ -31,4 +31,15 @@ ok(res.dup === 1 && res.toAdd.length === 1, '使用日＋現場名＋使用者�
 ok(res.toAdd[0]['ID'] === 'L0003', 'ID は L の最大＋1 から');
 const res2 = _importMediaCsvRows(_parseMediaCSV(csv + 'ロケハン,2026/08/18,CF160_4,,,上原,,\n').rows, []);
 ok(res2.toAdd.length === 2 && res2.dup === 1 && res2.toAdd.map(r => r['ID']).join(',') === 'L0001,L0002', 'CSV の中の重複も飛ばす。ID は連番');
+
+console.log('\n=== 追加（2026-09-29 レビュー） ===');
+ok(_parseCsv('"x\ny","a"\r1,2\r')[0][0] === 'x\ny' && _parseCsv('"x\ny","a"\r1,2\r').length === 2, '引用内の改行と \\r だけの改行');
+ok(_parseCsv('a,b,\n1,2,')[1].length === 3 && _parseCsv('a,b,\n1,2,')[1][2] === '', '末尾カンマは空セル');
+const d1 = _importMediaCsvRows([{ '使用日': '2026-08-17', '現場名': 'A', '使用者': 'B' }], [{ 'ID': 'L0001', '使用日': '2026/08/17', '現場名': 'A', '使用者': 'B' }]);
+ok(d1.dup === 1 && d1.toAdd.length === 0, '日付の書き方が違っても同じ行');
+ok(_importMediaCsvRows([{ '使用日': 'x', '現場名': 'y', '使用者': '' }], [{ 'ID': 'L9999' }]).toAdd[0]['ID'] === 'L10000', 'L9999 の次は L10000');
+const p2 = _parseMediaCSV('使用日,現場名,持ち出したメディア,バックアップした人\n2026/08/17,S,CF160_1／CF160_2,平岡／森田');
+ok(p2.rows[0]['備考'] === '持出: CF160_1, CF160_2／BU担当: 平岡, 森田', '持出・BU担当の ／ は , に寄せる（備考の区切りと衝突しない）');
+const p3 = _parseMediaCSV('BU確認,バックアップ,使用日,現場名\n未,○,2026/08/17,S');
+ok(p3.rows[0]['BU確認'] === '○', '見出しは候補の順で探す（バックアップ を BU確認 より優先）');
 ok.done();

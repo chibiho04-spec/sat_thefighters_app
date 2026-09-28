@@ -13738,7 +13738,13 @@ ${_body}
     let m = t.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
     if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
     m = t.match(/(\d{1,2})[\/\-.](\d{1,2})/);
-    if (m) return new Date().getFullYear() + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
+    if (m) { // 年なしは今年。ただし今日より未来なら前年とみなす（年越しで古い記録が最新扱いになるのを防ぐ）
+      const now = new Date(); let y = now.getFullYear();
+      const md = m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
+      const todayMd = String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      if (md > todayMd) y -= 1;
+      return y + '-' + md;
+    }
     return '';
   }
   function _splitCards(s) { return String(s || '').split(/[,、，\/／\s]+/).map(x => x.trim()).filter(Boolean); }
@@ -13819,6 +13825,16 @@ ${_body}
       renderMediaList();
     }
   }
+  // 絞り込みチップと検索を適用する（純関数・テスト用に切り出し）。q は _normalizeForSearch 済みの文字列
+  function _mediaFilterRows(rows, filter, q) {
+    let out = rows;
+    if (filter === 'bu')     out = out.filter(r => r.media.used.length && !r.media.bu);
+    if (filter === 'return') out = out.filter(r => r.media.out.length && !r.media.returnBy);
+    if (filter === 'line')   out = out.filter(r => r.src === 'line');
+    if (q) out = out.filter(r => _normalizeForSearch([r.date, r.site, r.label, r.media.out.join(' '), r.media.used.join(' '),
+      r.media.user, r.media.buBy, r.media.returnBy, r.media.memo].join(' ')).indexOf(q) >= 0);
+    return out;
+  }
   function renderMediaList() {
     const list = document.getElementById('media-items');
     if (!list) return;
@@ -13839,12 +13855,7 @@ ${_body}
       }).join('') || '<div style="font-size:12px;color:#888;">カードが登録されていません（🎴 カード一覧から追加）</div>';
     }
     // 絞り込み・検索
-    let rows = all;
-    if (_mediaFilter === 'bu')     rows = rows.filter(r => r.media.used.length && !r.media.bu);
-    if (_mediaFilter === 'return') rows = rows.filter(r => r.media.out.length && !r.media.returnBy);
-    if (_mediaFilter === 'line')   rows = rows.filter(r => r.src === 'line');
-    if (q) rows = rows.filter(r => _normalizeForSearch([r.date, r.site, r.label, r.media.out.join(' '), r.media.used.join(' '),
-      r.media.user, r.media.buBy, r.media.returnBy, r.media.memo].join(' ')).indexOf(q) >= 0);
+    const rows = _mediaFilterRows(all, _mediaFilter, q);
     document.querySelectorAll('#media-filter-chips .np-select-btn').forEach(b => b.classList.toggle('selected', b.dataset.f === _mediaFilter));
     const cnt = document.getElementById('media-count-label');
     if (cnt) cnt.textContent = `使用記録 ${rows.length} / ${all.length} 件`;
@@ -13961,11 +13972,12 @@ ${_body}
     if (!rows.length) return { rows: [], error: 'CSVが空です' };
     const head = rows[0].map(h => String(h || '').trim());
     const idx = {};
-    Object.keys(_MEDIA_CSV_COLS).forEach(k => { idx[k] = head.findIndex(h => _MEDIA_CSV_COLS[k].includes(h)); });
+    Object.keys(_MEDIA_CSV_COLS).forEach(k => { idx[k] = -1; for (const c of _MEDIA_CSV_COLS[k]) { const j = head.indexOf(c); if (j >= 0) { idx[k] = j; break; } } });
     if (idx.date < 0 || idx.site < 0) return { rows: [], error: '見出しに「使用日」と「現場名」が必要です（1行目: ' + head.join(' | ') + '）' };
     const get = (r, k) => idx[k] >= 0 ? String(r[idx[k]] || '').trim() : '';
+    const norm = s => String(s || '').replace(/／/g, ', ');
     const out = rows.slice(1).map(r => {
-      const memo = [get(r, 'out') ? '持出: ' + get(r, 'out') : '', get(r, 'buBy') ? 'BU担当: ' + get(r, 'buBy') : ''].filter(Boolean).join('／');
+      const memo = [get(r, 'out') ? '持出: ' + norm(get(r, 'out')) : '', get(r, 'buBy') ? 'BU担当: ' + norm(get(r, 'buBy')) : ''].filter(Boolean).join('／');
       return {
         '使用日': get(r, 'date'), 'メディア種別': 'LINE', '使用カード': get(r, 'used'), '使用者': get(r, 'user'),
         '現場名': get(r, 'site'), '受注No': '', 'BU確認': _mediaBuFlag(get(r, 'bu')) ? '○' : '', '返却者': get(r, 'ret'), '備考': memo
@@ -13975,7 +13987,7 @@ ${_body}
   }
   // 既存キャッシュ（と CSV の中）の重複＝使用日＋現場名＋使用者が同じ行を除き、ID（L0001〜）を振る。{ toAdd, dup }
   function _importMediaCsvRows(rows, existing) {
-    const key = r => [r['使用日'], r['現場名'], r['使用者']].map(v => String(v || '').trim()).join('|');
+    const key = r => [_mediaDateKey(r['使用日']) || String(r['使用日'] || '').trim(), r['現場名'], r['使用者']].map(v => String(v || '').trim()).join('|');
     const seen = new Set((existing || []).map(key));
     let n = parseInt(String(_nextId(existing || [], 'L')).slice(1), 10);
     const toAdd = []; let dup = 0;
@@ -13990,6 +14002,7 @@ ${_body}
   async function importMediaCsvFile(file) {
     if (!file) return;
     if (!_gasUrlOne()) { alert('同期URLが未設定のため取り込めません（データ管理で合言葉を設定してください）'); return; }
+    try { await pullKind('media'); } catch (e) {} // 採番の土台を最新に（他端末の L 行を踏まない）
     let text = '';
     try { text = await file.text(); } catch (e) { alert('ファイルを読めませんでした'); return; }
     const parsed = _parseMediaCSV(text);
@@ -14000,9 +14013,12 @@ ${_body}
     setGasStatus('📤 LINEの記録を送信中…', '#2980b9');
     try {
       const stamped = toAdd.map(r => _stampNow(r));
-      const data = await pushKind('media', stamped);
-      if (!data.ok) throw new Error(data.error || '不明なエラー');
-      localStorage.setItem('media_cache', JSON.stringify({ at: Date.now(), rows: getCachedMedia().concat(stamped) }));
+      const CHUNK = 100; // GAS は1行ずつ追記するので、大量行は分けて送る（6分上限対策）
+      for (let i = 0; i < stamped.length; i += CHUNK) {
+        setGasStatus(`📤 LINEの記録を送信中… ${Math.min(i + CHUNK, stamped.length)}/${stamped.length} 件`, '#2980b9');
+        await pushKind('media', stamped.slice(i, i + CHUNK));
+      }
+      _saveMediaRows(getCachedMedia().concat(stamped));
       setGasStatus('✅ LINEの記録 ' + stamped.length + ' 件を取り込みました', '#27ae60');
       renderMediaList();
     } catch (err) {
