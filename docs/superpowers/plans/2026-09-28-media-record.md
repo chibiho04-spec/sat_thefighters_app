@@ -1391,6 +1391,13 @@ ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ�
 
 ### Task 8: 📥 LINE取込（CSV）
 
+> **2026-09-29 Task 7 レビュー後の追加（Task 8 と同じコミットで実施）**
+> - `#media-cards-screen` を `_NAV_LIST_PANELS` に登録（ナビタブを押したときに閉じる。全画面オーバーレイの決まり）
+> - `_mediaBuFlag` の否定リストに記号を足す：`^(未|×|x|✕|なし|no|-|—|―|ー|0|NG|不要)`
+> - `closeMediaCards` は `renderMediaList()` の直呼びでなく `_rerenderIfOpen('media-list-screen', renderMediaList)`
+> - HTML コメント `<!-- 🎴 カード一覧（Task 7 で中身を作る） -->` を `<!-- 🎴 カード一覧（カードの追加・廃棄。全端末で共有） -->` に
+
+
 **Files:**
 - Modify: `index.html` — Task 7 のブロックの直後
 - Test: `tests/media/test-csv.js`（新規）, `tests/media/test-structure.js`（追記）
