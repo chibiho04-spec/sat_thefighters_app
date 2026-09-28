@@ -13654,7 +13654,7 @@ ${_body}
     let html = _mediaCardChoices([...sel]).map(c =>
       _mediaBtn(c.id, sel.has(c.id), `data-card="${escapeHtml(c.id)}" title="${escapeHtml(c.type)}" onclick="_toggleMediaCard(this,'${prefix}','${screenId}')"`)).join('');
     if (which === 'out') {
-      html += `<button type="button" onclick="_addMediaCardFromForm('${prefix}','${screenId}')" title="新しいカードを追加(全員に同期されます)"
+      html += `<button type="button" onclick="_addMediaCardFromForm('${prefix}','${screenId}')" title="新しいカードを追加（全員に同期されます）"
         style="font-family:'DotGothic16',monospace;font-size:13px;padding:6px 12px;border:2px dashed #27ae60;background:#f2fbf5;color:#1a7a40;border-radius:4px;cursor:pointer;">＋ 追加</button>`;
     }
     g.innerHTML = html;
