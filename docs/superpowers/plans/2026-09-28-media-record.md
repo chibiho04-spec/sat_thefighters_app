@@ -76,7 +76,7 @@ git status --short index.html   # " M index.html" が残っていればガード
 - Create: `tests/media/_setup.js`
 - Create: `tests/media/run.sh`
 
-- [ ] **Step 1: `_setup.js` を書く**
+- [x] **Step 1: `_setup.js` を書く**
 
 ```js
 // tests/media/_setup.js — index.html から関数を切り出して Node で動かす準備（メディア用）
@@ -118,7 +118,7 @@ loadConst('CAT_ORDER'); loadConst('CREW_NAMES');
 module.exports = { src, load, loadConst, fakeStorage: storage, makeOk, grabFunction, grabConst };
 ```
 
-- [ ] **Step 2: `run.sh` を書く**
+- [x] **Step 2: `run.sh` を書く**
 
 ```bash
 #!/bin/bash
@@ -134,12 +134,12 @@ done
 [ $fail -eq 0 ] && echo "ALL PASS" || { echo "FAILED"; exit 1; }
 ```
 
-- [ ] **Step 3: 空振りを確認**
+- [x] **Step 3: 空振りを確認**
 
 Run: `chmod +x tests/media/run.sh && node -e "require('./tests/media/_setup.js'); console.log('setup ok', typeof escapeHtml, CREW_NAMES.length)"`
 Expected: `setup ok function 10`
 
-- [ ] **Step 4: Commit**（テストだけなので通常の `git add tests/media && git commit && git push`）
+- [x] **Step 4: Commit**（テストだけなので通常の `git add tests/media && git commit && git push`）
 
 ```bash
 git add tests/media/_setup.js tests/media/run.sh
@@ -155,7 +155,7 @@ git push
 - Modify: `index.html` — `function getCachedMedia() { return _getCached('media_cache'); }` の直後（約 13519 行）
 - Test: `tests/media/test-cards.js`, `tests/media/test-core.js`
 
-- [ ] **Step 1: 失敗するテストを書く（カード）**
+- [x] **Step 1: 失敗するテストを書く（カード）**
 
 ```js
 // tests/media/test-cards.js — カードの一覧（既定・追加・廃棄・選択肢）
@@ -208,7 +208,7 @@ ok(_mediaCardChoices(['CF160_1']).findIndex(c => c.id === 'CF160_1') === 0, '順
 ok.done();
 ```
 
-- [ ] **Step 2: 失敗するテストを書く（中核）**
+- [x] **Step 2: 失敗するテストを書く（中核）**
 
 ```js
 // tests/media/test-core.js — 記録の正規化・印刷行・閲覧HTML・機材カテゴリの除外
@@ -241,12 +241,12 @@ ok(/&lt;s&gt;/.test(_mediaViewHtml({ out: ['<s>'] })), 'escapeHtml を通す');
 ok.done();
 ```
 
-- [ ] **Step 3: 落ちることを確認**
+- [x] **Step 3: 落ちることを確認**
 
 Run: `node tests/media/test-cards.js; node tests/media/test-core.js`
 Expected: `関数が見つからない: _isValidMediaCardId` のエラーで止まる
 
-- [ ] **Step 4: 実装（`getCachedMedia` の直後に挿入）**
+- [x] **Step 4: 実装（`getCachedMedia` の直後に挿入）**
 
 ```js
   // ===== メディア（カード）使用記録（2026-09-28）=====
@@ -343,17 +343,17 @@ Expected: `関数が見つからない: _isValidMediaCardId` のエラーで止�
   }
 ```
 
-- [ ] **Step 5: 通ることを確認**
+- [x] **Step 5: 通ることを確認**
 
 Run: `node tests/media/test-cards.js && node tests/media/test-core.js`
 Expected: すべて ✅・終了コード 0
 
-- [ ] **Step 6: 構文チェックと既存テスト**
+- [x] **Step 6: 構文チェックと既存テスト**
 
 Run: `node -e "const fs=require('fs');const h=fs.readFileSync('index.html','utf8');const re=/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/gi;let m,o='';while((m=re.exec(h))){o+='\n'+m[1];}fs.writeFileSync('/tmp/wt.js',o);" && node --check /tmp/wt.js && echo OK`
 Expected: `OK`
 
-- [ ] **Step 7: Commit**（「コミットの作法」の手順）
+- [x] **Step 7: Commit**（「コミットの作法」の手順）
 
 メッセージ: `feat(メディア): カード一覧と記録の中核（config 同期・正規化・印刷行）`
 
@@ -365,7 +365,7 @@ Expected: `OK`
 - Modify: `index.html` — Task 1 で入れたブロックの直後
 - Test: `tests/media/test-structure.js`（新規）
 
-- [ ] **Step 1: 失敗するテストを書く**
+- [x] **Step 1: 失敗するテストを書く**
 
 ```js
 // tests/media/test-structure.js — HTML/JS の配線を正規表現で確認（Task 2〜8 で追記していく）
@@ -388,12 +388,12 @@ ok(/＋ 追加/.test(S.grabFunction(src, '_renderMediaCardGroup')), '持ち出�
 ok.done();
 ```
 
-- [ ] **Step 2: 落ちることを確認**
+- [x] **Step 2: 落ちることを確認**
 
 Run: `node tests/media/test-structure.js`
 Expected: `_mediaFormRowsHtml がトップレベル` などが ❌
 
-- [ ] **Step 3: 実装（Task 1 のブロックの直後に挿入）**
+- [x] **Step 3: 実装（Task 1 のブロックの直後に挿入）**
 
 ```js
   // ---- 記入欄（通常WS: prefix 'wsd-media' ／ 簡易WS: prefix 'sw-media'）----
@@ -541,12 +541,12 @@ Expected: `_mediaFormRowsHtml がトップレベル` などが ❌
   }
 ```
 
-- [ ] **Step 4: 通ることを確認**
+- [x] **Step 4: 通ることを確認**
 
 Run: `node tests/media/test-structure.js`
 Expected: すべて ✅
 
-- [ ] **Step 5: 構文チェック → Commit**
+- [x] **Step 5: 構文チェック → Commit**
 
 メッセージ: `feat(メディア): 記入欄の共通部品（カード・名前・BUのボタン群、流し込みと回収）`
 
@@ -568,7 +568,7 @@ Expected: すべて ✅
 - Modify: `index.html` — `_hasRealData` 系（`// リスト系・機材選択があれば実データあり` の直前）
 - Test: `tests/media/test-structure.js`（追記）, `tests/media/test-core.js`（追記）
 
-- [ ] **Step 1: テストを追記（`test-structure.js` の `ok.done();` の前）**
+- [x] **Step 1: テストを追記（`test-structure.js` の `ok.done();` の前）**
 
 ```js
 console.log('\n=== Task 3: ワークシート記入画面 ===');
@@ -588,7 +588,7 @@ const hr = src.slice(src.indexOf('リスト系・機材選択があれば実デ�
 ok(/_mediaHasRecord\(s\.media\)/.test(hr) && /s\.media\.memo/.test(hr), '実データ判定に media（記録と備考）を含む');
 ```
 
-- [ ] **Step 2: テストを追記（`test-core.js` の `ok.done();` の前）**
+- [x] **Step 2: テストを追記（`test-core.js` の `ok.done();` の前）**
 
 ```js
 console.log('\n=== 機材チェックリストから「💾 メディア」を外す ===');
@@ -603,12 +603,12 @@ ok(!cats.includes('💾 メディア'), 'チェックが外れていれば出さ
 ok(_wsEquipCats([], {}).length === 0, 'マスタが空なら空');
 ```
 
-- [ ] **Step 3: 落ちることを確認**
+- [x] **Step 3: 落ちることを確認**
 
 Run: `node tests/media/test-structure.js; node tests/media/test-core.js`
 Expected: Task 3 の項目が ❌
 
-- [ ] **Step 4: HTML — 折りたたみバーと本体を入れる**
+- [x] **Step 4: HTML — 折りたたみバーと本体を入れる**
 
 `#wsd-equip-checklist` のブロック
 
@@ -631,7 +631,7 @@ Expected: Task 3 の項目が ❌
       <div id="wsd-media-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;"></div>
 ```
 
-- [ ] **Step 5: HTML — 作業後記入の旧欄を消す**
+- [x] **Step 5: HTML — 作業後記入の旧欄を消す**
 
 ```html
       <div class="wsd-field-group">
@@ -654,7 +654,7 @@ Expected: Task 3 の項目が ❌
 
 にする（「メディア使用記録」は上の新欄へ移した。旧データの文は開いたとき備考へ引き継ぐ）。
 
-- [ ] **Step 6: JS — 開閉と件数（`toggleWsdEquip` の直後に挿入）**
+- [x] **Step 6: JS — 開閉と件数（`toggleWsdEquip` の直後に挿入）**
 
 ```js
   // 💾 メディア欄の開閉（機材リストと同じ作り・2026-09-28）
@@ -682,7 +682,7 @@ Expected: Task 3 の項目が ❌
   }
 ```
 
-- [ ] **Step 7: JS — 機材カテゴリの除外（`renderEquipChecklist` の直前に挿入し、中を書き換え）**
+- [x] **Step 7: JS — 機材カテゴリの除外（`renderEquipChecklist` の直前に挿入し、中を書き換え）**
 
 挿入:
 
@@ -732,7 +732,7 @@ Expected: Task 3 の項目が ❌
 
 にする。
 
-- [ ] **Step 8: JS — `saveWS`**
+- [x] **Step 8: JS — `saveWS`**
 
 ```js
     const fields = ['wsd-private','wsd-media','wsd-report','wsd-memo','wsd-shootdate','wsd-order-amount'];
@@ -752,7 +752,7 @@ Expected: Task 3 の項目が ❌
     }
 ```
 
-- [ ] **Step 9: JS — `openWS`**
+- [x] **Step 9: JS — `openWS`**
 
 復元リスト
 
@@ -776,7 +776,7 @@ Expected: Task 3 の項目が ❌
     }
 ```
 
-- [ ] **Step 10: JS — 実データ判定**
+- [x] **Step 10: JS — 実データ判定**
 
 `// リスト系・機材選択があれば実データあり` の直前に
 
@@ -786,12 +786,12 @@ Expected: Task 3 の項目が ❌
     if (s.media && String(s.media.memo || '').trim() !== '') return true;
 ```
 
-- [ ] **Step 11: 通ることを確認**
+- [x] **Step 11: 通ることを確認**
 
 Run: `node tests/media/test-structure.js && node tests/media/test-core.js`
 Expected: すべて ✅
 
-- [ ] **Step 12: 構文チェック・既存テスト（`tests/worksheet/*` を含む全部）→ Commit**
+- [x] **Step 12: 構文チェック・既存テスト（`tests/worksheet/*` を含む全部）→ Commit**
 
 メッセージ: `feat(ワークシート): 💾 メディア欄を追加（旧メディア使用記録を置換、機材リストからメディアを外す）`
 
@@ -808,7 +808,7 @@ Expected: すべて ✅
 - Modify: `index.html` — `openWorksheetPrint`（`const outsourceTxt = ...` の直後と `${equipTable ? ...}` の行の直後）
 - Test: `tests/media/test-structure.js`（追記）
 
-- [ ] **Step 1: テストを追記**
+- [x] **Step 1: テストを追記**
 
 ```js
 console.log('\n=== Task 4: 閲覧画面と印刷 ===');
@@ -821,9 +821,9 @@ ok(/const mediaLine = _mediaPrintLine\(saved2\.media\)/.test(pr), '印刷が持�
 ok(pr.indexOf("secBar('使用機材')") < pr.indexOf("secBar('メディア')") && pr.indexOf("secBar('メディア')") < pr.indexOf("secBar('レンタル・私物')"), '使用機材の直後に出る');
 ```
 
-- [ ] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js` → Task 4 が ❌
+- [x] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js` → Task 4 が ❌
 
-- [ ] **Step 3: HTML — 閲覧画面の節（`<!-- レンタル・私物 -->` の直前に挿入）**
+- [x] **Step 3: HTML — 閲覧画面の節（`<!-- レンタル・私物 -->` の直前に挿入）**
 
 ```html
       <!-- 💾 メディア（カード）使用記録（2026-09-28）。記録があるときだけ表示 -->
@@ -833,7 +833,7 @@ ok(pr.indexOf("secBar('使用機材')") < pr.indexOf("secBar('メディア')") &
       </div>
 ```
 
-- [ ] **Step 4: JS — `renderWsView`（`// 私物・レンタル（レンタルは複数行対応、外注と同じ表示スタイル）` の直前に挿入）**
+- [x] **Step 4: JS — `renderWsView`（`// 私物・レンタル（レンタルは複数行対応、外注と同じ表示スタイル）` の直前に挿入）**
 
 ```js
     // 💾 メディア（2026-09-28）
@@ -848,7 +848,7 @@ ok(pr.indexOf("secBar('使用機材')") < pr.indexOf("secBar('メディア')") &
     }
 ```
 
-- [ ] **Step 5: JS — `openWorksheetPrint`**
+- [x] **Step 5: JS — `openWorksheetPrint`**
 
 `.join('\n');`（`outsourceTxt` の末尾）の直後に
 
@@ -868,7 +868,7 @@ HTML の
   ${mediaLine  ? secBar('メディア')              + `<p style="margin:0;padding:5px 8px;font-size:12pt;line-height:1.8;">${mediaLine}</p>` : ''}
 ```
 
-- [ ] **Step 6: 通ることを確認 → 構文チェック → Commit**
+- [x] **Step 6: 通ることを確認 → 構文チェック → Commit**
 
 メッセージ: `feat(ワークシート): 閲覧画面にメディアの節、印刷に「持ち出し」の1行`
 
@@ -883,7 +883,7 @@ HTML の
 - Modify: `index.html` — `openNewSimpleWS` / `openEditSimpleWS` / `saveSimpleWS` / `openSimpleWSPrint` / `renderSwEquipChecklist`、節のコメント（約 13640 行）
 - Test: `tests/media/test-structure.js`（追記）
 
-- [ ] **Step 1: テストを追記**
+- [x] **Step 1: テストを追記**
 
 ```js
 console.log('\n=== Task 5: 簡易ワークシート ===');
@@ -899,9 +899,9 @@ ok(/_wsEquipCats\(master, _swEquip\)/.test(S.grabFunction(src, 'renderSwEquipChe
 ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存のみ）/.test(src), '節の古いコメント「ローカル保存のみ」を直した');
 ```
 
-- [ ] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js` → Task 5 が ❌
+- [x] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js` → Task 5 が ❌
 
-- [ ] **Step 3: HTML（`<div id="sw-equip-checklist" class="wsd-field-group" style="padding:8px;"></div>` の直後に挿入）**
+- [x] **Step 3: HTML（`<div id="sw-equip-checklist" class="wsd-field-group" style="padding:8px;"></div>` の直後に挿入）**
 
 ```html
       <!-- 💾 メディア（カード）使用記録（2026-09-28）。中身は _mediaFormRowsHtml で生成（通常WSと共通） -->
@@ -909,7 +909,7 @@ ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存
       <div id="sw-media-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;"></div>
 ```
 
-- [ ] **Step 4: JS**
+- [x] **Step 4: JS**
 
 `openNewSimpleWS` の `renderSwEquipChecklist();` の直後:
 ```js
@@ -962,7 +962,7 @@ HTML の `${secBar('使用機材')}${equipTable}` の直後に
 節のコメント `// ===== 簡易ワークシート（単発の機材使用記録・ローカル保存のみ） =====` を
 `// ===== 簡易ワークシート（単発の機材使用記録・simpleWS kind で同期） =====` にする。
 
-- [ ] **Step 5: 通ることを確認 → 構文チェック → Commit**
+- [x] **Step 5: 通ることを確認 → 構文チェック → Commit**
 
 メッセージ: `feat(簡易ワークシート): 💾 メディア欄を追加（保存・印刷・機材リストからメディアを外す）`
 
@@ -979,7 +979,7 @@ HTML の `${secBar('使用機材')}${equipTable}` の直後に
 - Modify: `index.html` — 管理室ボタンの副題（約 4404 行）
 - Test: `tests/media/test-records.js`（新規）, `tests/media/test-structure.js`（追記）
 
-- [ ] **Step 1: 失敗するテストを書く（集計）**
+- [x] **Step 1: 失敗するテストを書く（集計）**
 
 ```js
 // tests/media/test-records.js — 記録の集計（通常WS・簡易WS・旧記録）とカードの現在地
@@ -1038,7 +1038,7 @@ ok(_mediaCardStatus(_mediaRecords(), cards).find(s => s.id === 'CF256_1').rec.ke
 ok.done();
 ```
 
-- [ ] **Step 2: `test-structure.js` に追記**
+- [x] **Step 2: `test-structure.js` に追記**
 
 ```js
 console.log('\n=== Task 6: メディア管理画面 ===');
@@ -1052,9 +1052,9 @@ ok(/async function refreshMediaPage/.test(src) && /_setBtnBusy\(btn, true, '🔄
 ok(/closeMediaList\(\); openWS\(/.test(S.grabFunction(src, 'renderMediaList')) && /openEditSimpleWS\(/.test(S.grabFunction(src, 'renderMediaList')), 'タップでワークシートを開く');
 ```
 
-- [ ] **Step 3: 落ちることを確認** — Run: `node tests/media/test-records.js; node tests/media/test-structure.js`
+- [x] **Step 3: 落ちることを確認** — Run: `node tests/media/test-records.js; node tests/media/test-structure.js`
 
-- [ ] **Step 4: HTML — `#media-list-screen` を書き換え、`#new-media-screen` を削除**
+- [x] **Step 4: HTML — `#media-list-screen` を書き換え、`#new-media-screen` を削除**
 
 `<!-- ========== メディア管理画面 ========== -->` から `<!-- ========== 簡易ワークシート 一覧画面 ========== -->` の直前までを、次に置き換える:
 
@@ -1121,13 +1121,13 @@ ok(/closeMediaList\(\); openWS\(/.test(S.grabFunction(src, 'renderMediaList')) &
 
 ```
 
-- [ ] **Step 5: CSS と登録の掃除**
+- [x] **Step 5: CSS と登録の掃除**
 
 `#new-media-screen,` を **3か所すべて** `#media-cards-screen,` に置き換える（`sed -i '' 's/#new-media-screen,/#media-cards-screen,/g' index.html`。置換後 `grep -c "#media-cards-screen," index.html` が 3）。
 `_NAV_EDIT_PANELS` の行 `{ id: 'new-media-screen',  close: () => closeNewMedia(),   save: () => saveNewMedia(),        label: '新規メディア記録' },` を削除。
 管理室ボタンの副題 `SD/CFexpress 等の使用記録` を `カードの持ち出し・BU・返却の一覧` にする。
 
-- [ ] **Step 6: JS — メディア管理の関数を置き換える**
+- [x] **Step 6: JS — メディア管理の関数を置き換える**
 
 `async function fetchMediaList(showStatus) {` から `saveNewMedia` の閉じ `}`（`// ===== 簡易ワークシート` の直前）までを削除し、`function getCachedMedia() { return _getCached('media_cache'); }` と Task 1・2 のブロックは残す。削除した位置に次を入れる（Task 1・2 のブロックの後）:
 
@@ -1282,12 +1282,12 @@ ok(/closeMediaList\(\); openWS\(/.test(S.grabFunction(src, 'renderMediaList')) &
 
 `_nextId` は運転記録でも使われているので**消さずにここへ移す**（元の位置の定義は削除して重複させない。`grep -c "function _nextId" index.html` が 1）。
 
-- [ ] **Step 7: 通ることを確認**
+- [x] **Step 7: 通ることを確認**
 
 Run: `node tests/media/test-records.js && node tests/media/test-structure.js`
 Expected: すべて ✅（Task 7・8 の関数はまだ無いので、`test-structure.js` の Task 7・8 の節はまだ書かない）
 
-- [ ] **Step 8: 構文チェック・既存テスト全部 → Commit**
+- [x] **Step 8: 構文チェック・既存テスト全部 → Commit**
 
 メッセージ: `feat(メディア管理): 一覧とカードの現在地を作り直し、単独の記録画面を廃止`
 
@@ -1310,7 +1310,7 @@ Expected: すべて ✅（Task 7・8 の関数はまだ無いので、`test-stru
 - Modify: `index.html` — Task 6 のブロックの直後、`config` kind の `redraw`
 - Test: `tests/media/test-structure.js`（追記）
 
-- [ ] **Step 1: テストを追記**
+- [x] **Step 1: テストを追記**
 
 ```js
 console.log('\n=== Task 7: カード一覧の画面 ===');
@@ -1322,9 +1322,9 @@ ok(top('_refreshMediaCardButtons') && /_refreshMediaCardButtons\('wsd-media'/.te
 ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ幅のルール3か所に入っている');
 ```
 
-- [ ] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js`
+- [x] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js`
 
-- [ ] **Step 3: JS（Task 6 のブロックの直後に挿入）**
+- [x] **Step 3: JS（Task 6 のブロックの直後に挿入）**
 
 ```js
   // ---- 🎴 カード一覧（追加・廃棄・復活。名前変更は無し） ----
@@ -1381,7 +1381,7 @@ ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ�
 
 にする。
 
-- [ ] **Step 4: 通ることを確認 → 構文チェック → Commit**
+- [x] **Step 4: 通ることを確認 → 構文チェック → Commit**
 
 メッセージ: `feat(メディア管理): 🎴 カード一覧（追加・廃棄・復活、全端末で共有）`
 
@@ -1402,7 +1402,7 @@ ok((src.match(/#media-cards-screen,/g) || []).length === 3, 'デスクトップ�
 - Modify: `index.html` — Task 7 のブロックの直後
 - Test: `tests/media/test-csv.js`（新規）, `tests/media/test-structure.js`（追記）
 
-- [ ] **Step 1: 失敗するテストを書く**
+- [x] **Step 1: 失敗するテストを書く**
 
 ```js
 // tests/media/test-csv.js — LINE bot のシート（CSV）の読み取りと重複除外
@@ -1451,9 +1451,9 @@ const imp = S.grabFunction(src, 'importMediaCsvFile');
 ok(/confirm\(/.test(imp) && /pushKind\('media'/.test(imp) && /media_cache/.test(imp), '確認→送信→キャッシュ反映');
 ```
 
-- [ ] **Step 2: 落ちることを確認** — Run: `node tests/media/test-csv.js; node tests/media/test-structure.js`
+- [x] **Step 2: 落ちることを確認** — Run: `node tests/media/test-csv.js; node tests/media/test-structure.js`
 
-- [ ] **Step 3: JS（Task 7 のブロックの直後に挿入）**
+- [x] **Step 3: JS（Task 7 のブロックの直後に挿入）**
 
 ```js
   // ---- 📥 LINE取込：bot のシートを「ファイル → ダウンロード → CSV」したものを media kind に入れる（閲覧用・1回だけ） ----
@@ -1541,7 +1541,7 @@ ok(/confirm\(/.test(imp) && /pushKind\('media'/.test(imp) && /media_cache/.test(
   }
 ```
 
-- [ ] **Step 4: 通ることを確認 → 構文チェック → Commit**
+- [x] **Step 4: 通ることを確認 → 構文チェック → Commit**
 
 Run: `node tests/media/test-csv.js && tests/media/run.sh`
 メッセージ: `feat(メディア管理): 📥 LINE取込（bot のシートを CSV で1回取り込む）`
@@ -1556,7 +1556,7 @@ Run: `node tests/media/test-csv.js && tests/media/run.sh`
 - Modify: `CLAUDE.md`
 - Modify: `docs/superpowers/plans/2026-09-28-media-record.md`（チェックボックス）
 
-- [ ] **Step 1: CLAUDE.md に追記**
+- [x] **Step 1: CLAUDE.md に追記**
 
 「主な機能・タブ構成」の管理室の行 `メディア管理` の説明を「メディア管理（カードの持ち出し・BU・返却の一覧）」にし、「その他主要画面」の末尾に:
 
@@ -1573,16 +1573,16 @@ Run: `node tests/media/test-csv.js && tests/media/run.sh`
 同期はレコード単位の LWW。古い版を開いたままの端末が同じワークシートを後から保存すると `media` ごと消える（旧版のレコードに `media` が無いため）。公開後は全員に再読み込み（⌘+Shift+R）を頼む。`_pickNewer` への保護追加は、同じ場所に未コミットのガード強化があるため見送り中。
 ```
 
-- [ ] **Step 1b: 小さな宿題（2026-09-29 レビューより）**
+- [x] **Step 1b: 小さな宿題（2026-09-29 レビューより）**
   - `_mediaDateKey`：年なしの `M/D` が今日より未来なら前年とみなす（年越しで古い記録が最新扱いになるのを防ぐ）
   - `renderMediaList` の絞り込み・検索の式を純関数 `_mediaFilterRows(rows, filter, q)` に切り出し、`tests/media/test-records.js` に4チップ＋検索対象（buBy・memo を含む）の確認を足す
 
-- [ ] **Step 2: 全テスト・構文チェック**
+- [x] **Step 2: 全テスト・構文チェック**
 
 Run: `for t in tests/kurosawa/test-*.js tests/login/test-*.js tests/staff/test-*.js tests/worksheet/test-*.js tests/media/test-*.js; do node "$t" >/dev/null 2>&1 && echo "✅ $t" || echo "❌ $t"; done`
 Expected: すべて ✅
 
-- [ ] **Step 3: Commit**（CLAUDE.md と計画のチェックボックス）
+- [x] **Step 3: Commit**（CLAUDE.md と計画のチェックボックス）
 
 メッセージ: `docs: メディア使用記録の仕様を CLAUDE.md に追記`
 
