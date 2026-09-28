@@ -550,6 +550,12 @@ Expected: すべて ✅
 
 メッセージ: `feat(メディア): 記入欄の共通部品（カード・名前・BUのボタン群、流し込みと回収）`
 
+> **2026-09-28 レビュー後の変更（実装済み・上のコードより優先）**
+> - `_collectMediaForm(prefix)` は `${prefix}-body` が未構築なら **`null`** を返す（「記入欄が無い」と「空」を区別。空の新版で同期データを潰さない）。呼ぶ側（Task 3 の `saveWS`・`_updateWsdMediaCount`、Task 5 の `saveSimpleWS`）は null を扱う
+> - 「使用したカード」の行は `<label>` が `<button>` を包まない（ラベル文字のタップで「持ち出しと同じ」が発火する HTML の仕様を避ける）。`<div class="wsd-label">` にしてボタンは兄弟に置く
+> - `body.dataset.built` には screenId を入れ、違う screenId で呼ばれたら中身を作り直す
+> - `tests/media/test-form.js` は `_mediaFormRowsHtml` の出力から id を拾って擬似要素を作る（HTML と JS の id が本当に一致することを検証）。`_markDirty` の呼び出し先 screenId、未構築で null、`sw-media` prefix も検証
+
 ---
 
 ### Task 3: ワークシート記入画面に組み込む
@@ -571,7 +577,7 @@ ok(/id="wsd-media-toggle"/.test(src) && /id="wsd-media-body"/.test(src) && /id="
 ok(src.indexOf('id="wsd-equip-checklist"') < src.indexOf('id="wsd-media-toggle"') && src.indexOf('id="wsd-media-body"') < src.indexOf('👤 私物機材'), '機材リストの後・私物機材の前にある');
 ['_setWsdMediaOpen', 'toggleWsdMedia', '_updateWsdMediaCount', '_wsEquipCats'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
 const saveWS = S.grabFunction(src, 'saveWS');
-ok(/data\.media = _collectMediaForm\('wsd-media'\)/.test(saveWS) && /data\['wsd-media'\] = ''/.test(saveWS), 'saveWS が media を保存し旧欄を空にする');
+ok(/const m = _collectMediaForm\('wsd-media'\)/.test(saveWS) && /if \(m\) \{ data\.media = m; data\['wsd-media'\] = ''; \}/.test(saveWS), 'saveWS は記入欄が描けているときだけ media を保存し旧欄を空にする');
 ok(!/const fields = \[[^\]]*'wsd-media'/.test(saveWS), 'saveWS の fields から wsd-media を外した');
 const openWS = S.grabFunction(src, 'openWS');
 ok(/_renderMediaForm\('wsd-media'/.test(openWS) && /saved\['wsd-media'\]/.test(openWS) && /crew_c/.test(openWS), 'openWS が記入欄を復元し、旧欄の文と使用者の初期値を入れる');
@@ -668,6 +674,7 @@ Expected: Task 3 の項目が ❌
     const el = document.getElementById('wsd-media-count');
     if (!el) return;
     const m = _collectMediaForm('wsd-media');
+    if (!m) { el.textContent = ''; return; } // 記入欄が未構築
     const parts = [m.out.length ? '持出 ' + m.out.length + '枚' : '未記録'];
     if (m.out.length && !m.returnBy) parts.push('🔴 返却未');
     if (m.used.length && !m.bu) parts.push('🟡 BU未');
@@ -737,9 +744,12 @@ Expected: Task 3 の項目が ❌
 にし、`data['edit_order']     = _getWsEditOrder();` の直後に
 
 ```js
-    // 💾 メディア（カード）使用記録（2026-09-28）。旧テキスト欄 wsd-media は開いたとき備考へ引き継いでいるので空にする（二重に残さない）
-    data.media = _collectMediaForm('wsd-media');
-    data['wsd-media'] = '';
+    // 💾 メディア（カード）使用記録（2026-09-28）。記入欄が描けているときだけ書く（未構築なら null → 既存の media と旧欄を触らない。
+    // 空の新版で同期データを潰さないためのガード）。旧テキスト欄 wsd-media は開いたとき備考へ引き継いでいるので空にする（二重に残さない）
+    {
+      const m = _collectMediaForm('wsd-media');
+      if (m) { data.media = m; data['wsd-media'] = ''; }
+    }
 ```
 
 - [ ] **Step 9: JS — `openWS`**
@@ -883,7 +893,7 @@ ok(/_renderMediaForm\('sw-media', null, 'new-simple-ws-screen'\)/.test(S.grabFun
 const oe = S.grabFunction(src, 'openEditSimpleWS');
 ok(/_renderMediaForm\('sw-media'/.test(oe) && /rec\.user/.test(oe), '編集で復元（使用者が空なら簡易WSの使用者）');
 const ss = S.grabFunction(src, 'saveSimpleWS');
-ok(/const media = _collectMediaForm\('sw-media'\)/.test(ss) && (ss.match(/\bmedia\b/g) || []).length >= 3, '保存が media を持つ（更新・新規の両方）');
+ok(/const media = _collectMediaForm\('sw-media'\) \|\| _normalizeMedia\(_prev\)/.test(ss) && (ss.match(/\bmedia\b/g) || []).length >= 3, '保存が media を持つ（未構築なら既存を保つ・更新と新規の両方）');
 ok(/_mediaPrintLine\(_collectMediaForm\('sw-media'\)\)/.test(S.grabFunction(src, 'openSimpleWSPrint')), '印刷に持ち出しの行');
 ok(/_wsEquipCats\(master, _swEquip\)/.test(S.grabFunction(src, 'renderSwEquipChecklist')), '簡易WSの機材リストもメディアを出さない');
 ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存のみ）/.test(src), '節の古いコメント「ローカル保存のみ」を直した');
@@ -913,8 +923,11 @@ ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存
 
 `saveSimpleWS`：`const memo = document.getElementById('sw-memo').value.trim();` の直後に
 ```js
-    const media = _collectMediaForm('sw-media'); // 💾 メディア（2026-09-28）
+    // 💾 メディア（2026-09-28）。記入欄が未構築（null）なら既存の値を保つ（空で潰さない）
+    const _prev = _swEditId ? (list0.find(r => r.id === _swEditId) || {}).media : null;
+    const media = _collectMediaForm('sw-media') || _normalizeMedia(_prev);
 ```
+ただし `list` の読み込み `const list = loadSimpleWS();` はこの行より後にあるので、その行を `const media = ...` の**前**へ移して `list0` ではなく `list` を使う（`const list = loadSimpleWS();` を memo の直後に移動し、`_prev` は `list.find(...)`）。
 更新の行を
 ```js
         list[idx] = Object.assign({}, list[idx], { date, title, user, content, equip, memo, media, updatedAt: nowIso, _updatedAt: nowIso });
