@@ -1297,6 +1297,15 @@ Expected: すべて ✅（Task 7・8 の関数はまだ無いので、`test-stru
 
 ### Task 7: 🎴 カード一覧の画面
 
+> **2026-09-29 Task 6 レビュー後の追加（Task 7 と同じコミットで実施）**
+> - `renderMediaList` の一覧行は `onclick` に文字列を埋め込まず、`data-src`/`data-key` を付けて `#media-items` に1つの委譲クリックハンドラで開く（受注No は共有シート由来なので `'` を含みうる。`escapeHtml` は JS 文字列のエスケープではない）
+> - `refreshMediaPage` の取り込みに `'config'` を足す（他端末で追加したカードがタイルに出るように）
+> - `_mediaBuFlag` は否定リスト方式（空・未・×・x・✕・なし・no 以外は「済」。旧記録の BU確認 に日付が入っている場合を「済」扱いに）
+> - 廃棄するカードが貸出中（`_mediaCardStatus` で `out`）なら確認文にその旨を出す
+> - `saveWS`／`saveSimpleWS` の完了処理と `order`/`child`/`simpleWS` の `redraw` に `_rerenderIfOpen('media-list-screen', renderMediaList)` を足す（保存後・同期後に一覧が古いままにならない）
+> - `_mediaRecords` の並べ替えは `_mediaDateKey` を各記録で1回だけ計算して使う（`r._k`）
+
+
 **Files:**
 - Modify: `index.html` — Task 6 のブロックの直後、`config` kind の `redraw`
 - Test: `tests/media/test-structure.js`（追記）
@@ -1556,6 +1565,10 @@ Run: `node tests/media/test-csv.js && tests/media/run.sh`
 ### 💾 メディア記録の展開時の注意
 同期はレコード単位の LWW。古い版を開いたままの端末が同じワークシートを後から保存すると `media` ごと消える（旧版のレコードに `media` が無いため）。公開後は全員に再読み込み（⌘+Shift+R）を頼む。`_pickNewer` への保護追加は、同じ場所に未コミットのガード強化があるため見送り中。
 ```
+
+- [ ] **Step 1b: 小さな宿題（2026-09-29 レビューより）**
+  - `_mediaDateKey`：年なしの `M/D` が今日より未来なら前年とみなす（年越しで古い記録が最新扱いになるのを防ぐ）
+  - `renderMediaList` の絞り込み・検索の式を純関数 `_mediaFilterRows(rows, filter, q)` に切り出し、`tests/media/test-records.js` に4チップ＋検索対象（buBy・memo を含む）の確認を足す
 
 - [ ] **Step 2: 全テスト・構文チェック**
 
