@@ -14034,6 +14034,7 @@ ${_body}
       // 途中まで送信済みならキャッシュに反映し、その分は次回の重複判定で飛ばされる旨を伝える
       const note = sent ? `\n（${sent} 件は送信済みです。同じCSVをもう一度取り込めば、送信済みの分は重複として飛ばされます）` : '';
       if (sent > 0) _saveMediaRows(getCachedMedia().concat(stamped.slice(0, sent)));
+      if (sent > 0) { _mediaListInvalidate(); renderMediaList(); } // 送信済みの分を一覧にも反映
       setGasStatus('❌ 取り込み失敗：' + err.message + note, '#c0392b');
       alert('取り込みに失敗しました: ' + err.message + note);
     }
