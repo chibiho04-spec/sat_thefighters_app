@@ -927,7 +927,7 @@ ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存
     const _prev = _swEditId ? (list0.find(r => r.id === _swEditId) || {}).media : null;
     const media = _collectMediaForm('sw-media') || _normalizeMedia(_prev);
 ```
-ただし `list` の読み込み `const list = loadSimpleWS();` はこの行より後にあるので、その行を `const media = ...` の**前**へ移して `list0` ではなく `list` を使う（`const list = loadSimpleWS();` を memo の直後に移動し、`_prev` は `list.find(...)`）。
+`_prev` は `list.find(...)`（`const list = loadSimpleWS();` は実装時点で既に memo の直後にあったため移動は不要だった・2026-09-28 レビューで確認）。
 更新の行を
 ```js
         list[idx] = Object.assign({}, list[idx], { date, title, user, content, equip, memo, media, updatedAt: nowIso, _updatedAt: nowIso });
