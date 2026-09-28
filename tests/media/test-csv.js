@@ -42,4 +42,12 @@ const p2 = _parseMediaCSV('使用日,現場名,持ち出したメディア,バ�
 ok(p2.rows[0]['備考'] === '持出: CF160_1, CF160_2／BU担当: 平岡, 森田', '持出・BU担当の ／ は , に寄せる（備考の区切りと衝突しない）');
 const p3 = _parseMediaCSV('BU確認,バックアップ,使用日,現場名\n未,○,2026/08/17,S');
 ok(p3.rows[0]['BU確認'] === '○', '見出しは候補の順で探す（バックアップ を BU確認 より優先）');
+
+console.log('\n=== シート直読み（2026-09-29） ===');
+S.load(['_lineSheetCsvUrl']);
+ok(_lineSheetCsvUrl('https://docs.google.com/spreadsheets/d/1AbC_-xyz/edit?gid=0#gid=0') === 'https://docs.google.com/spreadsheets/d/1AbC_-xyz/export?format=csv&gid=0', '編集リンク → CSV 書き出し');
+ok(_lineSheetCsvUrl('https://docs.google.com/spreadsheets/d/1AbC_-xyz/edit#gid=123') === 'https://docs.google.com/spreadsheets/d/1AbC_-xyz/export?format=csv&gid=123', 'gid を引き継ぐ');
+ok(_lineSheetCsvUrl('https://docs.google.com/spreadsheets/d/1AbC_-xyz/edit') .endsWith('gid=0'), 'gid が無ければ 0');
+ok(_lineSheetCsvUrl('https://example.com/x') === '' && _lineSheetCsvUrl('') === '', 'シート以外は空');
+ok(_mediaDateKey('5/28/2026') === '2026-05-28' && _mediaDateKey('6/5/2026, 6/6/2026') === '2026-06-05', '5/28/2026 の書き方（英語ロケール）も読める');
 ok.done();

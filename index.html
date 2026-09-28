@@ -5903,8 +5903,10 @@
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">🔄 更新</button>
       <button onclick="openMediaCards()" title="カードの追加・廃棄（全端末で共有）"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">🎴 カード一覧</button>
-      <button onclick="document.getElementById('media-csv-file').click()" title="LINE bot のシートを CSV にしたものを取り込む"
+      <button onclick="importMediaFromLineSheet()" title="LINE bot のスプレッドシートを直接読んで取り込む（初回はリンクを貼る）"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📥 LINE取込</button>
+      <button onclick="document.getElementById('media-csv-file').click()" title="CSV ファイルから取り込む（シートを直接読めないとき用）"
+        style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;">📄 CSV</button>
       <input id="media-csv-file" type="file" accept=".csv,text/csv" style="display:none;" onchange="importMediaCsvFile(this.files && this.files[0]); this.value='';">
       <a href="https://docs.google.com/spreadsheets/d/1-4JZsI7Hq21cBYh9EUDX-CGErm5ba5Lj6gj86IQiWnE/edit#gid=1323418612" target="_blank" title="スプレッドシートを開く"
         style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;text-decoration:none;">📊</a>
@@ -13734,6 +13736,8 @@ ${_body}
     const t = String(s || '').trim();
     let m = t.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);
     if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); // 5/28/2026（Google シートの英語ロケール書式・LINE bot の一部の行）
+    if (m) return m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
     m = t.match(/(\d{1,2})[\/\-.月](\d{1,2})/);
     if (m) {
       // 年なしは今年。ただし今日より 90日超 先なら前年とみなす（年越しで古い記録が最新扱いになるのを防ぐ。
@@ -14002,16 +14006,55 @@ ${_body}
     });
     return { toAdd, dup };
   }
+  // CSV ファイルから（bot のシートを「ファイル → ダウンロード → CSV」したもの。シートを直接読めないときの逃げ道）
   async function importMediaCsvFile(file) {
     if (!file) return;
-    if (!_gasUrlOne()) { alert('同期URLが未設定のため取り込めません（データ管理で合言葉を設定してください）'); return; }
-    try { await pullKind('media'); } catch (e) {} // 採番の土台を最新に（他端末の L 行を踏まない）
     let text = '';
     try { text = await file.text(); } catch (e) { alert('ファイルを読めませんでした'); return; }
+    await _importMediaCsvText(text);
+  }
+  // Google シートの「編集」リンク → CSV 書き出しの URL（シートでなければ ''）
+  function _lineSheetCsvUrl(url) {
+    const m = String(url || '').match(/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)/);
+    if (!m) return '';
+    const g = String(url || '').match(/[#?&]gid=(\d+)/);
+    return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/export?format=csv&gid=' + (g ? g[1] : '0');
+  }
+  // bot のシートを直接読んで取り込む（共有が「リンクを知っている全員」なら CSV 書き出しに CORS が付くので fetch できる）。
+  // シートの場所はコードに書かず、端末ごとに localStorage に保存（公開リポジトリにリンクを載せない）
+  const LINE_MEDIA_SHEET_URL_KEY = 'line_media_sheet_url';
+  async function importMediaFromLineSheet() {
+    let url = '';
+    try { url = localStorage.getItem(LINE_MEDIA_SHEET_URL_KEY) || ''; } catch (e) {}
+    if (!url) {
+      url = (prompt('LINE bot が書き込んでいるスプレッドシートのリンクを貼ってください\n（ブラウザのアドレス欄の https://docs.google.com/spreadsheets/d/… をそのまま。この端末に保存されます）') || '').trim();
+      if (!url) return;
+      if (!_lineSheetCsvUrl(url)) { alert('Google スプレッドシートのリンクではないようです'); return; }
+      try { localStorage.setItem(LINE_MEDIA_SHEET_URL_KEY, url); } catch (e) {}
+    }
+    setGasStatus('📥 LINEのシートを読み込み中…', '#2980b9');
+    let text = '';
+    try {
+      const res = await fetch(_lineSheetCsvUrl(url), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      text = await res.text();
+      if (/^\s*</.test(text)) throw new Error('CSV ではなく HTML が返りました'); // ログイン画面など
+    } catch (err) {
+      setGasStatus('❌ シートを読めませんでした：' + err.message, '#c0392b');
+      const again = confirm('シートを読めませんでした（' + err.message + '）。\n\n・シートの共有が「リンクを知っている全員（閲覧者）」になっているか\n・リンクが正しいか\nを確認してください。\n\nリンクを入れ直しますか？（キャンセル＝そのまま。CSV ファイルからの取込は「📄 CSV」でできます）');
+      if (again) { try { localStorage.removeItem(LINE_MEDIA_SHEET_URL_KEY); } catch (e) {} importMediaFromLineSheet(); }
+      return;
+    }
+    await _importMediaCsvText(text);
+  }
+  // 取込の本体（CSV の文字列 → media kind へ）。同じ行（使用日＋現場名＋使用者）は2回入れない
+  async function _importMediaCsvText(text) {
+    if (!_gasUrlOne()) { alert('同期URLが未設定のため取り込めません（データ管理で合言葉を設定してください）'); return; }
+    try { await pullKind('media'); } catch (e) {} // 採番の土台を最新に（他端末の L 行を踏まない）
     const parsed = _parseMediaCSV(text);
     if (parsed.error) { alert('❌ ' + parsed.error); return; }
     const { toAdd, dup } = _importMediaCsvRows(parsed.rows, getCachedMedia());
-    if (!toAdd.length) { alert('取り込む行がありません（重複 ' + dup + ' 件）'); return; }
+    if (!toAdd.length) { setGasStatus('✅ 新しい記録はありません（重複 ' + dup + ' 件）', '#27ae60'); alert('新しく取り込む行はありません（すでに取込済み ' + dup + ' 件）'); return; }
     if (!confirm(toAdd.length + ' 件を取り込みます。よろしいですか？' + (dup ? '\n（重複 ' + dup + ' 件は飛ばします）' : ''))) return;
     setGasStatus('📤 LINEの記録を送信中…', '#2980b9');
     const stamped = toAdd.map(r => _stampNow(r));
@@ -14029,7 +14072,7 @@ ${_body}
       renderMediaList();
     } catch (err) {
       // 途中まで送信済みならキャッシュに反映し、その分は次回の重複判定で飛ばされる旨を伝える
-      const note = sent ? `\n（${sent} 件は送信済みです。同じCSVをもう一度取り込めば、送信済みの分は重複として飛ばされます）` : '';
+      const note = sent ? `\n（${sent} 件は送信済みです。もう一度取り込めば、送信済みの分は重複として飛ばされます）` : '';
       if (sent > 0) _saveMediaRows(getCachedMedia().concat(stamped.slice(0, sent)));
       if (sent > 0) { _mediaListInvalidate(); renderMediaList(); } // 送信済みの分を一覧にも反映
       setGasStatus('❌ 取り込み失敗：' + err.message + note, '#c0392b');

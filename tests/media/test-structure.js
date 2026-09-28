@@ -84,9 +84,13 @@ ok(/id: 'media-cards-screen', close: \(\) => closeMediaCards\(\)/.test(src), '�
 console.log('\n=== Task 8: LINE取込 ===');
 ok(/id="media-csv-file"/.test(src) && /importMediaCsvFile\(this\.files/.test(src), 'ファイル選択がある');
 ok(/async function importMediaCsvFile/.test(src), '取込関数がある');
-const imp = S.grabFunction(src, 'importMediaCsvFile');
+const imp = S.grabFunction(src, '_importMediaCsvText'); // 取込の本体（CSV ファイル・シート直読みの両方が使う）
 ok(/confirm\(/.test(imp) && /pushKind\('media'/.test(imp) && /_saveMediaRows\(/.test(imp), '確認→送信→キャッシュ反映');
 ok(/await pullKind\('media'\)/.test(imp) && /CHUNK = 100/.test(imp) && /_saveMediaRows\(/.test(imp), '取込前に media を取り込み、100件ずつ送り、キャッシュは共通関数で保存');
 ok(/let sent = 0/.test(imp) && /stamped\.slice\(0, sent\)/.test(imp), '途中で失敗しても送信済みの分はキャッシュに残し、その旨を伝える');
 
+ok(top('importMediaFromLineSheet') && /async function importMediaFromLineSheet/.test(src) && top('_importMediaCsvText') && top('_lineSheetCsvUrl'), 'シート直読みの関数がある');
+ok(/onclick="importMediaFromLineSheet\(\)"/.test(src) && /onclick="document\.getElementById\('media-csv-file'\)\.click\(\)"/.test(src), '📥 LINE取込＝シート直読み、📄 CSV＝ファイル');
+ok(!/spreadsheets\/d\/1c7O5kB1/.test(src), 'bot のシートのリンクはコードに書かない（端末ごとに保存）');
+ok(/_importMediaCsvText\(text\)/.test(S.grabFunction(src, 'importMediaCsvFile')) && /_importMediaCsvText\(text\)/.test(S.grabFunction(src, 'importMediaFromLineSheet')), '両方とも同じ取込の本体を使う');
 ok.done();
