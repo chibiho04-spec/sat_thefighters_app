@@ -6061,6 +6061,10 @@
       <div class="wsd-section-head" style="background:#16a085;text-shadow:1px 1px 0 #0b5345;">🎥 使用機材（必須）</div>
       <div id="sw-equip-checklist" class="wsd-field-group" style="padding:8px;"></div>
 
+      <!-- 💾 メディア（カード）使用記録（2026-09-28）。中身は _mediaFormRowsHtml で生成（通常WSと共通） -->
+      <div class="wsd-section-head" style="background:#16a085;text-shadow:1px 1px 0 #0b5345;">💾 メディア</div>
+      <div id="sw-media-body" class="wsd-field-group" style="display:flex;flex-direction:column;gap:10px;"></div>
+
       <!-- 備考 -->
       <div class="wsd-section-head" style="background:#16a085;text-shadow:1px 1px 0 #0b5345;">📝 備考</div>
       <div class="wsd-field-group">
@@ -13611,7 +13615,7 @@ ${_body}
   function _mediaViewHtml(m) {
     const n = _normalizeMedia(m); if (!_mediaHasRecord(n)) return '';
     const esc = escapeHtml;
-    const row = (lbl, val) => `<div style="padding:2px 0;border-bottom:1px dashed #eee;">${lbl} ${val}</div>`;
+    const row = (lbl, val) => `<div style="padding:2px 0;border-bottom:1px dashed #eee;white-space:pre-wrap;">${lbl} ${val}</div>`;
     return [
       n.out.length  ? row('📤 持出:', esc(n.out.join(', ')))  : '',
       n.used.length ? row('💾 使用:', esc(n.used.join(', '))) : '',
@@ -13894,7 +13898,7 @@ ${_body}
     }
   }
 
-  // ===== 簡易ワークシート（単発の機材使用記録・ローカル保存のみ） =====
+  // ===== 簡易ワークシート（単発の機材使用記録・simpleWS kind で同期） =====
   function loadSimpleWS() {
     try { return JSON.parse(localStorage.getItem('simple_ws')) || []; } catch { return []; }
   }
@@ -13983,9 +13987,7 @@ ${_body}
     const el = document.getElementById('sw-equip-checklist');
     if (!el) return;
     const master  = loadEquipMaster();
-    const cats    = CAT_ORDER.filter(c => master.some(e => e.cat === c));
-    const others  = [...new Set(master.map(e => e.cat))].filter(c => !CAT_ORDER.includes(c));
-    const allCats = [...cats, ...others];
+    const allCats = _wsEquipCats(master, _swEquip);
     el.innerHTML = '';
     if (!master.length) {
       el.innerHTML = '<div style="padding:16px 4px;text-align:center;color:#888;font-size:12px;">機材マスタが空です。<br>下のボタンから機材を登録してください。</div>';
@@ -14068,6 +14070,7 @@ ${_body}
     document.getElementById('sw-status').textContent    = '';
     document.getElementById('sw-delete-wrap').style.display = 'none';
     renderSwEquipChecklist();
+    _renderMediaForm('sw-media', null, 'new-simple-ws-screen');
     document.getElementById('new-simple-ws-screen').style.transform = 'translateX(0)';
   }
   function closeNewSimpleWS() {
@@ -14094,6 +14097,7 @@ ${_body}
     document.getElementById('sw-save-btn').textContent  = '💾 更新する';
     document.getElementById('sw-delete-wrap').style.display = 'block';
     renderSwEquipChecklist();
+    { const m = _normalizeMedia(rec.media); if (!m.user) m.user = rec.user || ''; _renderMediaForm('sw-media', m, 'new-simple-ws-screen'); }
   }
 
   function saveSimpleWS() {
@@ -14116,16 +14120,19 @@ ${_body}
     const content = document.getElementById('sw-content').value.trim();
     const memo = document.getElementById('sw-memo').value.trim();
     const list = loadSimpleWS();
+    // 💾 メディア（2026-09-28）。記入欄が未構築（null）なら既存の値を保つ（空で潰さない）
+    const _prev = _swEditId ? (list.find(r => r.id === _swEditId) || {}).media : null;
+    const media = _collectMediaForm('sw-media') || _normalizeMedia(_prev);
     const nowIso = new Date().toISOString();
     let rec = null;
     if (_swEditId) {
       const idx = list.findIndex(r => r.id === _swEditId);
       if (idx >= 0) {
-        list[idx] = Object.assign({}, list[idx], { date, title, user, content, equip, memo, updatedAt: nowIso, _updatedAt: nowIso });
+        list[idx] = Object.assign({}, list[idx], { date, title, user, content, equip, memo, media, updatedAt: nowIso, _updatedAt: nowIso });
         rec = list[idx];
       }
     } else {
-      rec = { id: 'sw' + Date.now(), date, title, user, content, equip, memo, createdAt: nowIso, updatedAt: nowIso, _updatedAt: nowIso };
+      rec = { id: 'sw' + Date.now(), date, title, user, content, equip, memo, media, createdAt: nowIso, updatedAt: nowIso, _updatedAt: nowIso };
       list.push(rec);
     }
     saveSimpleWSList(list);
@@ -14189,6 +14196,7 @@ ${_body}
     const content = document.getElementById('sw-content').value.trim();
     const memo = document.getElementById('sw-memo').value.trim();
     const equipRows = buildSwEquipPrintRows();
+    const mediaLine = _mediaPrintLine(_collectMediaForm('sw-media')); // 持ち出しだけ（本人決定 2026-09-28）
     const secBar = (label, color = '#16a085') =>
       `<div style="background:${color};color:white;font-size:15pt;font-weight:bold;padding:6px 12px;margin:16px 0 6px;letter-spacing:1px;">${label}</div>`;
     const equipTable = equipRows
@@ -14217,6 +14225,7 @@ ${_body}
     </tr>` : ''}
   </table>
   ${secBar('使用機材')}${equipTable}
+  ${mediaLine ? secBar('メディア') + `<p style="margin:0;padding:7px 10px;font-size:16pt;line-height:1.8;">${mediaLine}</p>` : ''}
   ${memo ? secBar('備考', '#27ae60') + `<p style="margin:0;padding:7px 10px;font-size:16pt;line-height:1.8;border-left:3px solid #27ae60;white-space:pre-wrap;">${escapeHtml(memo)}</p>` : ''}
 </div>`;
     document.getElementById('print-content').innerHTML = html;

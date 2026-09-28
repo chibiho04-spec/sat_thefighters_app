@@ -43,5 +43,19 @@ ok(/_mediaViewHtml\(/.test(view) && /wsv-media-section/.test(view), 'renderWsVie
 const pr = S.grabFunction(src, 'openWorksheetPrint');
 ok(/const mediaLine = _mediaPrintLine\(saved2\.media\)/.test(pr), '印刷が持ち出しの1行を作る');
 ok(pr.indexOf("secBar('使用機材')") < pr.indexOf("secBar('メディア')") && pr.indexOf("secBar('メディア')") < pr.indexOf("secBar('レンタル・私物')"), '使用機材の直後に出る');
+ok(/\$\{mediaLine\}/.test(pr) && !/escapeHtml\(mediaLine\)/.test(pr), '印刷は mediaLine を素で挿す（二重エスケープしない）');
+ok(!/使用者|BU|返却/.test(pr.slice(pr.indexOf("secBar('メディア')"), pr.indexOf("secBar('レンタル・私物')"))), '印刷のメディア節は持ち出しだけ');
+
+console.log('\n=== Task 5: 簡易ワークシート ===');
+ok(/id="sw-media-body"/.test(src), '簡易WSに記入欄の本体がある');
+ok(src.indexOf('id="sw-equip-checklist"') < src.indexOf('id="sw-media-body"') && src.indexOf('id="sw-media-body"') < src.indexOf('id="sw-memo"'), '使用機材の後・備考の前');
+ok(/_renderMediaForm\('sw-media', null, 'new-simple-ws-screen'\)/.test(S.grabFunction(src, 'openNewSimpleWS')), '新規で空の記入欄を描く');
+const oe = S.grabFunction(src, 'openEditSimpleWS');
+ok(/_renderMediaForm\('sw-media'/.test(oe) && /rec\.user/.test(oe), '編集で復元（使用者が空なら簡易WSの使用者）');
+const ss = S.grabFunction(src, 'saveSimpleWS');
+ok(/const media = _collectMediaForm\('sw-media'\) \|\| _normalizeMedia\(_prev\)/.test(ss) && (ss.match(/\bmedia\b/g) || []).length >= 3, '保存が media を持つ（未構築なら既存を保つ・更新と新規の両方）');
+ok(/_mediaPrintLine\(_collectMediaForm\('sw-media'\)\)/.test(S.grabFunction(src, 'openSimpleWSPrint')), '印刷に持ち出しの行');
+ok(/_wsEquipCats\(master, _swEquip\)/.test(S.grabFunction(src, 'renderSwEquipChecklist')), '簡易WSの機材リストもメディアを出さない');
+ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存のみ）/.test(src), '節の古いコメント「ローカル保存のみ」を直した');
 
 ok.done();
