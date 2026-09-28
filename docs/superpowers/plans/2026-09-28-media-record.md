@@ -1550,6 +1550,13 @@ Run: `node tests/media/test-csv.js && tests/media/run.sh`
 
 「現在の同期対象 kind 一覧」の `media` の行の備考に「（2026-09-28〜 閲覧専用。新規はワークシートの media）」を足す。
 
+さらに「⚠️ 新機能追加時の確認ルール」の手前に1段落:
+
+```markdown
+### 💾 メディア記録の展開時の注意
+同期はレコード単位の LWW。古い版を開いたままの端末が同じワークシートを後から保存すると `media` ごと消える（旧版のレコードに `media` が無いため）。公開後は全員に再読み込み（⌘+Shift+R）を頼む。`_pickNewer` への保護追加は、同じ場所に未コミットのガード強化があるため見送り中。
+```
+
 - [ ] **Step 2: 全テスト・構文チェック**
 
 Run: `for t in tests/kurosawa/test-*.js tests/login/test-*.js tests/staff/test-*.js tests/worksheet/test-*.js tests/media/test-*.js; do node "$t" >/dev/null 2>&1 && echo "✅ $t" || echo "❌ $t"; done`
