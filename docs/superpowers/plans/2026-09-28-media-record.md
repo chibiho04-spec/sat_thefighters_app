@@ -87,10 +87,18 @@ const src = html();
 function load(names) { names.forEach(n => (0, eval)(grabFunction(src, n))); }
 function loadConst(name) { global[name] = grabConst(src, name); return global[name]; }
 
+// 擬似 localStorage に length / key(i) を足す（_mediaRecords が ws_ キーを走査するため）
+function storage(init) {
+  const s = fakeStorage(init);
+  Object.defineProperty(s, 'length', { get: () => Object.keys(s._store).length });
+  s.key = i => Object.keys(s._store)[i] ?? null;
+  return s;
+}
+
 // 最小の document（getElementById は null＝画面なし）
 global.document = { getElementById: () => null, querySelectorAll: () => [], body: { classList: { add(){}, remove(){}, contains(){ return false; } } } };
 global.window = global;
-global.localStorage = fakeStorage();
+global.localStorage = storage();
 
 // 同期まわりのスタブ（呼ばれた回数を数える）
 global._calls = { push: [], pendingAdd: [], pendingClear: [] };
@@ -107,7 +115,7 @@ load(['escapeHtml', '_normalizeForSearch', '_loadConfigRecords', '_saveConfigRec
       'loadWS', 'getSavedProjects', 'getDeletedWS', 'loadSimpleWS', '_getCached', 'getCachedMedia', '_nextId']);
 loadConst('CAT_ORDER'); loadConst('CREW_NAMES');
 
-module.exports = { src, load, loadConst, fakeStorage, makeOk, grabFunction, grabConst };
+module.exports = { src, load, loadConst, fakeStorage: storage, makeOk, grabFunction, grabConst };
 ```
 
 - [ ] **Step 2: `run.sh` を書く**
@@ -371,8 +379,10 @@ console.log('=== Task 2: 記入欄の共通部品 ===');
  '_addMediaCardFromForm', '_renderMediaNameGroup', '_pickMediaName', '_onMediaNameInput', '_renderMediaBuGroup', '_pickMediaBu',
  '_getMediaBu', '_renderMediaForm', '_collectMediaForm'].forEach(fn => ok(top(fn), fn + ' がトップレベル'));
 const rows = S.grabFunction(src, '_mediaFormRowsHtml');
-['-date', '-out-group', '-used-group', '-user-group', "-user'", '-bu-group', '-buby-group', "-buby'", '-return-group', "-return'", '-memo'].forEach(id =>
+// 名前の3欄（user/buby/return）は nameRow で `${prefix}-${which}` として作られる
+['-date"', '-out-group"', '-used-group"', '-bu-group"', '-memo"', '-${which}-group"', '-${which}"'].forEach(id =>
   ok(rows.indexOf('${prefix}' + id) >= 0, '記入欄に ' + id + ' がある'));
+["'user'", "'buby'", "'return'"].forEach(w => ok(rows.indexOf(w) >= 0, 'nameRow を ' + w + ' で呼んでいる'));
 ok(/持ち出しと同じ/.test(rows), '「持ち出しと同じ」ボタンがある');
 ok(/＋ 追加/.test(S.grabFunction(src, '_renderMediaCardGroup')), '持ち出し欄に「＋ 追加」がある');
 ok.done();
@@ -873,7 +883,7 @@ const ss = S.grabFunction(src, 'saveSimpleWS');
 ok(/const media = _collectMediaForm\('sw-media'\)/.test(ss) && (ss.match(/\bmedia\b/g) || []).length >= 3, '保存が media を持つ（更新・新規の両方）');
 ok(/_mediaPrintLine\(_collectMediaForm\('sw-media'\)\)/.test(S.grabFunction(src, 'openSimpleWSPrint')), '印刷に持ち出しの行');
 ok(/_wsEquipCats\(master, _swEquip\)/.test(S.grabFunction(src, 'renderSwEquipChecklist')), '簡易WSの機材リストもメディアを出さない');
-ok(!/ローカル保存のみ/.test(src), '「ローカル保存のみ」という古いコメントが無い');
+ok(!/簡易ワークシート（単発の機材使用記録・ローカル保存のみ）/.test(src), '節の古いコメント「ローカル保存のみ」を直した');
 ```
 
 - [ ] **Step 2: 落ちることを確認** — Run: `node tests/media/test-structure.js` → Task 5 が ❌
