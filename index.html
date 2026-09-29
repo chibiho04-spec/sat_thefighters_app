@@ -18988,7 +18988,8 @@ ${tableHTML}
     // テキスト系フィールド復元
     ['wsd-private','wsd-report','wsd-memo','wsd-shootdate','wsd-crew-extra','wsd-order-amount'].forEach(id => {
       const el = document.getElementById(id);
-      if (el && saved[id] !== undefined) el.value = saved[id];
+      // 保存値が無い欄は必ず空にする（前に開いた案件の値が残らないように・2026-09-29 本人指摘：報告事項に別案件の文が残っていた）
+      if (el) el.value = (saved[id] !== undefined && saved[id] !== null) ? saved[id] : '';
     });
 
     // 受注日（projects_saved の receivedAt が単一の源）。type=date 用に YYYY-MM-DD へ整形。
@@ -19055,7 +19056,12 @@ ${tableHTML}
     crewFields.forEach(([selId, txtId, val]) => {
       const sel = document.getElementById(selId);
       const txt = document.getElementById(txtId);
-      if (!sel || !val) return;
+      if (!sel) return;
+      if (!val) { // 未定：前の案件の「その他（自由記入）」が残らないように必ず空へ戻す
+        sel.value = '';
+        if (txt) { txt.style.display = 'none'; txt.value = ''; }
+        return;
+      }
       // プリセット名に含まれるか判定
       if (CREW_NAMES.includes(val)) {
         sel.value = val;
