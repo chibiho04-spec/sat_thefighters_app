@@ -16349,11 +16349,14 @@ ${tableHTML}
             const hon = escapeHtml(document.getElementById('inv-screen-honorific')?.value || '御中');
             const companyOnly = escapeHtml((document.getElementById('inv-screen-company')?.value || '').trim());
             const moveHon = !!(dept && companyOnly);
+            // 下線は宛名のまとまりの最後の行に引く：部署があれば「会社名＋部署」をまとめて部署の下、無ければ会社名の下（2026-09-30 本人決定）
             return `
-              <div style="font-size:14pt;font-weight:bold;border-bottom:1.5px solid #111;padding-bottom:2px;display:inline-block;min-width:160px;">
-                ${moveHon ? companyOnly : company}
-              </div>
-              ${dept ? `<div style="font-size:11pt;font-weight:bold;color:#111;margin-top:1.5mm;">${dept}${moveHon ? ' ' + hon : ''}</div>` : ''}
+              ${dept ? `<div style="display:inline-block;min-width:160px;border-bottom:1.5px solid #111;padding-bottom:2px;">
+                <div style="font-size:14pt;font-weight:bold;">${moveHon ? companyOnly : company}</div>
+                <div style="font-size:11pt;font-weight:bold;color:#111;margin-top:1mm;">${dept}${moveHon ? ' ' + hon : ''}</div>
+              </div>` : `<div style="font-size:14pt;font-weight:bold;border-bottom:1.5px solid #111;padding-bottom:2px;display:inline-block;min-width:160px;">
+                ${company}
+              </div>`}
               ${contact ? `<div style="font-size:9pt;color:#333;margin-top:1mm;">担当：${contact} 様</div>` : ''}
             `;
           })()}

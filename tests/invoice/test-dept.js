@@ -30,12 +30,27 @@ ok(/company: c\.company, contact: c\.contact, dept: c\.dept \|\| '', honorific: 
 console.log('\n=== 書類（印刷） ===');
 const doc = grabFunction(src, 'buildDocHTML');
 ok(/const dept     = escapeHtml\(_getInvDept\(\)\);/.test(doc), 'escapeHtml を通す');
-const a = doc.indexOf('${moveHon ? companyOnly : company}'), b = doc.indexOf('${dept ?'), c = doc.indexOf('${contact ?');
-ok(a > 0 && a < b && b < c, '会社名 → 部署 → 担当 の順に出る');
-ok(/\$\{dept \? `<div[^`]*>\$\{dept\}\$\{moveHon \? ' ' \+ hon : ''\}<\/div>` : ''\}/.test(doc), '空なら行ごと出さない。部署があれば敬称を部署の後ろに付ける');
-ok(/\$\{moveHon \? companyOnly : company\}/.test(doc) && /const moveHon = !!\(dept && companyOnly\);/.test(doc), '部署があるとき会社名の行から敬称を外す');
+ok(/const moveHon = !!\(dept && companyOnly\);/.test(doc), '部署があるとき敬称を部署側へ移す判定がある');
+// 宛名ブロックのテンプレートを実際に動かして、出来上がりの HTML を確かめる
+const tplSrc = doc.slice(doc.indexOf("const m = String(client || '')"), doc.indexOf('})()}', doc.indexOf("const m = String(client || '')")));
+const render = (client, dept, companyVal, honVal) => {
+  global.document = { getElementById: id => ({ 'inv-screen-honorific': { value: honVal }, 'inv-screen-company': { value: companyVal } }[id] || null) };
+  return new Function('client', 'dept', 'escapeHtml', tplSrc)(client, dept, x => String(x));
+};
+const strip = h => h.replace(/<[^>]+>/g, '|').replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|').replace(/\|+/g, '|').trim();
+let h = render('株式会社C3FILM 御中（担当：緑川 様）', '東京支社', '株式会社C3FILM', '御中');
+ok(strip(h) === '|株式会社C3FILM|東京支社 御中|担当：緑川 様|', '部署あり：会社名／部署 御中／担当 の順: ' + strip(h));
+ok((h.match(/border-bottom/g) || []).length === 1, '下線は1本だけ');
+const wrap = h.slice(h.indexOf('border-bottom'));
+ok(wrap.indexOf('株式会社C3FILM') > 0 && wrap.indexOf('東京支社 御中') > wrap.indexOf('株式会社C3FILM') && wrap.indexOf('担当：') > wrap.indexOf('</div>\n              </div>'), '下線の枠は会社名と部署を包み、担当は枠の外');
+ok(!/font-size:14pt;font-weight:bold;border-bottom/.test(h), '会社名の行そのものには下線を付けない（部署の下に1本）');
+h = render('株式会社C3FILM 御中（担当：緑川 様）', '', '株式会社C3FILM', '御中');
+ok(strip(h) === '|株式会社C3FILM 御中|担当：緑川 様|' && /font-size:14pt;font-weight:bold;border-bottom/.test(h), '部署なし：従来どおり会社名 御中 の下に下線: ' + strip(h));
+h = render('個人事務所 様', '企画室', '個人事務所', '様');
+ok(strip(h) === '|個人事務所|企画室 様|', '敬称が「様」でも部署の後ろへ');
 
 console.log('\n=== 記入画面でも並びが分かる ===');
+global.document = { getElementById: id => els[id] || null }; // 上の印刷テストで差し替えた document を戻す
 els['inv-screen-honorific'].value = '御中';
 _setInvClientFields('ウェブキャスト', '狩俣', '御中', '制作部');
 ok(els['inv-dept-hon'].textContent === '御中' && els['inv-screen-honorific'].style.opacity === '0.35', '部署があれば部署欄の右に敬称、会社名の横は薄く');
