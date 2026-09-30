@@ -5125,6 +5125,12 @@
                 <option value="様">様</option>
               </select>
             </div>
+            <!-- 担当部署（2026-09-30 追加）。空なら書類には出ない -->
+            <div style="margin-top:4px;display:flex;align-items:baseline;gap:4px;">
+              <span style="font-size:10pt;color:#666;flex-shrink:0;">部署：</span>
+              <input id="inv-screen-dept" type="text" placeholder="担当部署（例：制作部）" autocomplete="off"
+                style="flex:1;min-width:0;border:none;border-bottom:1px dashed #aaa;background:transparent;font-size:10pt;padding:1px 2px;font-family:inherit;">
+            </div>
             <div style="margin-top:4px;display:flex;align-items:baseline;gap:4px;">
               <span style="font-size:10pt;color:#666;flex-shrink:0;">担当：</span>
               <input id="inv-screen-contact" type="text" placeholder="担当者名" oninput="_syncClientLine()"
@@ -10509,12 +10515,16 @@
     const sel = document.getElementById('inv-screen-honorific');
     if (sel) sel.value = (hon === '様') ? '様' : '御中';
   }
-  // 会社名・担当者・敬称を別々に設定（honorific 省略時は御中）
-  function _setInvClientFields(company, contact, honorific) {
+  // 担当部署（2026-09-30 追加）。請求先名の下・担当者の上。保存先は status.dept
+  function _getInvDept() { return (document.getElementById('inv-screen-dept')?.value || '').trim(); }
+  // 会社名・担当者・敬称・担当部署を別々に設定（honorific 省略時は御中、dept 省略時は空）
+  function _setInvClientFields(company, contact, honorific, dept) {
     const c = document.getElementById('inv-screen-company');
     const p = document.getElementById('inv-screen-contact');
+    const d = document.getElementById('inv-screen-dept');
     if (c) c.value = company || '';
     if (p) p.value = contact || '';
+    if (d) d.value = dept || '';
     _setInvHonorific(honorific || '御中');
     _syncClientLine();
   }
@@ -10556,6 +10566,7 @@
     if (z) z.textContent = zip;
     if (a) a.textContent = addr;
     if (p) p.value = person;
+    { const d = document.getElementById('inv-screen-dept'); if (d) d.value = client['担当者部署'] || ''; } // マスタの担当者部署
     _syncClientLine();
   }
 
@@ -10615,6 +10626,7 @@
     return {
       company:  (document.getElementById('inv-screen-company')?.value || '').trim(),
       contact:  (document.getElementById('inv-screen-contact')?.value || '').trim(),
+      dept:     _getInvDept(),
       honorific: document.getElementById('inv-screen-honorific')?.value || '御中',
       zip:      (document.getElementById('inv-screen-zip')?.textContent  || '').trim(),
       addr:     (document.getElementById('inv-screen-addr')?.textContent || '').trim(),
@@ -10642,7 +10654,7 @@
     const tpl = {
       id: 'tpl_' + Date.now(),
       name: name,
-      company: c.company, contact: c.contact, honorific: c.honorific,
+      company: c.company, contact: c.contact, dept: c.dept || '', honorific: c.honorific,
       zip: c.zip, addr: c.addr, title: c.title, staff: c.staff, memo: c.memo,
       docMode: c.docMode,
       // 品目名・単位・区分は残し、数量・単価は空にする
@@ -10734,7 +10746,7 @@
     _setInvOrderField(newNum, true); // 受注番号（新規＝編集可）
 
     // テンプレの宛先・件名・担当・備考を流し込む（請求日は今日、作業日は空）
-    _setInvClientFields(tpl.company || '', tpl.contact || '', tpl.honorific || '御中');
+    _setInvClientFields(tpl.company || '', tpl.contact || '', tpl.honorific || '御中', tpl.dept || '');
     document.getElementById('inv-screen-zip').textContent   = tpl.zip || '';
     document.getElementById('inv-screen-addr').textContent  = tpl.addr || '';
     document.getElementById('inv-screen-title').value       = tpl.title || '';
@@ -10781,6 +10793,7 @@
       workDate: document.getElementById('inv-screen-workdate').value || '',
       company:  (document.getElementById('inv-screen-company')?.value || '').trim(),
       contact:  (document.getElementById('inv-screen-contact')?.value || '').trim(),
+      dept:     _getInvDept(),
       honorific: document.getElementById('inv-screen-honorific')?.value || '御中',
       staff:    (document.getElementById('inv-screen-staff')?.value   || '').trim(),
       zip:      (document.getElementById('inv-screen-zip')?.textContent  || '').trim(),
@@ -10804,7 +10817,7 @@
     document.getElementById('inv-screen-num').textContent  = newNum;
     document.getElementById('inv-detail-num').textContent  = newNum;
     _invIsNew = false; _setInvOrderField(newNum, false); // 納品書化：受注番号は表示のみ
-    _setInvClientFields(status.company, status.contact, status.honorific);
+    _setInvClientFields(status.company, status.contact, status.honorific, status.dept);
     document.getElementById('inv-screen-zip').textContent  = status.zip;
     document.getElementById('inv-screen-addr').textContent = status.addr;
     _fillInvAddrFromMaster(); // 住所が空なら取引先マスタから補う
@@ -10867,6 +10880,7 @@
     status.workDate = document.getElementById('inv-screen-workdate').value || '';
     status.company  = (document.getElementById('inv-screen-company')?.value || '').trim();
     status.contact  = (document.getElementById('inv-screen-contact')?.value || '').trim();
+    status.dept     = _getInvDept(); // 担当部署
     status.honorific = document.getElementById('inv-screen-honorific')?.value || '御中'; // 宛名敬称（御中/様）
     status.staff    = (document.getElementById('inv-screen-staff')?.value   || '').trim();
     status.zip      = (document.getElementById('inv-screen-zip')?.textContent  || '').trim();
@@ -10994,7 +11008,7 @@
     // ヘッダー情報セット
     document.getElementById('inv-screen-num').textContent    = num;
     // 宛先：保存済み（status）→ master の順で復元
-    _setInvClientFields(status.company || master.client || '', status.contact || master.contact || '', status.honorific);
+    _setInvClientFields(status.company || master.client || '', status.contact || master.contact || '', status.honorific, status.dept);
     document.getElementById('inv-screen-zip').textContent    = status.zip   || master.zip   || '';
     document.getElementById('inv-screen-addr').textContent   = status.addr  || master.addr  || '';
     _fillInvAddrFromMaster(); // 住所が空なら取引先マスタから補う
@@ -11918,6 +11932,7 @@
         workDate:  g('inv-screen-workdate')?.value || prev.workDate || '',
         company:   (g('inv-screen-company')?.value || '').trim() || prev.company || '',
         contact:   (g('inv-screen-contact')?.value || '').trim() || prev.contact || '',
+        dept:      g('inv-screen-dept') ? _getInvDept() : (prev.dept || ''), // 担当部署（欄があれば画面の値＝消したら消える）
         honorific: g('inv-screen-honorific')?.value || prev.honorific || '御中',
         zip:       (g('inv-screen-zip')?.textContent  || '').trim() || prev.zip  || '',
         addr:      (g('inv-screen-addr')?.textContent || '').trim() || prev.addr || '',
@@ -16221,6 +16236,7 @@ ${tableHTML}
     const client   = escapeHtml(document.getElementById('inv-screen-client').textContent);
     const zip      = escapeHtml(document.getElementById('inv-screen-zip').textContent);
     const addr     = escapeHtml(document.getElementById('inv-screen-addr').textContent);
+    const dept     = escapeHtml(_getInvDept()); // 担当部署（請求先名の下・担当者の上）
     const docDate  = escapeHtml(document.getElementById('inv-screen-invdate').value);
     const workDate = escapeHtml(document.getElementById('inv-screen-workdate').value);
     const title    = escapeHtml(document.getElementById('inv-screen-title').value);
@@ -16324,6 +16340,7 @@ ${tableHTML}
               <div style="font-size:14pt;font-weight:bold;border-bottom:1.5px solid #111;padding-bottom:2px;display:inline-block;min-width:160px;">
                 ${company}
               </div>
+              ${dept ? `<div style="font-size:10pt;color:#222;margin-top:1mm;">${dept}</div>` : ''}
               ${contact ? `<div style="font-size:9pt;color:#333;margin-top:1mm;">担当：${contact} 様</div>` : ''}
             `;
           })()}
@@ -18544,6 +18561,7 @@ ${tableHTML}
         title:    src.title    || saved['edit_title']    || data.title   || '',
         company:  src.company  || saved['edit_company']  || data.company || '',
         contact:  src.contact  || saved['edit_contact']  || data.contact || '',
+        dept:     src.dept || '',
         honorific: src.honorific || '御中',
         zip:      src.zip  || '',
         addr:     src.addr || '',
@@ -18603,7 +18621,7 @@ ${tableHTML}
 
     document.getElementById('inv-screen-num').textContent    = num;
     // 保存済み（status）があれば優先
-    _setInvClientFields(savedStatus.company || company, savedStatus.contact || contact, savedStatus.honorific);
+    _setInvClientFields(savedStatus.company || company, savedStatus.contact || contact, savedStatus.honorific, savedStatus.dept);
     document.getElementById('inv-screen-zip').textContent    = savedStatus.zip   || '';
     document.getElementById('inv-screen-addr').textContent   = savedStatus.addr  || '';
     _fillInvAddrFromMaster(); // 住所が空なら取引先マスタから補う
