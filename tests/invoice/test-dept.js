@@ -8,7 +8,7 @@ const iC = src.indexOf('id="inv-screen-company"'), iD = src.indexOf('id="inv-scr
 ok(iD > 0 && iC < iD && iD < iP, '請求先名 → 担当部署 → 担当者 の順');
 
 console.log('\n=== 値の出し入れ（擬似DOM） ===');
-const els = {}; ['inv-screen-company','inv-screen-contact','inv-screen-dept','inv-screen-honorific','inv-screen-client','inv-screen-zip','inv-screen-addr'].forEach(id => { els[id] = { value: '', textContent: '' }; });
+const els = {}; ['inv-screen-company','inv-screen-contact','inv-screen-dept','inv-screen-honorific','inv-screen-client','inv-screen-zip','inv-screen-addr','inv-dept-hon'].forEach(id => { els[id] = { value: '', textContent: '', style: {} }; });
 global.document = { getElementById: id => els[id] || null };
 ['_getInvDept','_syncClientLine','_setInvHonorific','_setInvClientFields','_applyInvClient'].forEach(n => (0, eval)(grabFunction(src, n)));
 _setInvClientFields('ウェブキャスト', '狩俣', '御中', ' 制作部 ');
@@ -30,7 +30,17 @@ ok(/company: c\.company, contact: c\.contact, dept: c\.dept \|\| '', honorific: 
 console.log('\n=== 書類（印刷） ===');
 const doc = grabFunction(src, 'buildDocHTML');
 ok(/const dept     = escapeHtml\(_getInvDept\(\)\);/.test(doc), 'escapeHtml を通す');
-const a = doc.indexOf('${company}'), b = doc.indexOf('${dept ?'), c = doc.indexOf('${contact ?');
+const a = doc.indexOf('${moveHon ? companyOnly : company}'), b = doc.indexOf('${dept ?'), c = doc.indexOf('${contact ?');
 ok(a > 0 && a < b && b < c, '会社名 → 部署 → 担当 の順に出る');
-ok(/\$\{dept \? `<div[^`]*>\$\{dept\}<\/div>` : ''\}/.test(doc), '空なら行ごと出さない');
+ok(/\$\{dept \? `<div[^`]*>\$\{dept\}\$\{moveHon \? ' ' \+ hon : ''\}<\/div>` : ''\}/.test(doc), '空なら行ごと出さない。部署があれば敬称を部署の後ろに付ける');
+ok(/\$\{moveHon \? companyOnly : company\}/.test(doc) && /const moveHon = !!\(dept && companyOnly\);/.test(doc), '部署があるとき会社名の行から敬称を外す');
+
+console.log('\n=== 記入画面でも並びが分かる ===');
+els['inv-screen-honorific'].value = '御中';
+_setInvClientFields('ウェブキャスト', '狩俣', '御中', '制作部');
+ok(els['inv-dept-hon'].textContent === '御中' && els['inv-screen-honorific'].style.opacity === '0.35', '部署があれば部署欄の右に敬称、会社名の横は薄く');
+ok(els['inv-screen-client'].textContent === 'ウェブキャスト 御中（担当：狩俣 様）', '内部の宛名文字列は従来どおり（他の処理に影響しない）');
+_setInvClientFields('ウェブキャスト', '狩俣', '御中', '');
+ok(els['inv-dept-hon'].textContent === '' && els['inv-screen-honorific'].style.opacity === '', '部署が無ければ元どおり');
+ok(/id="inv-screen-dept"[^>]*oninput="_syncClientLine\(\)"/.test(src), '部署を入力したら表示を更新する');
 ok.done();

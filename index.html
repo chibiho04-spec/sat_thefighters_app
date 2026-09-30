@@ -5128,8 +5128,9 @@
             <!-- 担当部署（2026-09-30 追加）。空なら書類には出ない -->
             <div style="margin-top:4px;display:flex;align-items:baseline;gap:4px;">
               <span style="font-size:10pt;color:#666;flex-shrink:0;">部署：</span>
-              <input id="inv-screen-dept" type="text" placeholder="担当部署（例：制作部）" autocomplete="off"
+              <input id="inv-screen-dept" type="text" placeholder="担当部署（例：制作部）" autocomplete="off" oninput="_syncClientLine()"
                 style="flex:1;min-width:0;border:none;border-bottom:1px dashed #aaa;background:transparent;font-size:10pt;padding:1px 2px;font-family:inherit;">
+              <span id="inv-dept-hon" title="部署があるときは、書類では敬称が部署の後ろに付きます" style="font-size:10pt;color:#333;flex-shrink:0;"></span>
             </div>
             <div style="margin-top:4px;display:flex;align-items:baseline;gap:4px;">
               <span style="font-size:10pt;color:#666;flex-shrink:0;">担当：</span>
@@ -10507,6 +10508,14 @@
     const company = (c?.value || '').trim();
     const contact = (p?.value || '').trim();
     const hon = document.getElementById('inv-screen-honorific')?.value || '御中'; // 敬称（御中/様）
+    // 部署があるときは敬称が部署の後ろに付く（書類と同じ並びを画面でも示す）
+    try {
+      const hasDept = !!_getInvDept();
+      const dh = document.getElementById('inv-dept-hon');
+      if (dh) dh.textContent = hasDept ? hon : '';
+      const sel = document.getElementById('inv-screen-honorific');
+      if (sel && sel.style) sel.style.opacity = hasDept ? '0.35' : '';
+    } catch (e) {}
     if (!company) { hidden.textContent = ''; return; }
     hidden.textContent = company + ' ' + hon + (contact ? `（担当：${contact} 様）` : '');
   }
@@ -16336,11 +16345,15 @@ ${tableHTML}
             const m = String(client || '').match(/^(.*?)(?:（担当[:：]\s*(.+?)\s*様?）)?\s*$/);
             const company = (m && m[1] || client || '').trim();
             const contact = (m && m[2] || '').trim();
+            // 部署があるときは敬称（御中／様）を部署の後ろへ移す：「会社名」／「部署名 御中」（2026-09-30 本人決定）
+            const hon = escapeHtml(document.getElementById('inv-screen-honorific')?.value || '御中');
+            const companyOnly = escapeHtml((document.getElementById('inv-screen-company')?.value || '').trim());
+            const moveHon = !!(dept && companyOnly);
             return `
               <div style="font-size:14pt;font-weight:bold;border-bottom:1.5px solid #111;padding-bottom:2px;display:inline-block;min-width:160px;">
-                ${company}
+                ${moveHon ? companyOnly : company}
               </div>
-              ${dept ? `<div style="font-size:10pt;color:#222;margin-top:1mm;">${dept}</div>` : ''}
+              ${dept ? `<div style="font-size:11pt;font-weight:bold;color:#111;margin-top:1.5mm;">${dept}${moveHon ? ' ' + hon : ''}</div>` : ''}
               ${contact ? `<div style="font-size:9pt;color:#333;margin-top:1mm;">担当：${contact} 様</div>` : ''}
             `;
           })()}
