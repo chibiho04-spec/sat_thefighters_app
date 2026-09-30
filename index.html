@@ -11958,9 +11958,16 @@
     const _isSafari = /Safari/.test(_ua) && !/Chrome|CriOS|Chromium|Edg|FxiOS|Firefox/.test(_ua);
     const _systemMargin = _isIOS || _isSafari;   // 余白をブラウザ／OSに任せる
 
+    // iOS Safari は「画面の幅（スマホなら390px）」で組んだページをそのまま用紙の幅に引き伸ばして印刷する。
+    // そのため PC と同じ HTML でも文字が大きく・振込先が折り返して別物に見えていた（2026-09-30 本人指摘）。
+    // 印刷ウィンドウの幅を A4 の印字幅（210−12×2＝186mm ≒ 703px）に固定し、左右 3mm を足して
+    // 中身の幅を PC（210−15×2＝180mm）と同じにする。PC のブラウザは viewport を無視するので影響なし。
+    const _iosViewportPx = Math.round(186 / 25.4 * 96); // 703
+    const _viewport = _systemMargin ? `width=${_iosViewportPx}` : 'width=device-width,initial-scale=1';
     const _pageCss = _systemMargin
       ? `@page { size: A4; margin: 12mm; }
-  body { margin: 0; padding: 0; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }`
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; padding: 0 3mm; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }`
       : `@page { size: A4; margin: 0; }
   body { margin: 0; padding: 0 15mm; font-family: 'Noto Sans JP', 'ＭＳ ゴシック', sans-serif; }`;
 
@@ -12003,7 +12010,7 @@
 <html><head>
 <meta charset="UTF-8">
 <title>${escapeHtml(printTitle)}</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="${_viewport}">
 <style>
   ${_pageCss}
   * {
