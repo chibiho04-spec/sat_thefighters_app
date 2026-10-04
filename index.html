@@ -5081,7 +5081,7 @@
       </div>
       <!-- モード切替トグル：請求書 / 見積書 -->
       <div id="invd-mode-toggle" style="display:inline-flex;gap:3px;flex-shrink:0;margin-right:6px;flex-wrap:wrap;">
-        <button type="button" class="invd-mode-btn" data-mode="invoice" onclick="setDocMode('invoice')"
+        <button type="button" class="invd-mode-btn" data-mode="invoice" onclick="onDocModeBtn('invoice')"
           style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.3);color:white;border:1px solid rgba(255,255,255,0.5);padding:4px 8px;border-radius:3px;cursor:pointer;">請求書</button>
         <button type="button" class="invd-mode-btn" data-mode="estimate" onclick="setDocMode('estimate')"
           style="font-family:'DotGothic16',monospace;font-size:11px;background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.3);padding:4px 8px;border-radius:3px;cursor:pointer;">見積書</button>
@@ -18575,27 +18575,62 @@ ${tableHTML}
       '<span style="font-size:11px;color:#a0703a;margin-left:8px;">取り込んだあと「編集内容を保存」で確定します（見積書はそのまま残ります）</span>';
     el.style.display = 'block';
   }
+  // 編集画面に内容を流し込む共通部品（c は _collectInvEditorContent / 保存済み status と同じ形）。
+  // 空の項目は今の画面の値を残す。請求日は触らない（見積日をそのまま請求日にしないため）
+  function _fillInvEditorFrom(c) {
+    c = c || {};
+    renderInvLines([], JSON.parse(JSON.stringify(c.lines || [])), false, c.discount);
+    const cur = { company: (document.getElementById('inv-screen-company')?.value || '').trim(),
+                  contact: (document.getElementById('inv-screen-contact')?.value || '').trim(), dept: _getInvDept(),
+                  honorific: document.getElementById('inv-screen-honorific')?.value || '御中' };
+    _setInvClientFields(c.company || cur.company, c.contact || cur.contact, c.honorific || cur.honorific, c.dept || cur.dept);
+    if (c.zip || c.addr) {
+      document.getElementById('inv-screen-zip').textContent  = c.zip  || '';
+      document.getElementById('inv-screen-addr').textContent = c.addr || '';
+    }
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    set('inv-screen-title', c.title); set('inv-screen-workdate', c.workDate); set('inv-screen-staff', c.staff);
+    const memo = document.getElementById('inv-screen-memo'); if (memo && c.memo && !memo.value) memo.value = c.memo;
+    calcInvTotal();
+    try { _markDirty('inv-detail-screen'); } catch (e) {}
+  }
   function importEstimateIntoInvoice() {
     const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
     const hit = _estimateForBlankInvoice(num);
     if (!hit) { alert('取り込める見積書が見つかりませんでした'); return; }
-    const st = hit.status;
-    const lines = JSON.parse(JSON.stringify(st.lines || []));
-    renderInvLines([], lines, false, st.discount);
-    // 宛先・備考は見積書に入っている値を優先（空の項目は今の画面の値を残す）
-    const cur = { company: (document.getElementById('inv-screen-company')?.value || '').trim(),
-                  contact: (document.getElementById('inv-screen-contact')?.value || '').trim(), dept: _getInvDept(),
-                  honorific: document.getElementById('inv-screen-honorific')?.value || '御中' };
-    _setInvClientFields(st.company || cur.company, st.contact || cur.contact, st.honorific || cur.honorific, st.dept || cur.dept);
-    if (st.zip || st.addr) {
-      document.getElementById('inv-screen-zip').textContent  = st.zip  || '';
-      document.getElementById('inv-screen-addr').textContent = st.addr || '';
-    }
-    const memo = document.getElementById('inv-screen-memo'); if (memo && st.memo && !memo.value) memo.value = st.memo;
-    calcInvTotal();
-    try { _markDirty('inv-detail-screen'); } catch (e) {}
+    _fillInvEditorFrom(hit.status);
     _updateInvEstimateHint();
     try { showToast('📥 見積書 ' + hit.num + ' の内容を取り込みました（保存で確定）'); } catch (e) {}
+  }
+  // 書類の種類ボタン「請求書」（2026-10-04）。
+  // 見積書（EST- 番号）を開いたまま「請求書」に切り替えると、EST- 番号のまま請求書になっていた。
+  // EST- は売上表の対象外で、元の案件（T/E/P）の請求書は空のまま残るため「作った請求書が無い」状態になる
+  // （T26135：請求書が EST-26003 として印刷・保存されていた）。
+  // → 元の案件がある見積書は、その案件の請求書を今の内容で開く。見積書は書き換えない。
+  function onDocModeBtn(mode) {
+    const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+    if (mode === 'invoice' && /^EST-/.test(num) && _docMode !== 'invoice') {
+      const parent = String((loadInvStatus(num) || {}).parentNum || '').trim();
+      if (parent) { _openParentInvoiceFromEstimate(num, parent); return; }
+      if (!confirm('この書類は見積書番号（' + num + '）です。\nこのまま請求書にすると、売上表には載りません。\n\n売上に載せる請求書は、会計室の「請求書」から受注番号（T/E/P）を付けて作ってください。\n\nそれでも、この番号のまま請求書の形にしますか？')) return;
+    }
+    setDocMode(mode);
+  }
+  function _openParentInvoiceFromEstimate(estNum, parent) {
+    const content = _collectInvEditorContent(); // 今の画面の内容（未保存の編集も含む）
+    const pst = loadInvStatus(parent) || {};
+    const hasInv = Array.isArray(pst.lines) && pst.lines.length > 0;
+    const msg = hasInv
+      ? '案件 ' + parent + ' の請求書は既に作られています。\nそちらを開きますか？（見積書 ' + estNum + ' はそのまま残ります）'
+      : 'この見積書の内容で、案件 ' + parent + ' の請求書を作ります。\n（見積書 ' + estNum + ' はそのまま残ります。請求書は「編集内容を保存」で確定します）';
+    if (!confirm(msg)) return;
+    try { _markClean('inv-detail-screen'); } catch (e) {}
+    _openBlankInvFromWS(parent, 'invoice');
+    if (!hasInv) {
+      _fillInvEditorFrom(content);
+      _updateInvEstimateHint();
+      try { showToast('🧾 ' + parent + ' の請求書に見積書の内容を入れました（保存で確定）'); } catch (e) {}
+    }
   }
 
   function _findEstimateForCase(num) {
