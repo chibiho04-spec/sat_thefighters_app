@@ -24,7 +24,7 @@ console.log('\n=== 保存と復元の配線 ===');
 ok((src.match(/dept:     _getInvDept\(\),/g) || []).length === 2, 'テンプレ／納品書化の収集に入っている');
 ok(/status\.dept     = _getInvDept\(\);/.test(grabFunction(src, 'saveInvDoc')), '保存（saveInvDoc）に入っている');
 ok(/dept:      g\('inv-screen-dept'\) \? _getInvDept\(\) : \(prev\.dept \|\| ''\)/.test(src), '印刷時の保存に入っている');
-ok((src.match(/_setInvClientFields\([^;]*\.dept( \|\| '')?\);/g) || []).length === 4, '開くとき4か所（テンプレ・納品書・請求書・WSから）で復元する');
+ok((src.match(/_setInvClientFields\([^;]*\.dept( \|\| '')?\);/g) || []).length === 5, '開くとき4か所（テンプレ・納品書・請求書・WSから）＋見積書の取り込みで復元する');
 ok(/company: c\.company, contact: c\.contact, dept: c\.dept \|\| '', honorific: c\.honorific,/.test(src), 'テンプレートにも保存');
 
 console.log('\n=== 書類（印刷） ===');

@@ -5191,6 +5191,8 @@
           <span class="invd-total-amount" id="inv-total-big">¥0</span>
         </div>
 
+        <!-- この案件に見積書（EST-）があり、請求書がまだ空のときだけ出る案内（2026-10-04）。中身は _updateInvEstimateHint が入れる -->
+        <div id="inv-est-hint" style="display:none;margin:8px 0;padding:10px 12px;background:#fff8e1;border:2px solid #e67e22;border-radius:4px;font-size:13px;color:#7e4906;line-height:1.7;"></div>
         <!-- 明細（freee風カードUI・編集はモーダルで行う） -->
         <div class="inv-cards-section">
           <div class="inv-cards-head">
@@ -11001,6 +11003,7 @@
       issueBtn.style.display  = show ? 'block' : 'none';
       if (issueNote) issueNote.style.display = show ? 'block' : 'none';
     }
+    try { _updateInvEstimateHint(); } catch (e) {} // 見積書がある空の請求書なら案内を出す
   }
 
   function openInv(num, action, _skipFreshen) {
@@ -12700,8 +12703,13 @@ ${_body}
     // 【データ保護 2026-07-07】明細を持つ請求書を「明細ゼロの版」で丸ごと上書きさせないガード。
     // 事故例：別端末で明細を持たないまま請求済/入金済にした空レコードが、LWWで新しいと
     //         正しい発行済み請求書(明細あり)を丸ごと上書きして消す（ガリガリくんT26075）。
-    // 発火条件：勝者(新)が明細ゼロ・非削除で、敗者(古)が明細あり、かつどちらかが発行/請求/入金の印を持つ。
-    //   （下書き同士の正当な「全消しやり直し」は阻害しない＝どちらも未発行なら通常LWW）
+    // 発火条件：勝者(新)が明細ゼロ・非削除で、敗者(古)が明細あり。
+    // 【2026-08-04 保護を強化（案A）】以前は「どちらかが発行/請求/入金の印を持つ」ことも条件だったが、
+    //   そのせいで「印刷して先方に送ったが“発行”ボタンは押していない請求書」が無防備だった。
+    //   実例：P26054（75ビールWEB CM制作／未請求）が、別端末の空レコードに上書きされて中身が消えた。
+    //   明細を持つ版が明細ゼロの版に負けること自体が事故なので、発行状態を問わず常に守る。
+    //   副作用：明細を全消しして空のまま保存し直す操作は同期で元に戻る（実運用ではまず無い操作）。
+    //   意図的に空にしたい場合は、行を消すのではなく削除（ゴミ箱）を使う＝削除は下で除外され通常どおり通る。
     // 復元方法：明細を持つ敗者を土台に、勝者の非空フィールド(宛先変更・値引き等の正当な編集)は活かし、
     //   明細だけは敗者から復元。請求済/入金済フラグはOR。更新時刻は打ち直して自己修復（次のpushで
     //   シート側の空版も上書きし直せるように）。
@@ -12709,9 +12717,8 @@ ${_body}
     // ※残課題：勝者が「部分的な古い明細」を持つ場合や、シートに空版が書かれる瞬間そのものは
     //   クライアント側では防げない（GAS側の明細優先が必要）。
     const _hasLines = r => r && Array.isArray(r.lines) && r.lines.length > 0;
-    const _issued   = r => r && (r.billed || r.paid || r.issuedAt);
     const _isDel    = r => r && (String((r && r['削除フラグ']) || '') === '1' || (r && r._deleted));
-    if (!_isDel(winner) && !_hasLines(winner) && _hasLines(loser) && (_issued(loser) || _issued(winner))) {
+    if (!_isDel(winner) && !_hasLines(winner) && _hasLines(loser)) {
       const merged = Object.assign({}, loser); // 明細を持つ版を土台にする
       for (const k of Object.keys(winner)) {   // 勝者の非空フィールドを上書き（宛先変更などの編集を活かす）
         const v = winner[k];
@@ -18533,6 +18540,64 @@ ${tableHTML}
   }
 
   // この案件から起こした見積書(EST-)を探す。押すたびに増えないよう、あれば既存を開く。
+  // ===== 空の請求書に「見積書の内容を取り込む」案内を出す（2026-10-04）=====
+  // 経緯：ワークシートの「🧮 見積書」で作った書類は EST- 番号の別書類として保存される。
+  // その後に同じ案件の「請求書」を開くと、請求書そのものはまだ作られていないので空で開き、
+  // 「作った書類が消えた」ように見えた（T26135。中身は EST-26003 に残っていた）。
+  // 明細を勝手には入れない（2026-07-07 の方針）ので、案内を出して押したときだけ取り込む。
+  // 戻り値：{ num, status } または null。純関数（DOM を触らない）
+  function _estimateForBlankInvoice(num) {
+    num = String(num || '').trim();
+    if (!num || /^(EST|DLV|INV)-/.test(num)) return null;
+    const own = loadInvStatus(num) || {};
+    if (Array.isArray(own.lines) && own.lines.length > 0) return null; // 請求書に中身があれば案内しない
+    const estNum = _findEstimateForCase(num);
+    if (!estNum) return null;
+    const st = loadInvStatus(estNum) || {};
+    const real = (Array.isArray(st.lines) ? st.lines : []).filter(l => l && !l.spacer && (String(l.name || '').trim() || Number(l.price) > 0));
+    if (!real.length) return null;
+    return { num: estNum, status: st };
+  }
+  function _updateInvEstimateHint() {
+    const el = document.getElementById('inv-est-hint');
+    if (!el) return;
+    el.style.display = 'none'; el.innerHTML = '';
+    if (_docMode !== 'invoice') return;
+    const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+    if (_collectInvLines().filter(l => !l.spacer).length > 0) return; // 画面に明細があれば出さない
+    const hit = _estimateForBlankInvoice(num);
+    if (!hit) return;
+    const lines = (hit.status.lines || []).filter(l => l && !l.spacer);
+    const sub = lines.reduce((a, l) => a + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+    el.innerHTML = '🧮 この案件には <b>見積書 ' + escapeHtml(hit.num) + '</b>（明細 ' + lines.length + ' 行・税抜 ¥' + sub.toLocaleString() + '）があります。' +
+      '請求書はまだ空です。<br>' +
+      '<button type="button" onclick="importEstimateIntoInvoice()" style="margin-top:6px;font-family:\'DotGothic16\',monospace;font-size:13px;background:#e67e22;border:2px solid #b3650f;color:white;padding:7px 14px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #7e4906;">📥 見積書の内容をこの請求書に取り込む</button>' +
+      '<span style="font-size:11px;color:#a0703a;margin-left:8px;">取り込んだあと「編集内容を保存」で確定します（見積書はそのまま残ります）</span>';
+    el.style.display = 'block';
+  }
+  function importEstimateIntoInvoice() {
+    const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+    const hit = _estimateForBlankInvoice(num);
+    if (!hit) { alert('取り込める見積書が見つかりませんでした'); return; }
+    const st = hit.status;
+    const lines = JSON.parse(JSON.stringify(st.lines || []));
+    renderInvLines([], lines, false, st.discount);
+    // 宛先・備考は見積書に入っている値を優先（空の項目は今の画面の値を残す）
+    const cur = { company: (document.getElementById('inv-screen-company')?.value || '').trim(),
+                  contact: (document.getElementById('inv-screen-contact')?.value || '').trim(), dept: _getInvDept(),
+                  honorific: document.getElementById('inv-screen-honorific')?.value || '御中' };
+    _setInvClientFields(st.company || cur.company, st.contact || cur.contact, st.honorific || cur.honorific, st.dept || cur.dept);
+    if (st.zip || st.addr) {
+      document.getElementById('inv-screen-zip').textContent  = st.zip  || '';
+      document.getElementById('inv-screen-addr').textContent = st.addr || '';
+    }
+    const memo = document.getElementById('inv-screen-memo'); if (memo && st.memo && !memo.value) memo.value = st.memo;
+    calcInvTotal();
+    try { _markDirty('inv-detail-screen'); } catch (e) {}
+    _updateInvEstimateHint();
+    try { showToast('📥 見積書 ' + hit.num + ' の内容を取り込みました（保存で確定）'); } catch (e) {}
+  }
+
   function _findEstimateForCase(num) {
     let found = '';
     let deleted = [];
@@ -18594,7 +18659,16 @@ ${tableHTML}
       };
       saveInvStatus(newNum, status);   // シートへの送信は saveInvStatus が内部で実施
       // 元の案件に「見積書を作った」印を残す（受注ノートの発行状況チェックで使う）
-      if (!src.estimated) { try { src.estimated = true; saveInvStatus(num, src); } catch (e) {} }
+      // 【2026-10-04】元の請求書にまだ明細が無いときは、印だけの空レコードを「新しい更新時刻」で保存・送信しない。
+      //   空の新版は、他の端末にある明細入りの版を同期で上書きする事故の元になる（明細ゼロ版の量産を止める）。
+      //   この場合は端末内に印だけ付ける（時刻は打たず送信もしない＝同期では必ず負ける）。
+      if (!src.estimated) {
+        try {
+          src.estimated = true;
+          if (Array.isArray(src.lines) && src.lines.length > 0) saveInvStatus(num, src);
+          else localStorage.setItem('inv_' + num, JSON.stringify(src));
+        } catch (e) {}
+      }
       try { if (typeof showToast === 'function') showToast('🧮 見積書 ' + newNum + ' を起こしました'); } catch (e) {}
       return newNum;
     } catch (e) {
