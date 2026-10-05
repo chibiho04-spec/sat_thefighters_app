@@ -6728,6 +6728,8 @@
         <div class="wsv-section-title">🤝 外注・レンタル機材</div>
         <div id="wsv-outsource-val" style="font-size:12px;color:var(--text-dark);line-height:1.7;"></div>
         <div id="wsv-outsource-cost" style="font-size:14px;font-weight:bold;color:#c0392b;margin-top:3px;"></div>
+        <!-- 未請求の案件は外注費が売上表に載らないことの注意（2026-10-05）。中身は renderWsView が入れる -->
+        <div id="wsv-outsource-note" style="display:none;margin-top:6px;padding:7px 9px;background:#fff8e1;border:1px solid #e67e22;border-radius:3px;font-size:12px;color:#7e4906;line-height:1.6;"></div>
       </div>
 
       <!-- 使用車両 -->
@@ -18817,6 +18819,19 @@ ${tableHTML}
     }
   }
 
+  // 外注費が売上表に載っていないときの注意文（載っていれば ''）。純関数（DOM を触らない）。
+  // 売上表は「請求済み」の案件だけを集計し、外注費はその請求書と同じ受注番号のワークシートから拾う。
+  // 同じ仕事が2つの番号に分かれていて、請求書の無い方に外注費を入れてしまうと売上表に出ない
+  // （2026-10-05：P26120 に請求書・T26136 に外注費が入っていて気づけなかった）。
+  function _wsOutsourceSalesNote(num, outsourceTotal) {
+    if (!(Number(outsourceTotal) > 0)) return '';
+    let st = {};
+    try { st = loadInvStatus(num) || {}; } catch (e) {}
+    if (st.billed || st.paid) return '';
+    return '⚠️ この案件は未請求のため、この外注費は売上表にまだ計上されていません（請求書を発行すると計上されます）。' +
+           '同じ仕事の請求書が別の受注番号にある場合は、そちらのワークシートに外注費を入れてください。';
+  }
+
   // 閲覧パネルにデータを描画
   function renderWsView(num, saved) {
     const data = wsData[num] || {};
@@ -19016,6 +19031,12 @@ ${tableHTML}
       const total = outsourceItems.reduce((s, o) => s + (Number(o.cost) || 0), 0);
       const costEl = document.getElementById('wsv-outsource-cost');
       costEl.textContent = total > 0 ? '合計 ¥' + total.toLocaleString() : '';
+      const noteEl = document.getElementById('wsv-outsource-note');
+      if (noteEl) {
+        const note = _wsOutsourceSalesNote(num, total);
+        noteEl.textContent = note;
+        noteEl.style.display = note ? 'block' : 'none';
+      }
     } else {
       outsourceSection.style.display = 'none';
     }
