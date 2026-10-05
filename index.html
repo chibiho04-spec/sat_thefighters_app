@@ -15222,6 +15222,8 @@ ${_body}
 
     // 期間内の集計（請求済みのみ）
     const sumTotal       = countedItems.reduce((s, it) => s + it.total, 0);
+    const sumSubtotal    = countedItems.reduce((s, it) => s + (Number(it.subtotal) || 0), 0); // 税抜の総額（値引き後・2026-10-05 追加）
+    const sumTax         = countedItems.reduce((s, it) => s + (Number(it.tax) || 0), 0);
     const sumOutsource   = countedItems.reduce((s, it) => s + (it.outsourceCost || 0), 0);
     const sumInhouse     = sumTotal - sumOutsource; // 社内流放（受注合計 − 外注費）
     const marginRateAll  = (sumTotal > 0) ? (sumInhouse / sumTotal * 100) : null; // 全体の利益率＝粗利÷請求合計
@@ -15251,6 +15253,12 @@ ${_body}
               <span style="font-size:14px;font-weight:bold;color:#0e6655;margin-left:8px;white-space:nowrap;">利益率 ${marginRateAll != null ? marginRateAll.toFixed(1) + '%' : '—'}</span>
             </div>
             <span class="sales-bar-hl-sub">請求合計 ${fmt(sumTotal)}（計上 ${countedItems.length}件）− 外注費 ${fmt(sumOutsource)}</span>
+          </div>
+          <!-- 税抜の総額（2026-10-05 追加）。税抜＋消費税＝請求合計（税込） -->
+          <div id="sales-subtotal-line" style="margin:2px 0 8px;font-size:13px;color:#34495e;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;">
+            <span>🧾 税抜合計 <b style="font-size:17px;color:#1f3a5f;">${fmt(sumSubtotal)}</b></span>
+            <span style="font-size:12px;color:#7f8c8d;">消費税 ${fmt(sumTax)}</span>
+            <span style="font-size:12px;color:#7f8c8d;">税込（請求合計） ${fmt(sumTotal)}</span>
           </div>
           <!-- セグメントバー -->
           <div class="sales-seg-bar">
@@ -15416,6 +15424,7 @@ ${_body}
       // 月別小計は「請求済み」案件のみ計上（未請求は表示するが金額に含めない）
       const grpBilled = grp.items.filter(it => it.billed);
       const grpSum  = grpBilled.reduce((s, it) => s + it.total, 0);
+      const grpSub  = grpBilled.reduce((s, it) => s + (Number(it.subtotal) || 0), 0); // 月の税抜合計
       const grpOut  = grpBilled.reduce((s, it) => s + (it.outsourceCost || 0), 0);
       const grpNet  = grpSum - grpOut;
       const rows = grp.items
@@ -15506,6 +15515,7 @@ ${_body}
             <span>📅 ${escapeHtml(grp.label)} <span style="font-size:10px;opacity:0.8;">(${grp.items.length}件)</span></span>
             <span style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-left:auto;justify-content:flex-end;">
               <span style="font-size:13px;">請求額 ${fmt(grpSum)}</span>
+              <span style="font-size:13px;opacity:0.85;">税抜 ${fmt(grpSub)}</span>
               <span style="font-size:13px;opacity:0.85;">外注費 ${fmt(grpOut)}</span>
               <span style="background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:10px;font-size:16px;font-weight:bold;text-shadow:1px 1px 0 #641e16;">粗利 ${fmt(grpNet)}</span>
               <button onclick="event.stopPropagation();exportSalesPDFForMonth('${key}')"
@@ -15749,8 +15759,11 @@ ${_body}
     const sumTotal     = filtered.reduce((s, it) => s + (it.total || 0), 0);
     const sumOutsource = filtered.reduce((s, it) => s + (it.outsourceCost || 0), 0);
     const sumNet       = sumTotal - sumOutsource;
+    const sumSubtotal  = filtered.reduce((s, it) => s + (Number(it.subtotal) || 0), 0); // 税抜の総額（2026-10-05 追加）
+    const sumTax       = filtered.reduce((s, it) => s + (Number(it.tax) || 0), 0);
     const sumRow = '<tr class="sum">'
-      + '<td colspan="6">合計（請求金額 − 外注費 ＝ 粗利）</td>'
+      + '<td colspan="4">合計（請求金額 − 外注費 ＝ 粗利）</td>'
+      + `<td class="num">${yen(sumSubtotal)}</td><td class="num">${yen(sumTax)}</td>`
       + `<td class="num">${yen(sumTotal)}</td><td></td><td class="num">${yen(sumOutsource)}</td>`
       + `<td class="num">${yen(sumNet)}</td><td></td></tr>`;
 
