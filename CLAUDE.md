@@ -164,6 +164,12 @@ const USER_STAFF = {
 - ブレークポイントはデスクトップ`min-width:769px`／モバイル`max-width:768px`に統一（売上表・ws-end-gridも統一済み）
 - **新しい全画面オーバーレイを追加する時は、`@media (min-width: 769px)` と `(min-width: 1200px)` の `#xxx-screen` ルール一覧に追加必須**（top:54px/left:200px）
 
+### ⬅️ ブラウザの「戻る」で手前の画面を閉じる（2026-10-05）
+- 対象は**重なる画面だけ**（タブ移動は含めない・本人決定）。編集中で未保存なら「◀ 戻る」と同じ3択の確認（`_guardedClose`）。
+- 仕組み：開いている画面の数だけ履歴にしおり（`pushState({satDepth})`）をはさみ、`popstate` でいちばん後に開いた画面を閉じる。開閉の検知は各画面の `style`/`class` を `MutationObserver` で見る（個々の open/close 関数には手を入れていない）。関数は `_bkEntries/_bkSync/_bkOnPop/_initBackNav`。
+- **新しい全画面・モーダルを足すときは `_NAV_LIST_PANELS`（一覧系）／`_NAV_EDIT_PANELS`（編集系）／`_BK_EXTRA`（その他・class で開閉するものは `isOpen` を付ける）のどれかに登録**。登録しないと戻るボタンで閉じない。HTML では必ず閉じた状態（`transform:translateX(100%)` か `display:none` をインラインで）で書く。
+- 止めるスイッチ：`localStorage.back_nav_off='1'` で無効。テスト：`tests/nav/test-back-nav.js`（擬似の履歴で実際に動かす）。
+
 ### localStorage の容量制限
 - 全データJSONバックアップ機能で対応中（データ管理画面）
 - 3日に1回の自動バックアップが動作（起動2秒後にチェック）

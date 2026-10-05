@@ -9208,6 +9208,87 @@
     });
   }
 
+  // ===== ブラウザの「戻る」で、いちばん手前の画面を閉じる（2026-10-05）=====
+  // 本人決定：①対象は重なる画面だけ（タブの移動は含めない）②編集中は「◀ 戻る」と同じ確認を出す。
+  // 仕組み：開いている画面の数だけブラウザの履歴に「しおり」をはさむ。
+  //   ・画面が増えたら pushState、減ったら history.go でしおりを抜く（_bkSync）
+  //   ・ユーザーが戻るを押したら（popstate）、いちばん後に開いた画面を1つ閉じる（_bkOnPop）
+  //   画面の開閉は30種類以上の関数に散らばっているので、個々の関数には手を入れず、
+  //   画面要素の style/class の変化を MutationObserver で見て数を合わせる。
+  // 止めたいとき：localStorage の back_nav_off を '1' にして再読み込み。
+  const _BK_EXTRA = [
+    { id: 'inv-trash-screen',      close: () => closeInvTrash() },
+    { id: 'ordernum-edit-screen',  close: () => closeOrderNumEditScreen() },
+    { id: 'dup-cleanup-screen',    close: () => closeDupCleanupScreen() },
+    { id: 'dashboard-screen',      close: () => closeDashboard(),     isOpen: el => el.classList.contains('dash-show') },
+    { id: 'inv-line-modal',        close: () => closeInvLineModal(),  isOpen: el => el.classList.contains('open') },
+    { id: 'print-preview-overlay', close: () => closePrintPreview() },
+    { id: 'date-picker-overlay',   close: () => closeDatePicker() },
+    { id: 'confirm-overlay',       close: () => hideConfirm() },       // 確認ダイアログは「キャンセル」と同じ
+  ];
+  function _bkEntries() {
+    return _NAV_LIST_PANELS.map(p => ({ id: p.id, close: p.close }))
+      .concat(_NAV_EDIT_PANELS.map(p => ({ id: p.id, close: () => _guardedClose(p.id, p.label, p.save, p.close) }))) // 未保存なら3択の確認
+      .concat(_BK_EXTRA);
+  }
+  const _bk = { stack: [], depth: 0, ignore: 0, timer: null, on: false };
+  function _bkIsOpen(entry) {
+    const el = document.getElementById(entry.id);
+    if (!el) return false;
+    return entry.isOpen ? !!entry.isOpen(el) : _isPanelOpen(el);
+  }
+  // 開いている画面の並び（開いた順）を今の画面の状態に合わせる。新しく開いたものは末尾＝いちばん手前
+  function _bkRefreshStack() {
+    const open = _bkEntries().filter(_bkIsOpen).map(e => e.id);
+    _bk.stack = _bk.stack.filter(id => open.includes(id)).concat(open.filter(id => !_bk.stack.includes(id)));
+    return _bk.stack;
+  }
+  // 履歴のしおりの数を、開いている画面の数に合わせる
+  function _bkSync() {
+    if (!_bk.on) return;
+    const target = _bkRefreshStack().length;
+    try {
+      while (_bk.depth < target) { _bk.depth++; history.pushState({ satDepth: _bk.depth }, ''); }
+      if (_bk.depth > target) { const n = _bk.depth - target; _bk.depth = target; _bk.ignore++; history.go(-n); }
+    } catch (e) { console.warn('back-nav sync', e); }
+  }
+  function _bkScheduleSync() {
+    if (!_bk.on) return;
+    clearTimeout(_bk.timer);
+    _bk.timer = setTimeout(_bkSync, 30); // 「閉じてすぐ別の画面を開く」をまとめて数える
+  }
+  // ブラウザの戻る／進むが押された
+  function _bkOnPop(ev) {
+    if (!_bk.on) return;
+    const d = (ev && ev.state && Number(ev.state.satDepth)) || 0;
+    if (_bk.ignore > 0) { _bk.ignore--; return; } // 自分で抜いたしおりの分
+    _bk.depth = d;
+    const stack = _bkRefreshStack();
+    if (stack.length > d) {
+      // いちばん手前の画面を1つ閉じる。編集中で未保存なら確認が出る（閉じなければ _bkSync がしおりを戻す）
+      const topId = stack[stack.length - 1];
+      const entry = _bkEntries().find(e => e.id === topId);
+      try { if (entry) entry.close(); } catch (e) { console.warn('back-nav close', topId, e); }
+    }
+    _bkScheduleSync(); // 進むボタンなどで数が合わなくなった分もここで合わせる
+  }
+  function _initBackNav() {
+    try { if (localStorage.getItem('back_nav_off') === '1') return; } catch (e) {}
+    if (_bk.on || typeof history === 'undefined' || typeof history.pushState !== 'function' || typeof MutationObserver === 'undefined') return;
+    try {
+      // 再読み込みで前のしおりが残っていたら、その深さから数え直す（_bkSync が余りを抜く）
+      _bk.depth = (history.state && Number(history.state.satDepth)) || 0;
+      if (!_bk.depth) history.replaceState({ satDepth: 0 }, '');
+    } catch (e) { return; } // file:// などで履歴を触れない環境では何もしない
+    _bk.on = true;
+    const mo = new MutationObserver(_bkScheduleSync);
+    _bkEntries().forEach(e => { const el = document.getElementById(e.id); if (el) mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] }); });
+    window.addEventListener('popstate', _bkOnPop);
+    _bkScheduleSync();
+  }
+  if (typeof document !== 'undefined' && document.readyState === 'complete') { try { _initBackNav(); } catch (e) {} }
+  else if (typeof window !== 'undefined') window.addEventListener('load', () => { try { _initBackNav(); } catch (e) {} });
+
   function setTab(idx) {
     // 編集画面が開いていたら3択ダイアログ（ただし何も変更していなければ聞かずに閉じて移動）
     const editOpen = _findOpenEditPanel();
@@ -17071,7 +17152,7 @@ ${tableHTML}
   function closeDashboard() {
     const el = document.getElementById('dashboard-screen'); if (el) { el.style.display = 'none'; el.classList.remove('dash-show'); }
     if (_dashTimer) { clearInterval(_dashTimer); _dashTimer = null; }
-    if (location.hash === '#dashboard') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; } }
+    if (location.hash === '#dashboard') { try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { location.hash = ''; } }
   }
 
   // ダッシュボードを閉じてホームへ戻る（左上ボタン）
