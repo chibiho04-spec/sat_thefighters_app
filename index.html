@@ -14797,7 +14797,12 @@ ${_body}
 
   // ===== 売上表 =====
   // 全画面オーバーレイ：CSSクラス .full-page-overlay を付け外しすることで実現
+  // 全画面モードにする／戻す。
+  // 【2026-10-05 修正】戻すときに z-index を空にしていたため、各画面が HTML に持っている元の重なり順
+  // （ワークシート=175 など）が消え、次に普通に開いたとき上部の帯（川崎会長のいる scene・z80）や
+  // 上部バー（z90）の下に潜って「画面の上が表示されない」状態になっていた。元の値を覚えておいて戻す。
   function _applyFullPageStyle(el, z) {
+    if (el.dataset.pageMode !== '1') el.dataset.origZ = el.style.zIndex || ''; // 重ねて呼ばれても最初の値を保つ
     el.classList.add('full-page-overlay');
     el.style.zIndex = String(z);
     el.dataset.pageMode = '1';
@@ -14805,7 +14810,7 @@ ${_body}
   function _resetFullPageStyle(el) {
     if (el.dataset.pageMode !== '1') return;
     el.classList.remove('full-page-overlay');
-    el.style.zIndex = '';
+    el.style.zIndex = el.dataset.origZ || '';
     el.dataset.pageMode = '';
   }
 
@@ -19258,6 +19263,7 @@ ${tableHTML}
     // （display:flex なのに画面外＝クリックしても無反応に見える不具合の防止）
     ws.style.transform = 'translateX(0)';
     ws.style.display = 'flex';
+    if (ws.dataset.pageMode !== '1' && !ws.style.zIndex) ws.style.zIndex = '175'; // 重なり順が消えていたら戻す（上部の帯の下に潜らないように）
 
     // ③ 開いた直後に最新をバックグラウンド取り込み（変更があり未編集の時だけ静かに再描画）
     if (!_skipFreshen) _freshenOpenRecord('ws', num);
