@@ -7074,6 +7074,7 @@
           <select id="inv-modal-tax">
             <option value="1">課税（10%）</option>
             <option value="0">非課税</option>
+            <option value="2">不課税</option>
           </select>
         </div>
         <div class="inv-field">
@@ -10629,7 +10630,7 @@
       const taxable = taxEl ? (taxEl.value === '1') : true;
       const outsource = outsourceEl ? !!outsourceEl.checked : false;
       if (!name && !price) return;
-      lines.push({ code, name, qty, unit, price, taxable, outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || ''), spacer:false });
+      lines.push({ code, name, qty, unit, price, taxable, taxKind: _taxKindOfRow(tr), outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || ''), spacer:false });
     });
     return lines;
   }
@@ -10672,7 +10673,7 @@
       docMode: c.docMode,
       // 品目名・単位・区分は残し、数量・単価は空にする
       lines: c.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
-                                 qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource,
+                                 qty: '', price: '', taxable: l.taxable !== false, taxKind: l.taxKind || '', outsource: !!l.outsource,
                                  red: !!l.red, note: l.note || '', spacer: !!l.spacer })),
       // 外注先名は残し、金額は空に
       outsourceList: (Array.isArray(c.outsourceList) ? c.outsourceList : []).map(o => ({
@@ -10774,7 +10775,7 @@
     // 明細（数量・単価は空。最低1行は出す）
     const tplLines = (tpl.lines && tpl.lines.length)
       ? tpl.lines.map(l => ({ code: l.code || '', name: l.name || '', unit: l.unit || '',
-                              qty: '', price: '', taxable: l.taxable !== false, outsource: !!l.outsource,
+                              qty: '', price: '', taxable: l.taxable !== false, taxKind: l.taxKind || '', outsource: !!l.outsource,
                               note: l.note || '', spacer: !!l.spacer }))
       : [{ code:'', name:'', qty:'', unit:'式', price:'' }];
     renderInvLines([], tplLines, false);
@@ -11056,6 +11057,19 @@
     if (!_skipFreshen) _freshenOpenRecord('inv', num, action);
   }
 
+  // ===== 明細の税区分（2026-10-05 不課税を追加）=====
+  // 課税＝taxable:true ／ 非課税＝taxable:false ／ 不課税＝taxable:false＋taxKind:'fuka'。
+  // 不課税も非課税も消費税は掛からない（金額の計算は同じ）。違うのは書類と画面の表示だけ。
+  // 既存データ（taxKind 無し）は今までどおり 課税／非課税 のどちらかになる。
+  function _taxSelValue(line) { return (line && line.taxable === false) ? (line.taxKind === 'fuka' ? '2' : '0') : '1'; }
+  function _taxLabel(line)    { return { '1': '課税', '0': '非課税', '2': '不課税' }[_taxSelValue(line)]; }
+  // 行（<tr>）から区分を読む：編集中は select、閲覧専用は表示の文字
+  function _taxKindOfRow(tr) {
+    const sel = tr && tr.querySelector ? tr.querySelector('.inv-line-tax') : null;
+    if (sel) return sel.value === '2' ? 'fuka' : '';
+    const sp = tr && tr.querySelector ? tr.querySelector('.inv-td-tax span') : null;
+    return (sp && String(sp.textContent || '').trim() === '不課税') ? 'fuka' : '';
+  }
   function renderInvLines(masterLines, savedLines, readonly, discount) {
     const tbody = document.getElementById('inv-lines-body');
     tbody.innerHTML = '';
@@ -11097,10 +11111,11 @@
         </td>
         <td class="inv-td inv-td-tax">
           ${readonly
-            ? `<span style="font-size:11px;">${line.taxable === false ? '非課税' : '課税'}</span>`
+            ? `<span style="font-size:11px;">${_taxLabel(line)}</span>`
             : `<select class="inv-line-tax" onchange="calcInvTotal()" style="font-size:11px;padding:2px;">
                  <option value="1" ${line.taxable === false ? '' : 'selected'}>課税</option>
-                 <option value="0" ${line.taxable === false ? 'selected' : ''}>非課税</option>
+                 <option value="0" ${_taxSelValue(line) === '0' ? 'selected' : ''}>非課税</option>
+                 <option value="2" ${_taxSelValue(line) === '2' ? 'selected' : ''}>不課税</option>
                </select>`}
         </td>
         ${readonly ? '' : `<td class="inv-td"><button class="inv-del-btn" onclick="this.closest('.inv-line-row').remove(); calcInvTotal(); renderInvLineCards();">✕</button></td>`}
@@ -11144,10 +11159,10 @@
       const price = Number(String(priceEl?.value ?? (priceTextEl?.textContent ?? '')).replace(/[¥,]/g, '')) || 0;
       const code = (codeEl?.textContent ?? '').trim();
       const taxable = taxEl ? (taxEl.value === '1')
-                            : (taxTextEl ? taxTextEl.textContent.trim() !== '非課税' : true);
+                            : (taxTextEl ? !/^(非課税|不課税)$/.test(taxTextEl.textContent.trim()) : true);
       const outsource = outEl ? !!outEl.checked
                               : (outTextEl ? outTextEl.textContent.trim() === '✓' : false);
-      out.push({ code, name, unit, qty, price, taxable, outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || ''), spacer:false });
+      out.push({ code, name, unit, qty, price, taxable, taxKind: _taxKindOfRow(tr), outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || ''), spacer:false });
     });
     return out;
   }
@@ -11176,7 +11191,7 @@
       const nameTxt = l.name ? _esc(l.name) : '（摘要未入力）';
       const nameCls = l.name ? '' : ' is-empty';
       const taxBadge = l.taxable === false
-        ? '<span class="inv-card-badge tax-off">非課税</span>'
+        ? '<span class="inv-card-badge tax-off">' + _taxLabel(l) + '</span>'
         : '<span class="inv-card-badge">課税</span>';
       const outBadge = ''; // 外注列は廃止（外注費はワークシートで管理）
       const redBadge = l.red ? '<span class="inv-card-badge" style="background:#c0392b;color:#fff;border-color:#c0392b;">赤文字</span>' : '';
@@ -11376,7 +11391,7 @@
     document.getElementById('inv-modal-qty').value   = (l.qty != null ? l.qty : 1);
     document.getElementById('inv-modal-unit').value  = l.unit || '日';
     document.getElementById('inv-modal-price').value = (l.price != null ? l.price : 0);
-    document.getElementById('inv-modal-tax').value   = (l.taxable === false ? '0' : '1');
+    document.getElementById('inv-modal-tax').value   = _taxSelValue(l);
     document.getElementById('inv-modal-code').value  = l.code || '';
     { const rEl = document.getElementById('inv-modal-red'); if (rEl) rEl.checked = !!l.red; }
     { const nEl = document.getElementById('inv-modal-note'); if (nEl) { nEl.value = l.note || ''; nEl.disabled = _invReadonly; } }
@@ -11407,6 +11422,7 @@
       unit:  document.getElementById('inv-modal-unit').value.trim() || '式',
       price: parseFloat(document.getElementById('inv-modal-price').value) || 0,
       taxable:   document.getElementById('inv-modal-tax').value === '1',
+      taxKind:   document.getElementById('inv-modal-tax').value === '2' ? 'fuka' : '', // 不課税（税の計算は非課税と同じ・表示だけ違う）
       code:  document.getElementById('inv-modal-code').value.trim(),
       outsource: false, // 外注列は廃止（外注費はワークシートで管理）
       red:   !!document.getElementById('inv-modal-red')?.checked, // 行全体を赤文字にする（追加費用の目印など）
@@ -11446,7 +11462,7 @@
       <td class="inv-td inv-td-amount">¥0</td>
       <td class="inv-td inv-td-tax">
         <select class="inv-line-tax" onchange="calcInvTotal()">
-          <option value="1">課税</option><option value="0">非課税</option>
+          <option value="1">課税</option><option value="0">非課税</option><option value="2">不課税</option>
         </select>
       </td>
       <td class="inv-td"></td>`;
@@ -11464,7 +11480,7 @@
     set('.inv-line-qty', d.qty);
     set('.inv-line-price', d.price);
     const taxEl = tr.querySelector('.inv-line-tax');
-    if (taxEl) taxEl.value = d.taxable ? '1' : '0';
+    if (taxEl) taxEl.value = _taxSelValue(d);
     const outEl = tr.querySelector('.inv-line-outsource');
     if (outEl) outEl.checked = !!d.outsource;
   }
@@ -11495,7 +11511,7 @@
       // 課税判定：select（編集時）→ span表示（閲覧時）→ 既定は課税。
       // 旧実装は閲覧時に非課税行を課税扱いにする潜在バグがあった（2026-07-11修正）
       const taxable = taxEl ? (taxEl.value === '1')
-                            : (taxTextEl ? taxTextEl.textContent.trim() !== '非課税' : true);
+                            : (taxTextEl ? !/^(非課税|不課税)$/.test(taxTextEl.textContent.trim()) : true);
       if (taxable) taxableSubtotal += amt;
       const amtEl = document.getElementById('inv-amount-'+i);
       if (amtEl) amtEl.textContent = '¥' + Math.round(amt).toLocaleString();
@@ -11549,7 +11565,7 @@
       const taxable = taxEl ? (taxEl.value === '1') : true;
       const outsource = outsourceEl ? !!outsourceEl.checked : false;
       if (!name && !price) return;
-      lines.push({ code, name, qty, unit: unit || '日', price, taxable, outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || '') });
+      lines.push({ code, name, qty, unit: unit || '日', price, taxable, taxKind: _taxKindOfRow(tr), outsource, red: (tr.dataset.red === '1'), note: (tr.dataset.note || '') });
     });
 
     // 既存のステータス（宛先・docMode 等）を保持したまま発行情報を上書き（値引きも保存）
@@ -16306,9 +16322,9 @@ ${tableHTML}
       const price = rawPrice ? Number(rawPrice).toLocaleString() : '';
       const amt   = amtEl?.textContent?.trim()  || '';
       const taxable = taxEl ? (taxEl.value === '1')
-                            : (tr.querySelector('.inv-td-tax span')?.textContent?.trim() !== '非課税');
+                            : !/^(非課税|不課税)$/.test(tr.querySelector('.inv-td-tax span')?.textContent?.trim() || '');
       const note  = escapeHtml(tr.dataset.note || '');
-      const taxMark = taxable ? '' : '<div style="font-size:7.5pt;color:#c0392b;font-weight:bold;">非課税</div>';
+      const taxMark = taxable ? '' : '<div style="font-size:7.5pt;color:#c0392b;font-weight:bold;">' + (_taxKindOfRow(tr) === 'fuka' ? '不課税' : '非課税') + '</div>';
       const noteCell = (note ? `<div>${note}</div>` : '') + taxMark;
       if (!name) return;
       rowCount++;
