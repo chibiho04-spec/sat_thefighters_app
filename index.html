@@ -11401,7 +11401,8 @@
         const name = String(e.name || '').trim();
         if (!name) return;
         // 機材マスタに単位の欄は無い。レンタルは日単位なので既定を「日」にする（あとから直せる）
-        out.push({ group: '🎥 機材', name: name,
+        // 機材はカテゴリごとの見出しに分ける（2026-10-06 本人要望：80件超が一続きで見づらい）
+        out.push({ group: '🎥 機材｜' + String(e.cat || '📦 その他').trim(), name: name,
                    code:  String(e.code || '').trim(),
                    unit:  '日',
                    price: Number(e.price) || 0 });
@@ -11429,10 +11430,11 @@
         g.items.push({ it: it, i: i });
       });
       groups.forEach(g => {
-        html += '<optgroup label="' + esc(g.label + '（' + g.items.length + '件）') + '">';
+        // 見出し：「━━ 📷 カメラ（7件）━━」の形で区切りが目立つようにする
+        html += '<optgroup label="' + esc('━━ ' + g.label.replace(/^🎥 機材｜/, '') + '（' + g.items.length + '件）━━') + '">';
         g.items.forEach(function (e) {
-          const label = e.it.name + (e.it.code ? '（' + e.it.code + '）' : '')
-                      + (e.it.price ? '  ' + yen(e.it.price) : '');
+          const label = '　' + e.it.name + (e.it.code ? '（' + e.it.code + '）' : '')
+                      + (e.it.price ? '　' + yen(e.it.price) : '');
           html += '<option value="' + e.i + '">' + esc(label) + '</option>';
         });
         html += '</optgroup>';
