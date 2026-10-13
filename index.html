@@ -6765,6 +6765,14 @@
         請求書タブに移動して作成します
       </div>
 
+      <!-- 案件のコピー（2026-10-13 本人要望：同じような案件が来るので内容を引き継いで新規作成） -->
+      <div style="margin-top:16px;padding:12px 12px 4px;border-top:1px dashed #ddd;">
+        <button id="wsd-copy-btn" onclick="copyWSAsNew()" style="width:100%;font-family:'DotGothic16',monospace;font-size:14px;background:#2980b9;border:3px solid #1a5c8a;color:white;padding:11px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #0d3a5c;letter-spacing:1px;">
+          📄 この案件をコピーして新規作成
+        </button>
+        <div style="margin-top:6px;text-align:center;font-size:10px;color:#999;">取引先・担当クルー・機材・外注・車両・受注金額・メモを引き継いだ新しい案件を作ります<br>日程・報告事項・メディア記録・請求書は引き継ぎません</div>
+      </div>
+
       <!-- 削除ボタン（最下部、目立つ赤） -->
       <div style="margin-top:20px;padding:12px 12px 24px;border-top:1px dashed #ddd;">
         <button onclick="deleteCurrentWS()" style="font-family:'DotGothic16',monospace;font-size:13px;background:#c0392b;border:3px solid #7b241c;color:white;padding:10px 16px;border-radius:4px;cursor:pointer;box-shadow:3px 3px 0 #7b241c;width:100%;">🗑️ <span style="font-size:15px;">こ</span>の案件をゴミ箱へ</button>
@@ -19427,6 +19435,112 @@ ${tableHTML}
     }
     // ダッシュボードから開いていたら復帰
     if (_dashReturn) { _dashReturn = false; try { openDashboard(); } catch(e) {} }
+  }
+
+  // ===== 案件のコピー（2026-10-13）=====
+  // 同じような案件が来たとき、ワークシートの内容を引き継いで新しい受注番号で作る。
+  // 引き継ぐ：件名・取引先・担当者・分類・種別・担当クルー・作成者・機材リスト・外注・車両・私物・受注金額・メモ・ポスプロのチェック
+  // 引き継がない：日程・受注日（今日）・報告事項・メディア記録・レンタル（廃止欄）・請求書/見積書・進捗
+  // 元の案件は一切変更しない。番号は元と同じ接頭辞（旧 D→P、B→T）で次の空き番号。他端末の番号と被らないか確認してから作る。
+  const _WS_COPY_KEYS = ['edit_title','edit_company','edit_contact','edit_type','edit_order','creator',
+    'crew_producer','crew_d','crew_pm1','crew_pm2','crew_c','crew_a','crew_a2','crew_sound','crew_edit','crew_extra',
+    'equip','outsource_list','wsd-private','wsd-vehicle','wsd-memo','wsd-order-amount',
+    'cb_postpro','cb_honhenshu','cb_kahenshu','cb_cg','cb_dubbing','cb_sonota'];
+  function _wsCopyPrefix(num) {
+    const c = (String(num || '').match(/^[A-Za-z]/) || ['T'])[0].toUpperCase();
+    return ({ D: 'P', B: 'T' })[c] || (/^[TEP]$/.test(c) ? c : 'T');
+  }
+  // 純関数：元の案件（projects_saved の親・ws_ の子）から、新番号の親と子を作る
+  function _buildWSCopy(srcNum, newNum, parent, saved, nowIso, todayYmd) {
+    parent = parent || {}; saved = saved || {};
+    const child = {};
+    _WS_COPY_KEYS.forEach(k => {
+      if (saved[k] === undefined || saved[k] === null) return;
+      child[k] = JSON.parse(JSON.stringify(saved[k])); // 機材・外注は配列/オブジェクトなので深いコピー
+    });
+    child['wsd-shootdate'] = '';
+    child['wsd-report'] = '';
+    child['wsd-media'] = '';
+    child.rental_list = []; child['wsd-rental'] = ''; child['wsd-rental-cost'] = '';
+    child['wsd-outsource'] = (child.outsource_list || []).map(o => o && o.name).filter(Boolean).join(' / ');
+    child['wsd-outsource-cost'] = (child.outsource_list || []).reduce((s, o) => s + (Number(o && o.cost) || 0), 0);
+    child.saved_at = new Date(nowIso).toLocaleString('ja-JP');
+    child._updatedAt = nowIso;
+    const pick = (a, b) => (a !== undefined && a !== null && String(a) !== '') ? a : (b || '');
+    const proj = {
+      title:   pick(saved['edit_title'],   parent.title),
+      company: pick(saved['edit_company'], parent.company),
+      contact: pick(saved['edit_contact'], parent.contact),
+      date:    '',                                   // 日程は新しい案件で入れる
+      type:    pick(saved['edit_type'],    parent.type)      || '未定',
+      orderType: pick(saved['edit_order'], parent.orderType) || '未定',
+      staff:   parent.staff || '',
+      crewProducer: pick(saved['crew_producer'], parent.crewProducer), crewD: pick(saved['crew_d'], parent.crewD),
+      crewPm1: pick(saved['crew_pm1'], parent.crewPm1), crewPm2: pick(saved['crew_pm2'], parent.crewPm2),
+      crewC:   pick(saved['crew_c'], parent.crewC), crewA: pick(saved['crew_a'], parent.crewA), crewA2: pick(saved['crew_a2'], parent.crewA2),
+      crewSound: pick(saved['crew_sound'], parent.crewSound), crewEdit: pick(saved['crew_edit'], parent.crewEdit),
+      memo:    pick(saved['wsd-memo'], parent.memo),
+      clientCode: parent.clientCode || '',
+      copiedFrom: String(srcNum),
+      receivedAt: todayYmd,
+      _updatedAt: nowIso,
+    };
+    return { project: proj, child };
+  }
+  async function copyWSAsNew() {
+    const srcNum = (document.getElementById('ws-detail-num')?.textContent || '').trim();
+    if (!srcNum) return;
+    if (typeof _isDirty === 'function' && _isDirty('ws-detail-screen')) {
+      alert('編集中の内容があります。先に「保存する」を押してからコピーしてください。');
+      return;
+    }
+    const saved  = loadWS(srcNum);
+    const parent = (typeof wsData === 'object' && wsData[srcNum]) || getSavedProjects().find(p => String(p.num) === srcNum) || {};
+    const prefix = _wsCopyPrefix(srcNum);
+    let newNum = prefix + getNextOrderNum(prefix);
+    const title = saved['edit_title'] || parent.title || '';
+    showConfirm(`${srcNum}「${title}」をコピーして、新しい案件 ${newNum} を作ります。\n\n引き継ぐ：取引先・担当クルー・機材・外注・車両・受注金額・メモ\n引き継がない：日程・報告事項・メディア記録・請求書\n\n作ったあと、日程を入力して保存してください。`, async () => {
+      const btn = document.getElementById('wsd-copy-btn');
+      try { _setBtnBusy(btn, true, '⏳ 受注番号を確認中…'); } catch (e) {}
+      try {
+        if (_gasUrlOne()) {
+          try { const chk = await _verifyOrderNumFreeRemote(newNum, prefix); if (!chk.ok) newNum = chk.free; } catch (e) {}
+        }
+        const nowIso = new Date().toISOString();
+        const today  = nowIso.slice(0, 10);
+        const { project, child } = _buildWSCopy(srcNum, newNum, parent, saved, nowIso, today);
+        wsData[newNum] = project;
+        saveProject(newNum, project);
+        localStorage.setItem('ws_' + newNum, JSON.stringify(child));
+        try { addWsCard(newNum, project); } catch (e) {}
+        let openNum = newNum;
+        if (_gasUrlOne()) {
+          try {
+            const res = await pushKind('order', [{ '受注No': newNum, _project: project, _updatedAt: nowIso }], { claimNew: true });
+            if (res && Array.isArray(res.rejected) && res.rejected.indexOf(newNum) >= 0) {
+              const free = await _handleOrderClaimRejected(newNum); // 退避した内容を空き番号で登録し直す（ws_ も一緒に移る）
+              if (free) { openNum = free; alert(`受注番号「${newNum}」は他の端末が一瞬先に使いました。\n空いている「${free}」で作りました。`); }
+            } else {
+              pushKind('child', [Object.assign({}, child, { '受注No': newNum })]).catch(() => { try { pendingAdd('child', newNum); } catch (_) {} });
+            }
+          } catch (e) { try { pendingAdd('order', newNum, { claimNew: true }); pendingAdd('child', newNum); } catch (_) {} }
+        }
+        try { _markClean('ws-detail-screen'); } catch (e) {}
+        closeWS();
+        try { setTab(0); refreshHomeView(true); } catch (e) {}
+        setTimeout(() => {
+          openWS(openNum);
+          toggleWsEdit(true);
+          try { const d = document.getElementById('wsd-shootdate'); if (d) d.focus(); } catch (e) {}
+          try { showToast('📄 ' + srcNum + ' をコピーして ' + openNum + ' を作りました。日程を入力して保存してください'); } catch (e) {}
+        }, 200);
+      } catch (e) {
+        console.error('案件のコピーに失敗', e);
+        alert('案件のコピーに失敗しました。もう一度お試しください。');
+      } finally {
+        try { _setBtnBusy(btn, false); } catch (e) {}
+      }
+    }, { okText: '📄 コピーして作る', okBg: '#2980b9', okBorder: '#1a5c8a' });
   }
 
   function confirmDeleteWS() {

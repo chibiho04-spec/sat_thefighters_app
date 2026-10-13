@@ -164,6 +164,9 @@ const USER_STAFF = {
 - ブレークポイントはデスクトップ`min-width:769px`／モバイル`max-width:768px`に統一（売上表・ws-end-gridも統一済み）
 - **新しい全画面オーバーレイを追加する時は、`@media (min-width: 769px)` と `(min-width: 1200px)` の `#xxx-screen` ルール一覧に追加必須**（top:54px/left:200px）
 
+### 📄 案件のコピー（2026-10-13）
+ワークシート閲覧画面の下「📄 この案件をコピーして新規作成」（`copyWSAsNew`）。引き継ぐ項目は `_WS_COPY_KEYS`（件名・取引先・担当者・分類・種別・作成者・クルー・機材・外注・車両・私物・受注金額・メモ・ポスプロ）。日程・受注日・報告事項・メディア記録・レンタル（廃止欄）・請求書は引き継がない。番号は同じ接頭辞（D→P・B→T）の次の空き番号で、新規登録と同じく `_verifyOrderNumFreeRemote` → `claimNew` 付き push → 負けたら `_handleOrderClaimRejected`。親は `copiedFrom` に元番号を持つ。純関数 `_buildWSCopy` をテスト（`tests/worksheet/test-copy-ws.js`）。
+
 ### ⬅️ ブラウザの「戻る」で手前の画面を閉じる（2026-10-05）
 - 対象は**重なる画面だけ**（タブ移動は含めない・本人決定）。編集中で未保存なら「◀ 戻る」と同じ3択の確認（`_guardedClose`）。
 - 仕組み：開いている画面の数だけ履歴にしおり（`pushState({satDepth})`）をはさみ、`popstate` でいちばん後に開いた画面を閉じる。開閉の検知は各画面の `style`/`class` を `MutationObserver` で見る（個々の open/close 関数には手を入れていない）。関数は `_bkEntries/_bkSync/_bkOnPop/_initBackNav`。
