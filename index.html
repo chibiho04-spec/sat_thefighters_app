@@ -7061,7 +7061,7 @@
         </div>
         <div class="inv-field">
           <label>備考（プレビュー右端に表示）</label>
-          <textarea id="inv-modal-note" class="inv-ta-1" rows="1" placeholder="例）当日精算ぶんを含む"></textarea>
+          <textarea id="inv-modal-note" rows="2" placeholder="例）当日精算ぶんを含む（Enter で改行できます）" oninput="_autoGrowNote(this)" style="min-height:calc(2.8em + 22px);resize:vertical;"></textarea>
         </div>
         <div class="inv-field-row">
           <div class="inv-field">
@@ -11286,7 +11286,7 @@
       const redBadge = l.red ? '<span class="inv-card-badge" style="background:#c0392b;color:#fff;border-color:#c0392b;">赤文字</span>' : '';
       const redStyle = l.red ? 'color:#c0392b;' : ''; // 印刷で行全体が赤になるのを画面でも示す
       const codeBadge = l.code ? `<span class="inv-card-badge">${_esc(l.code)}</span>` : '';
-      const noteLine = l.note ? `<div class="inv-card-note" style="font-size:11px;color:#888;margin-top:3px;">📝 ${_esc(l.note)}</div>` : '';
+      const noteLine = l.note ? `<div class="inv-card-note" style="font-size:11px;color:#888;margin-top:3px;white-space:pre-wrap;">📝 ${_esc(l.note)}</div>` : '';
       const delBtn  = _invReadonly ? '' :
         `<button type="button" class="inv-card-del" title="削除" onclick="delInvLineCard(${i})">🗑</button>`;
       return `
@@ -11466,6 +11466,12 @@
     try { _updateInvModalAmount(); } catch (e) {}
   }
 
+  // 明細の備考：改行できる。入力に合わせて高さを伸ばす（2026-11-12 本人要望：長い備考を改行したい）
+  function _autoGrowNote(el) {
+    if (!el || !el.style) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(Math.max(el.scrollHeight + 2, 0), 320) + 'px';
+  }
   function openInvLineModal(idx) {
     const rows = _readInvLineRows();
     const isNew = (idx === null || idx === undefined);
@@ -11485,7 +11491,7 @@
     document.getElementById('inv-modal-tax').value   = _taxSelValue(l);
     document.getElementById('inv-modal-code').value  = l.code || '';
     { const rEl = document.getElementById('inv-modal-red'); if (rEl) rEl.checked = !!l.red; }
-    { const nEl = document.getElementById('inv-modal-note'); if (nEl) { nEl.value = l.note || ''; nEl.disabled = _invReadonly; } }
+    { const nEl = document.getElementById('inv-modal-note'); if (nEl) { nEl.value = l.note || ''; nEl.disabled = _invReadonly; _autoGrowNote(nEl); } }
     // 保存ボタン：readonly時は非表示
     const saveBtn = document.querySelector('#inv-line-modal .inv-modal-save');
     if (saveBtn) {
@@ -16416,7 +16422,7 @@ ${tableHTML}
                             : !/^(非課税|不課税)$/.test(tr.querySelector('.inv-td-tax span')?.textContent?.trim() || '');
       const note  = escapeHtml(tr.dataset.note || '');
       const taxMark = taxable ? '' : '<div style="font-size:7.5pt;color:#c0392b;font-weight:bold;">' + (_taxKindOfRow(tr) === 'fuka' ? '不課税' : '非課税') + '</div>';
-      const noteCell = (note ? `<div>${note}</div>` : '') + taxMark;
+      const noteCell = (note ? `<div style="white-space:pre-wrap;">${note}</div>` : '') + taxMark; // 改行を印刷にも反映
       if (!name) return;
       rowCount++;
       const bg = rowCount % 2 === 0 ? '#f9f9f9' : 'white';
