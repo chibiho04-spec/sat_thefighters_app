@@ -114,6 +114,8 @@ ok(!/<img/.test(_invCopyBannerHtml('T1', '<img src=x>', true, false, 'invoice'))
 
 console.log('\n=== 配線 ===');
 ok(/id="invd-copy-btn"[^>]*onclick="copyInvDocAsNew\(\)"/.test(src), '編集画面の上に「コピーして新規」ボタン');
+ok(/id="invd-copy-btn"[^>]*background:white/.test(src), '上のボタンは白地で目立たせる（どの書類の色の帯の上でも見える）');
+ok(/id="invd-copy-btn2"[^>]*onclick="copyInvDocAsNew\(\)"/.test(src) && src.indexOf('id="invd-copy-btn2"') > src.indexOf('id="invd-preview-btn"') && src.indexOf('id="invd-copy-btn2"') < src.indexOf('id="invd-ws-btn"'), '下の保存ボタンの並び（印刷プレビューの下）にも大きなボタン');
 const save = grabFunction(src, 'saveInvDoc');
 ok(/_invIsNew && _invCopySrc && !status\.copiedFrom\) status\.copiedFrom = _invCopySrc/.test(save), '請求書のコピーは保存時に copiedFrom を残す');
 const fld = grabFunction(src, '_setInvOrderField');
