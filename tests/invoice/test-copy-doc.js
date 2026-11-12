@@ -132,4 +132,5 @@ ok(/_invCopyFresh\) \{ _invCopyFresh = false; try \{ _updateInvCopyBanner\(num\)
 ok(/_updateInvCopyBanner\(\)/.test(grabFunction(src, 'setDocMode')), '書類の種類を切り替えたら帯の言葉も合わせる');
 ok(/@keyframes invdCopyOut/.test(src) && /@keyframes invdCopyIn/.test(src) && /prefers-reduced-motion: reduce\)[\s\S]{0,200}invd-copy-out/.test(src), '動き（抜ける・入る）と、動きを減らす設定への配慮');
 ok(/_guardedClose\('inv-detail-screen'/.test(grabFunction(src, 'openInvCopySource')), '元の書類を開くときも未保存なら確認する');
+ok(/#invd-save-btn, #invd-preview-btn \{ padding: 22px 14px; font-size: 19px; font-weight: bold;/.test(src), '「保存」「印刷プレビュー」は大きく・文字も大きく');
 ok.done();
