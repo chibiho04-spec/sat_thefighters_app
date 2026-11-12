@@ -2,7 +2,8 @@
 const { html, grabFunction, makeOk } = require('../kurosawa/_extract');
 const ok = makeOk();
 const src = html();
-['_wsCopyPrefix', '_invCopyParentNum', '_buildInvDocCopy', '_copyInvDocExec', 'copyInvDocAsNew'].forEach(n => (0, eval)(grabFunction(src, n)));
+global.escapeHtml = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+['_wsCopyPrefix', '_invCopyParentNum', '_buildInvDocCopy', '_copyInvDocExec', 'copyInvDocAsNew', '_invCopyBannerHtml'].forEach(n => (0, eval)(grabFunction(src, n)));
 
 const C = {
   company: '株式会社アドスタッフ博報堂', contact: '山入端', dept: '営業部', honorific: '御中', zip: '900-0000', addr: '那覇市',
@@ -50,11 +51,19 @@ global._markClean = () => { marked.push('clean'); };
 global.renderDocList = () => {};
 global.alert = m => alerts.push(m);
 global._invCopySrc = '';
+global._invCopyFresh = false;
+let animated = 0, banner = [], toasts = [];
+global._invCopyAnimate = swap => { animated++; swap(); }; // 動きの代役（すぐ差し替える）
+global._updateInvCopyBanner = n => banner.push({ n, src: _invCopySrc, fresh: _invCopyFresh });
+global.showToast = m => toasts.push(m);
 
 global._docMode = 'estimate';
 _copyInvDocExec('EST-26011');
 ok(saved['EST-26012'] && saved['EST-26012'].parentNum === 'E26082' && saved['EST-26012'].copiedFrom === 'EST-26011', '見積書：新しい EST- 番号ですぐ保存');
-ok(shown.n === 'EST-26012' && shown.ed === false && /EST-26012/.test(alerts[0]), '見積書：コピーの方を開いて知らせる');
+ok(shown.n === 'EST-26012' && shown.ed === false, '見積書：コピーの方を開く（番号は表示のみ）');
+ok(animated === 1, '見積書：元の書類が抜けて新しい書類が入る動きを付ける');
+ok(banner.length && banner[banner.length-1].n === 'EST-26012' && banner[banner.length-1].src === 'EST-26011' && banner[banner.length-1].fresh === true, '見積書：「コピーして作った新しい書類」の帯を目立たせて出す');
+ok(alerts.length === 0 && /EST-26011 → EST-26012/.test(toasts[0]), '見積書：画面をふさぐ alert は出さず、帯と短いお知らせで伝える');
 
 saved = {}; alerts = []; marked = [];
 global._docMode = 'invoice';
@@ -62,7 +71,8 @@ _copyInvDocExec('P26139');
 ok(Object.keys(saved).length === 0, '請求書：その場では保存しない（未保存の新規）');
 ok(shown.n === 'P26151' && shown.ed === true, '請求書：同じ接頭辞の次の番号・番号は編集可');
 ok(_invCopySrc === 'P26139', '請求書：保存時に残すコピー元を控える（画面を作り直した後に入れる）');
-ok(marked.includes('dirty') && /まだ保存していません/.test(alerts[0]), '請求書：閉じるときに確認が出るよう「未保存」にする');
+ok(marked.includes('dirty') && alerts.length === 0, '請求書：閉じるときに確認が出るよう「未保存」にする');
+ok(banner[banner.length-1].n === 'P26151' && banner[banner.length-1].fresh === true, '請求書：コピーの帯を出す');
 _copyInvDocExec('D26005');
 ok(shown.n === 'P26151', '旧番号 D の請求書は P で作る');
 
@@ -91,6 +101,17 @@ confirmOpts.onOk();
 ok(ran === 2, '「元は保存せずにコピー」ならコピーする');
 global._copyInvDocExec = realExec;
 
+console.log('\n=== 目印の帯 ===');
+let h = _invCopyBannerHtml('EST-26012', 'EST-26011', true, false, 'estimate');
+ok(/コピーして作った新しい見積書です/.test(h) && /いま開いている：EST-26012/.test(h) && /line-through;">EST-26011/.test(h), 'コピー直後：元 → いま の番号を大きく出す（元は取り消し線）');
+ok(/保存済み/.test(h) && /openInvCopySource\(\)/.test(h), '見積書は保存済みと伝え、元の書類を開くボタンを付ける');
+h = _invCopyBannerHtml('P26151', 'P26139', true, true, 'invoice');
+ok(/新しい請求書です/.test(h) && /まだ保存していません/.test(h), '請求書は「まだ保存していません」と赤で伝える');
+h = _invCopyBannerHtml('EST-26012', 'EST-26011', false, false, 'estimate');
+ok(/EST-26011<\/b> をコピーして作りました/.test(h) && !/新しい見積書です/.test(h), 'あとで開き直したときは控えめな一行');
+ok(_invCopyBannerHtml('T26001', '', false, false, 'invoice') === '', 'コピーでない書類には出さない');
+ok(!/<img/.test(_invCopyBannerHtml('T1', '<img src=x>', true, false, 'invoice')), '番号はエスケープする');
+
 console.log('\n=== 配線 ===');
 ok(/id="invd-copy-btn"[^>]*onclick="copyInvDocAsNew\(\)"/.test(src), '編集画面の上に「コピーして新規」ボタン');
 const save = grabFunction(src, 'saveInvDoc');
@@ -103,4 +124,10 @@ ok(/status\.copiedFrom/.test(list) && /escapeHtml\(status\.copiedFrom\)/.test(li
 const show = grabFunction(src, '_showInvCopyInEditor');
 ok(/setDocMode\(st\.docMode\)/.test(show) && /_setInvOrderField\(num, !!editable\)/.test(show), 'コピー先の種類で画面を開く');
 
+ok(/<div id="inv-copy-banner" style="display:none;"><\/div>/.test(src) && src.indexOf('id="inv-copy-banner"') < src.indexOf('<div class="invd-paper">'), '帯は書類の用紙より上にある');
+ok(/_updateInvCopyBanner\(num\)/.test(fld) && /_invCopyFresh = false/.test(fld), '書類を開くたびに帯を作り直す');
+ok(/_invCopyFresh\) \{ _invCopyFresh = false; try \{ _updateInvCopyBanner\(num\)/.test(save), '保存したら帯を控えめに戻す');
+ok(/_updateInvCopyBanner\(\)/.test(grabFunction(src, 'setDocMode')), '書類の種類を切り替えたら帯の言葉も合わせる');
+ok(/@keyframes invdCopyOut/.test(src) && /@keyframes invdCopyIn/.test(src) && /prefers-reduced-motion: reduce\)[\s\S]{0,200}invd-copy-out/.test(src), '動き（抜ける・入る）と、動きを減らす設定への配慮');
+ok(/_guardedClose\('inv-detail-screen'/.test(grabFunction(src, 'openInvCopySource')), '元の書類を開くときも未保存なら確認する');
 ok.done();

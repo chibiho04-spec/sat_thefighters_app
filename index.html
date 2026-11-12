@@ -1207,6 +1207,16 @@
     padding-bottom: 82px; /* nav-bar(72px)＋余白 */
   }
   .invd-scroll::-webkit-scrollbar { display: none; }
+  /* 書類のコピー（2026-11-12）：元の書類が左へ抜け、新しい書類が右から入ってくる */
+  .invd-scroll.invd-copy-out { animation: invdCopyOut .28s ease-in forwards; }
+  .invd-scroll.invd-copy-in  { animation: invdCopyIn  .42s cubic-bezier(.2,.8,.3,1); }
+  @keyframes invdCopyOut { to { transform: translateX(-35%); opacity: 0; } }
+  @keyframes invdCopyIn  { from { transform: translateX(35%); opacity: 0; } to { transform: none; opacity: 1; } }
+  #inv-copy-banner.fresh { animation: invdCopyFlash 1.2s ease-out 2; }
+  @keyframes invdCopyFlash { 0%,100% { box-shadow: 3px 3px 0 #b3650f; } 40% { box-shadow: 0 0 0 5px rgba(243,156,18,.55); } }
+  @media (prefers-reduced-motion: reduce) {
+    .invd-scroll.invd-copy-out, .invd-scroll.invd-copy-in, #inv-copy-banner.fresh { animation: none; }
+  }
 
   .invd-paper {
     background: white;
@@ -5098,6 +5108,9 @@
 
     <!-- スクロール本体 -->
     <div class="invd-scroll">
+
+      <!-- コピーで作った書類の目印（2026-11-12）。中身は _updateInvCopyBanner が入れる -->
+      <div id="inv-copy-banner" style="display:none;"></div>
 
       <!-- 請求書本体 -->
       <div class="invd-paper">
@@ -9697,6 +9710,7 @@
   let _invIsNew = false;       // 新規作成中（番号を編集できる）か
   let _invOrderPrefix = 'T';   // 受注番号の接頭辞
   let _invRemoteChecked = false; // 新規請求書：シート最新での番号重複チェック済みか（保存時に一度だけ実施）
+  var _invCopyFresh = false;     // いまコピーした直後の書類か（目印の帯を強く出す）。_setInvOrderField で毎回 false に戻る
   var _invCopySrc = '';          // 未保存の請求書コピーの元番号。保存時に copiedFrom として残す（_setInvOrderField で毎回空に戻る・2026-11-12）
 
   // 受注番号が既にワークシート/案件/請求書のいずれかで使われているか
@@ -10310,6 +10324,8 @@
     const ro       = document.getElementById('inv-order-readonly');
     const input    = document.getElementById('inv-order-num');
     _invCopySrc = ''; // 書類を開き直すたびにコピー元の控えを消す（コピー直後だけ copyInvDocAsNew が入れ直す）
+    _invCopyFresh = false;
+    try { _updateInvCopyBanner(num); } catch (e) {} // コピーで作った書類なら目印の帯を出す
     if (!editWrap || !ro || !input) return;
     const m = String(num || '').match(/^([TEPB])(\d+)$/i);
     if (editable && m) {
@@ -11030,6 +11046,71 @@
       cancelText: 'キャンセル'
     });
   }
+  // コピーで作った書類の目印の帯。fresh（コピー直後）は大きく目立たせ、あとで開き直したときは控えめに出す
+  function _invCopyBannerHtml(num, src, fresh, unsaved, mode) {
+    if (!src) return '';
+    const kind = mode === 'estimate' ? '見積書' : mode === 'delivery' ? '納品書' : '請求書';
+    const btn = '<button type="button" onclick="openInvCopySource()" style="font-family:\'DotGothic16\',monospace;font-size:12px;background:white;color:#b3650f;border:2px solid #b3650f;padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">◀ 元の書類 ' + escapeHtml(src) + ' を開く</button>';
+    if (!fresh) {
+      return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#8a5a1f;">📄 この' + kind + 'は <b>' + escapeHtml(src) + '</b> をコピーして作りました ' + btn + '</div>';
+    }
+    const state = unsaved
+      ? '<span style="color:#c0392b;font-weight:bold;">まだ保存していません。</span>作業日を入れて内容を直したら、下の「💾 編集内容を保存」を押してください。'
+      : '保存済みです。直したら「💾 編集内容を保存」を押してください。';
+    return '<div style="font-size:15px;font-weight:bold;color:#7e4906;letter-spacing:1px;">🆕 コピーして作った新しい' + kind + 'です</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 6px;font-family:\'DotGothic16\',monospace;font-size:13px;">' +
+        '<span style="background:#eee;color:#777;padding:3px 8px;border-radius:3px;text-decoration:line-through;">' + escapeHtml(src) + '</span>' +
+        '<span style="color:#b3650f;">➡</span>' +
+        '<span style="background:#e67e22;color:white;padding:3px 10px;border-radius:3px;font-weight:bold;">いま開いている：' + escapeHtml(num) + '</span>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#5a3a10;line-height:1.6;">元の ' + escapeHtml(src) + ' はそのまま残っています。' + state + '</div>' +
+      '<div style="margin-top:8px;">' + btn + '</div>';
+  }
+  function _updateInvCopyBanner(num) {
+    const el = document.getElementById('inv-copy-banner');
+    if (!el) return;
+    num = String(num || (document.getElementById('inv-detail-num')?.textContent || '')).trim();
+    const st = num ? (loadInvStatus(num) || {}) : {};
+    const src = String(_invCopySrc || st.copiedFrom || '').trim();
+    const html = _invCopyBannerHtml(num, src, _invCopyFresh, !!_invIsNew, _docMode || st.docMode || 'invoice');
+    if (!html) { el.style.display = 'none'; el.innerHTML = ''; el.classList.remove('fresh'); return; }
+    el.innerHTML = html;
+    el.style.cssText = _invCopyFresh
+      ? 'display:block;margin:0 0 10px;padding:12px 14px;background:#fff4dc;border:3px solid #e67e22;border-radius:6px;box-shadow:3px 3px 0 #b3650f;'
+      : 'display:block;margin:0 0 8px;padding:6px 10px;background:#fdf6ec;border:1px dashed #d9a35f;border-radius:4px;';
+    el.classList.toggle('fresh', !!_invCopyFresh);
+  }
+  // 帯の「◀ 元の書類を開く」。編集中ならいつもの3択（保存して／保存しないで／キャンセル）を出す
+  function openInvCopySource() {
+    const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+    const src = String(_invCopySrc || (loadInvStatus(num) || {}).copiedFrom || '').trim();
+    if (!src) return;
+    const sst = loadInvStatus(src) || {};
+    const open = () => {
+      const action = sst.docMode === 'estimate' ? 'estimate' : sst.docMode === 'delivery' ? 'delivery' : 'create';
+      if (typeof invData === 'object' && invData && invData[src]) openInv(src, action);
+      else _openBlankInvFromWS(src, action);
+      const sc = document.querySelector('#inv-detail-screen .invd-scroll'); if (sc) sc.scrollTop = 0;
+    };
+    _guardedClose('inv-detail-screen', 'この書類', saveInvDoc, open);
+  }
+  // 画面の切り替えの動き：今の書類が左へ抜け → 中身を差し替え → 新しい書類が右から入る
+  function _invCopyAnimate(swap) {
+    const sc = document.querySelector('#inv-detail-screen .invd-scroll');
+    let reduce = false;
+    try { reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+    if (!sc || reduce) { swap(); return; }
+    sc.classList.remove('invd-copy-in');
+    sc.classList.add('invd-copy-out');
+    setTimeout(() => {
+      try { swap(); } finally {
+        sc.classList.remove('invd-copy-out');
+        void sc.offsetWidth; // 動きをやり直すため
+        sc.classList.add('invd-copy-in');
+        setTimeout(() => sc.classList.remove('invd-copy-in'), 500);
+      }
+    }, 280);
+  }
   function _copyInvDocExec(srcNum) {
     const mode = _docMode || 'invoice';
     const c = _collectInvEditorContent();
@@ -11037,23 +11118,27 @@
     const now = new Date();
     const today = now.toLocaleDateString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g, '/');
     const st = _buildInvDocCopy(c, srcNum, srcStatus, mode, today, now.toISOString(), now.toLocaleString('ja-JP'));
+    let newNum;
     if (mode === 'invoice') {
       const prefix = _wsCopyPrefix(srcNum);
-      const newNum = prefix + getNextOrderNum(prefix);
-      _showInvCopyInEditor(newNum, st, true); // 新規（未保存・番号は編集可）
-      _invCopySrc = srcNum;                   // _setInvOrderField で空に戻った後に入れる
-      try { _markDirty('inv-detail-screen'); } catch (e) {} // 保存せず閉じようとしたら確認を出す
-      alert('📄 請求書をコピーしました（まだ保存していません）。\n\n新しい受注番号：' + newNum + '\n元の請求書 ' + srcNum + ' はそのまま残っています。\n\n作業日を入れ、内容を直してから「編集内容を保存」を押してください。');
-      return;
+      newNum = prefix + getNextOrderNum(prefix);           // 請求書は未保存の新規（保存時に番号チェック）
+    } else {
+      newNum = generateNewInvNum(mode);
+      saveInvStatus(newNum, st);                          // 見積書・納品書はすぐ保存（シート送信は内部で実施）
     }
-    const newNum = generateNewInvNum(mode);
-    saveInvStatus(newNum, st); // シートへの送信は saveInvStatus が内部で実施
-    _showInvCopyInEditor(newNum, st, false);
-    try { _markClean('inv-detail-screen'); } catch (e) {}
-    try { if (typeof renderDocList === 'function') renderDocList(); } catch (e) {}
-    const label = mode === 'estimate' ? '🧮 見積書' : '📦 納品書';
-    alert(label + '「' + newNum + '」を作りました（' + srcNum + ' のコピー）。\n元の書類はそのまま残っています。\n\nいま開いているのはコピーの方です。直したら「編集内容を保存」を押してください。');
+    _invCopyAnimate(() => {
+      _showInvCopyInEditor(newNum, st, mode === 'invoice');
+      // _setInvOrderField で空に戻った後に入れ直す
+      _invCopySrc = srcNum;
+      _invCopyFresh = true;
+      if (mode === 'invoice') { try { _markDirty('inv-detail-screen'); } catch (e) {} } // 保存せず閉じようとしたら確認を出す
+      else { try { _markClean('inv-detail-screen'); } catch (e) {} }
+      _updateInvCopyBanner(newNum);
+      try { if (typeof renderDocList === 'function') renderDocList(); } catch (e) {}
+      try { if (typeof showToast === 'function') showToast('📄 ' + srcNum + ' → ' + newNum + '（コピー）'); } catch (e) {}
+    });
   }
+
 
   function saveInvDoc() {
     const num = document.getElementById('inv-detail-num').textContent || '';
@@ -11118,6 +11203,7 @@
     saveInvStatus(num, status, { claimNew: _invIsNew }); // ← 打刻＋自動送信は内部で実施。新規時だけ番号の先取り主張を付ける
     if (_invIsNew) { _invIsNew = false; _setInvOrderField(num, false); } // 保存後は番号を確定（以後は表示のみ）
     _markClean('inv-detail-screen');
+    if (_invCopyFresh) { _invCopyFresh = false; try { _updateInvCopyBanner(num); } catch (e) {} } // 保存したら目印の帯を控えめに戻す
 
     // 売上表が開いていれば即時再描画
     if (typeof renderSalesScreen === 'function') {
@@ -11212,6 +11298,7 @@
       if (issueNote) issueNote.style.display = show ? 'block' : 'none';
     }
     try { _updateInvEstimateHint(); } catch (e) {} // 見積書がある空の請求書なら案内を出す
+    try { _updateInvCopyBanner(); } catch (e) {}  // コピーの目印の帯（書類の種類の言葉を合わせる）
   }
 
   function openInv(num, action, _skipFreshen) {
