@@ -5090,6 +5090,7 @@
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="inv-add-line-btn" style="background:rgba(155,89,182,0.85);" onclick="saveCurrentAsTemplate()" title="今の内容をひな形として保存">📑 テンプレ保存</button>
+        <button id="invd-copy-btn" class="inv-add-line-btn" style="background:rgba(230,126,34,0.9);" onclick="copyInvDocAsNew()" title="この書類をコピーして新しく作る（見積書は同じ案件の別パターン、請求書は別の案件として）">📄 コピーして新規</button>
         <button class="inv-add-line-btn" style="background:rgba(41,128,185,0.85);" onclick="createDeliveryFromCurrent()" title="今の内容をコピーして納品書を作成">📦 納品書化</button>
         <button class="inv-add-line-btn" style="background:rgba(255,255,255,0.22);" onclick="openPrintPreview(_docMode || 'invoice')">🔍 プレビュー</button>
       </div>
@@ -9696,6 +9697,7 @@
   let _invIsNew = false;       // 新規作成中（番号を編集できる）か
   let _invOrderPrefix = 'T';   // 受注番号の接頭辞
   let _invRemoteChecked = false; // 新規請求書：シート最新での番号重複チェック済みか（保存時に一度だけ実施）
+  var _invCopySrc = '';          // 未保存の請求書コピーの元番号。保存時に copiedFrom として残す（_setInvOrderField で毎回空に戻る・2026-11-12）
 
   // 受注番号が既にワークシート/案件/請求書のいずれかで使われているか
   function _orderNumExists(num) {
@@ -10307,6 +10309,7 @@
     const editWrap = document.getElementById('inv-order-edit');
     const ro       = document.getElementById('inv-order-readonly');
     const input    = document.getElementById('inv-order-num');
+    _invCopySrc = ''; // 書類を開き直すたびにコピー元の控えを消す（コピー直後だけ copyInvDocAsNew が入れ直す）
     if (!editWrap || !ro || !input) return;
     const m = String(num || '').match(/^([TEPB])(\d+)$/i);
     if (editable && m) {
@@ -10940,6 +10943,118 @@
     alert('📦 納品書「' + newNum + '」を作成しました。\n内容をコピーしました。必要なら編集して保存してください。');
   }
 
+  // ===== 見積書・請求書をコピーして新規作成（2026-11-12） =====
+  // ・見積書：同じ案件で数パターン作れるよう、新しい EST- 番号ですぐ保存する。元の案件（parentNum）は引き継ぐ
+  //           （EST- を開いて「請求書」を押すと、その案件の請求書になる＝onDocModeBtn の流れに乗る）。
+  // ・納品書：同じく新しい DLV- 番号ですぐ保存する。
+  // ・請求書：「似た別の案件」の請求書として、同じ接頭辞（D→P・B→T）の次の受注番号で“未保存の新規”として開く。
+  //           保存時にいつもの番号チェック（_verifyOrderNumFreeRemote・claimNew）が効く。
+  //           作業日は空・請求日は今日。請求済／入金済は引き継がない（新しい書類なので状態は空から）。
+  function _invCopyParentNum(srcNum, srcStatus) {
+    const p = String((srcStatus || {}).parentNum || '').trim();
+    if (p) return p;
+    return /^[TEPDB]\d/i.test(String(srcNum || '')) ? String(srcNum) : '';
+  }
+  // 純関数：画面の内容 c（_collectInvEditorContent の形）から、コピー先の書類データを作る
+  function _buildInvDocCopy(c, srcNum, srcStatus, mode, todayStr, nowIso, nowLocal) {
+    c = c || {};
+    const m = (mode === 'estimate' || mode === 'delivery') ? mode : 'invoice';
+    const st = {
+      lines:     JSON.parse(JSON.stringify(c.lines || [])),
+      title:     c.title || '',
+      company:   c.company || '',
+      contact:   c.contact || '',
+      dept:      c.dept || '',
+      honorific: c.honorific || '御中',
+      zip:       c.zip || '',
+      addr:      c.addr || '',
+      staff:     c.staff || '',
+      memo:      c.memo || '',
+      discount:  Number(c.discount) || 0,
+      invDate:   todayStr || '',
+      workDate:  m === 'invoice' ? '' : (c.workDate || ''), // 請求書は別の案件なので作業日は空
+      docMode:   m,
+      copiedFrom: String(srcNum || ''),
+    };
+    if (m !== 'invoice') {
+      const p = _invCopyParentNum(srcNum, srcStatus);
+      if (p) st.parentNum = p;
+      if (m === 'estimate') st.estimated = true;
+      if (m === 'delivery') st.delivered = true;
+      st.savedAt = nowLocal || '';
+      st._updatedAt = nowIso || '';
+    }
+    return st;
+  }
+  // 編集画面にコピー先の内容を流し込む
+  function _showInvCopyInEditor(num, st, editable) {
+    document.getElementById('inv-screen-num').textContent = num;
+    document.getElementById('inv-detail-num').textContent = num;
+    _invIsNew = !!editable;
+    _invRemoteChecked = false;
+    _setInvOrderField(num, !!editable);
+    _setInvClientFields(st.company, st.contact, st.honorific, st.dept);
+    document.getElementById('inv-screen-zip').textContent  = st.zip || '';
+    document.getElementById('inv-screen-addr').textContent = st.addr || '';
+    _fillInvAddrFromMaster();
+    document.getElementById('inv-screen-title').value    = st.title || '';
+    document.getElementById('inv-screen-workdate').value = st.workDate || '';
+    document.getElementById('inv-screen-staff').value    = st.staff || '';
+    document.getElementById('inv-screen-invdate').value  = st.invDate || '';
+    const memoEl = document.getElementById('inv-screen-memo');
+    if (memoEl) memoEl.value = st.memo || '';
+    renderInvLines([], st.lines.length ? JSON.parse(JSON.stringify(st.lines)) : [{ code:'', name:'', qty:1, unit:'式', price:0 }], false, st.discount);
+    calcInvTotal();
+    setDocMode(st.docMode);
+    const sc = document.querySelector('#inv-detail-screen .invd-scroll'); if (sc) sc.scrollTop = 0;
+  }
+  function copyInvDocAsNew() {
+    const srcNum = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+    if (!srcNum || srcNum === '新規' || _invIsNew) {
+      alert('まだ保存していない書類はコピーできません。\n先に「編集内容を保存」を押してください。');
+      return;
+    }
+    const run = () => _copyInvDocExec(srcNum);
+    if (!_isDirty('inv-detail-screen')) { run(); return; }
+    showConfirm('この書類に保存していない変更があります。\nどうしますか？\n\n（コピーには、いま画面に出ている内容が入ります）', () => {
+      _markClean('inv-detail-screen'); // 元の書類は保存しない（保存済みの内容のまま残る）
+      run();
+    }, {
+      okText: '元は保存せずにコピー', okBg: '#e67e22', okBorder: '#8b4500',
+      middleText: '💾 保存してからコピー',
+      onMiddle: () => {
+        try { saveInvDoc(); } catch (e) { console.warn('save before copy failed', e); }
+        if (_isDirty('inv-detail-screen')) return; // 保存できなかった → コピーしない
+        run();
+      },
+      cancelText: 'キャンセル'
+    });
+  }
+  function _copyInvDocExec(srcNum) {
+    const mode = _docMode || 'invoice';
+    const c = _collectInvEditorContent();
+    const srcStatus = loadInvStatus(srcNum) || {};
+    const now = new Date();
+    const today = now.toLocaleDateString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g, '/');
+    const st = _buildInvDocCopy(c, srcNum, srcStatus, mode, today, now.toISOString(), now.toLocaleString('ja-JP'));
+    if (mode === 'invoice') {
+      const prefix = _wsCopyPrefix(srcNum);
+      const newNum = prefix + getNextOrderNum(prefix);
+      _showInvCopyInEditor(newNum, st, true); // 新規（未保存・番号は編集可）
+      _invCopySrc = srcNum;                   // _setInvOrderField で空に戻った後に入れる
+      try { _markDirty('inv-detail-screen'); } catch (e) {} // 保存せず閉じようとしたら確認を出す
+      alert('📄 請求書をコピーしました（まだ保存していません）。\n\n新しい受注番号：' + newNum + '\n元の請求書 ' + srcNum + ' はそのまま残っています。\n\n作業日を入れ、内容を直してから「編集内容を保存」を押してください。');
+      return;
+    }
+    const newNum = generateNewInvNum(mode);
+    saveInvStatus(newNum, st); // シートへの送信は saveInvStatus が内部で実施
+    _showInvCopyInEditor(newNum, st, false);
+    try { _markClean('inv-detail-screen'); } catch (e) {}
+    try { if (typeof renderDocList === 'function') renderDocList(); } catch (e) {}
+    const label = mode === 'estimate' ? '🧮 見積書' : '📦 納品書';
+    alert(label + '「' + newNum + '」を作りました（' + srcNum + ' のコピー）。\n元の書類はそのまま残っています。\n\nいま開いているのはコピーの方です。直したら「編集内容を保存」を押してください。');
+  }
+
   function saveInvDoc() {
     const num = document.getElementById('inv-detail-num').textContent || '';
     if (!num || num === '新規') {
@@ -10998,6 +11113,7 @@
     status.memo     = (document.getElementById('inv-screen-memo')?.value || '').trim(); // 備考も保存
     // 外注費リスト(outsourceExtraList/outsourceExtra)は書き換えない（UI撤去済み・2026-07-11）。
     // 撤去前は空UIから読んで毎回空上書きし、過去の記録を静かに消していたため、既存値を保持する。
+    if (_invIsNew && _invCopySrc && !status.copiedFrom) status.copiedFrom = _invCopySrc; // コピーで作った請求書なら元番号を残す
     status.savedAt  = new Date().toLocaleString('ja-JP');
     saveInvStatus(num, status, { claimNew: _invIsNew }); // ← 打刻＋自動送信は内部で実施。新規時だけ番号の先取り主張を付ける
     if (_invIsNew) { _invIsNew = false; _setInvOrderField(num, false); } // 保存後は番号を確定（以後は表示のみ）
@@ -14905,6 +15021,7 @@ ${_body}
         <div style="font-size:14px;font-weight:bold;color:#333;margin-top:3px;">${escapeHtml(it.title || '無題')}</div>
         <div style="font-size:11px;color:#666;margin-top:2px;">🏢 ${escapeHtml(it.company || '取引先未設定')}</div>
         ${it.date ? `<div style="font-size:11px;color:#888;margin-top:1px;">📅 ${escapeHtml(it.date)}</div>` : ''}
+        ${status && status.copiedFrom ? `<div style="font-size:10px;color:#a0703a;margin-top:2px;">📄 ${escapeHtml(status.copiedFrom)} からコピー</div>` : ''}
       </div>`;
     });
     list.innerHTML = html;

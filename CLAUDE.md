@@ -167,6 +167,14 @@ const USER_STAFF = {
 ### 📄 案件のコピー（2026-10-13）
 ワークシート閲覧画面の下「📄 この案件をコピーして新規作成」（`copyWSAsNew`）。引き継ぐ項目は `_WS_COPY_KEYS`（件名・取引先・担当者・分類・種別・作成者・クルー・機材・外注・車両・私物・受注金額・メモ・ポスプロ）。日程・受注日・報告事項・メディア記録・レンタル（廃止欄）・請求書は引き継がない。番号は同じ接頭辞（D→P・B→T）の次の空き番号で、新規登録と同じく `_verifyOrderNumFreeRemote` → `claimNew` 付き push → 負けたら `_handleOrderClaimRejected`。親は `copiedFrom` に元番号を持つ。純関数 `_buildWSCopy` をテスト（`tests/worksheet/test-copy-ws.js`）。
 
+### 📄 見積書・請求書のコピー（2026-11-12）
+請求書編集画面の上部「📄 コピーして新規」（`copyInvDocAsNew` → `_copyInvDocExec`）。中身は純関数 `_buildInvDocCopy`（テスト `tests/invoice/test-copy-doc.js`）。
+- **見積書**：同じ案件の別パターン用。新しい `EST-` 番号で**すぐ保存**し、元の案件 `parentNum` を引き継ぐ（T/E/P 番号の見積書なら、その番号を parentNum にする）。作業日は残し、見積日は今日。
+- **納品書**：同じく新しい `DLV-` 番号ですぐ保存。
+- **請求書**：「似た別の案件」用。同じ接頭辞（D→P・B→T）の次の受注番号で**未保存の新規**として開く＝保存時にいつもの番号チェック（`_verifyOrderNumFreeRemote`・`claimNew`）が効く。作業日は空・請求日は今日・請求済/入金済は引き継がない。元番号は `_invCopySrc` に控え、保存時に `copiedFrom` へ（`_setInvOrderField` が呼ばれるたびに空に戻る）。
+- 新規で未保存の書類はコピー不可。編集中なら「保存してからコピー／元は保存せずにコピー」を聞く。書類一覧に「〇〇 からコピー」を表示。
+- ⚠️ ワークシートの「🧮 見積書」ボタンは、その案件の**いちばん新しい番号の見積書**だけを開く（他のパターンは会計室の見積書一覧から開く）。
+
 ### ⬅️ ブラウザの「戻る」で手前の画面を閉じる（2026-10-05）
 - 対象は**重なる画面だけ**（タブ移動は含めない・本人決定）。編集中で未保存なら「◀ 戻る」と同じ3択の確認（`_guardedClose`）。
 - 仕組み：開いている画面の数だけ履歴にしおり（`pushState({satDepth})`）をはさみ、`popstate` でいちばん後に開いた画面を閉じる。開閉の検知は各画面の `style`/`class` を `MutationObserver` で見る（個々の open/close 関数には手を入れていない）。関数は `_bkEntries/_bkSync/_bkOnPop/_initBackNav`。
