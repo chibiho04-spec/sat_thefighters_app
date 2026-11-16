@@ -167,6 +167,14 @@ const USER_STAFF = {
 ### 📄 案件のコピー（2026-10-13）
 ワークシート閲覧画面の下「📄 この案件をコピーして新規作成」（`copyWSAsNew`）。引き継ぐ項目は `_WS_COPY_KEYS`（件名・取引先・担当者・分類・種別・作成者・クルー・機材・外注・車両・私物・受注金額・メモ・ポスプロ）。日程・受注日・報告事項・メディア記録・レンタル（廃止欄）・請求書は引き継がない。番号は同じ接頭辞（D→P・B→T）の次の空き番号で、新規登録と同じく `_verifyOrderNumFreeRemote` → `claimNew` 付き push → 負けたら `_handleOrderClaimRejected`。親は `copiedFrom` に元番号を持つ。純関数 `_buildWSCopy` をテスト（`tests/worksheet/test-copy-ws.js`）。
 
+### 🧮 見積書の番号は必ず EST-（2026-11-16・本人決定）
+**見積書＝EST- 番号／請求書と案件＝受注番号（T/E/P）**。受注番号を見積書に使わない（見積もりが通らなくても欠番が出ない）。EST- は売上表の対象外。
+- 新しく作る見積書は全部 EST-：ホーム「見積書をつくる」・見積書一覧の「新規作成」（`_openBlankInvScreen`）、見積書のテンプレート（`createInvoiceFromTemplate`）、未保存の新しい請求書で「見積書」を押したとき（`_switchNewDocNumber`）。これらは**未保存**で開き、保存時に `_invEstNew` を見てシート最新を pull → 番号が他端末と被っていれば `_renumberNewEstimateIfTaken` で付け替え。
+- 案件の見積書：見積書一覧で案件（T/E/P）を選ぶ、または保存済みの案件の請求書で「見積書」を押す → `_openCaseEstimate`（既にあればいちばん新しい EST- を開く。無ければ今の内容／空ならワークシートの内容で**未保存の** EST- を開き、保存時に `parentNum`＝`_invEstParent` と案件の `estimated` 印 `_markCaseEstimated`）。ワークシートの「🧮 見積書」ボタンだけは従来どおり押した時点で保存（`_createEstimateFromWS`、中身は `_buildEstimateStatusForCase`）。
+- 案件の無い見積書で「請求書」：EST- のまま請求書にはしない。新しい受注番号の**未保存の**請求書を開く（`_openNewInvoiceFromEstimate`・作業日と明細はそのまま）。保存で請求書に `fromEstimate`、見積書に `parentNum` が入る。帯 `#inv-copy-banner` に「見積書から作る新しい請求書」。
+- 表示：編集画面の見出しは EST- なら「見積番号」（`#inv-order-label`）、印刷物は「見積No.」。
+- 昔ホームから作った**受注番号の見積書**（`docMode:'estimate'` の T/E/P）はそのまま開く（移し替えはしていない）。テスト `tests/invoice/test-est-unify.js`。
+
 ### 📄 見積書・請求書のコピー（2026-11-12）
 請求書編集画面の上部「📄 コピーして新規」（`copyInvDocAsNew` → `_copyInvDocExec`）。中身は純関数 `_buildInvDocCopy`（テスト `tests/invoice/test-copy-doc.js`）。
 - **見積書**：同じ案件の別パターン用。新しい `EST-` 番号で**すぐ保存**し、元の案件 `parentNum` を引き継ぐ（T/E/P 番号の見積書なら、その番号を parentNum にする）。作業日は残し、見積日は今日。
@@ -305,4 +313,4 @@ const USER_STAFF = {
 
 ---
 
-最終更新：2026-10-04
+最終更新：2026-11-16
