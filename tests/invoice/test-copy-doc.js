@@ -56,10 +56,12 @@ let animated = 0, banner = [], toasts = [];
 global._invCopyAnimate = swap => { animated++; swap(); }; // 動きの代役（すぐ差し替える）
 global._updateInvCopyBanner = n => banner.push({ n, src: _invCopySrc, fresh: _invCopyFresh });
 global.showToast = m => toasts.push(m);
+global._nextEstLetter = () => 'B'; global._docDisplayNum = n => n;
 
 global._docMode = 'estimate';
 _copyInvDocExec('EST-26011');
 ok(saved['EST-26012'] && saved['EST-26012'].parentNum === 'E26082' && saved['EST-26012'].copiedFrom === 'EST-26011', '見積書：新しい EST- 番号ですぐ保存');
+ok(saved['EST-26012'].estLetter === 'B', '見積書：同じ案件の次の記号（E26082-B）を付ける');
 ok(shown.n === 'EST-26012' && shown.ed === false, '見積書：コピーの方を開く（番号は表示のみ）');
 ok(animated === 1, '見積書：元の書類が抜けて新しい書類が入る動きを付ける');
 ok(banner.length && banner[banner.length-1].n === 'EST-26012' && banner[banner.length-1].src === 'EST-26011' && banner[banner.length-1].fresh === true, '見積書：「コピーして作った新しい書類」の帯を目立たせて出す');
@@ -122,7 +124,7 @@ const fld = grabFunction(src, '_setInvOrderField');
 ok(/_invCopySrc = ''/.test(fld), '別の書類を開いたらコピー元の控えを消す');
 ok(src.indexOf("var _invCopySrc") > 0 && src.indexOf("var _invCopySrc") < src.indexOf('function _setInvOrderField('), '控えの変数は使う関数より前で宣言');
 const list = grabFunction(src, 'renderDocList');
-ok(/status\.copiedFrom/.test(list) && /escapeHtml\(status\.copiedFrom\)/.test(list), '書類一覧に「〇〇からコピー」を出す（エスケープ付き）');
+ok(/status\.copiedFrom/.test(list) && /escapeHtml\(_docDisplayNum\(status\.copiedFrom\)\)/.test(list), '書類一覧に「〇〇からコピー」を出す（エスケープ付き）');
 const show = grabFunction(src, '_showInvCopyInEditor');
 ok(/setDocMode\(st\.docMode\)/.test(show) && /_setInvOrderField\(num, !!editable\)/.test(show), 'コピー先の種類で画面を開く');
 

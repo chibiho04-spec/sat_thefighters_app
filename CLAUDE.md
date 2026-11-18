@@ -167,13 +167,15 @@ const USER_STAFF = {
 ### 📄 案件のコピー（2026-10-13）
 ワークシート閲覧画面の下「📄 この案件をコピーして新規作成」（`copyWSAsNew`）。引き継ぐ項目は `_WS_COPY_KEYS`（件名・取引先・担当者・分類・種別・作成者・クルー・機材・外注・車両・私物・受注金額・メモ・ポスプロ）。日程・受注日・報告事項・メディア記録・レンタル（廃止欄）・請求書は引き継がない。番号は同じ接頭辞（D→P・B→T）の次の空き番号で、新規登録と同じく `_verifyOrderNumFreeRemote` → `claimNew` 付き push → 負けたら `_handleOrderClaimRejected`。親は `copiedFrom` に元番号を持つ。純関数 `_buildWSCopy` をテスト（`tests/worksheet/test-copy-ws.js`）。
 
-### 🧮 見積書の番号は必ず EST-（2026-11-16・本人決定）
-**見積書＝EST- 番号／請求書と案件＝受注番号（T/E/P）**。受注番号を見積書に使わない（見積もりが通らなくても欠番が出ない）。EST- は売上表の対象外。
-- 新しく作る見積書は全部 EST-：ホーム「見積書をつくる」・見積書一覧の「新規作成」（`_openBlankInvScreen`）、見積書のテンプレート（`createInvoiceFromTemplate`）、未保存の新しい請求書で「見積書」を押したとき（`_switchNewDocNumber`）。これらは**未保存**で開き、保存時に `_invEstNew` を見てシート最新を pull → 番号が他端末と被っていれば `_renumberNewEstimateIfTaken` で付け替え。
-- 案件の見積書：見積書一覧で案件（T/E/P）を選ぶ、または保存済みの案件の請求書で「見積書」を押す → `_openCaseEstimate`（既にあればいちばん新しい EST- を開く。無ければ今の内容／空ならワークシートの内容で**未保存の** EST- を開き、保存時に `parentNum`＝`_invEstParent` と案件の `estimated` 印 `_markCaseEstimated`）。ワークシートの「🧮 見積書」ボタンだけは従来どおり押した時点で保存（`_createEstimateFromWS`、中身は `_buildEstimateStatusForCase`）。
-- 案件の無い見積書で「請求書」：EST- のまま請求書にはしない。新しい受注番号の**未保存の**請求書を開く（`_openNewInvoiceFromEstimate`・作業日と明細はそのまま）。保存で請求書に `fromEstimate`、見積書に `parentNum` が入る。帯 `#inv-copy-banner` に「見積書から作る新しい請求書」。
-- 表示：編集画面の見出しは EST- なら「見積番号」（`#inv-order-label`）、印刷物は「見積No.」。
-- 昔ホームから作った**受注番号の見積書**（`docMode:'estimate'` の T/E/P）はそのまま開く（移し替えはしていない）。テスト `tests/invoice/test-est-unify.js`。
+### 🧮 見積書の番号は「受注番号-A/B/C」（2026-11-18・本人決定。11-16 の「全部 EST-」から変更）
+**中の管理番号（保存・同期のキー）は `EST-` のまま。画面・一覧・印刷・ファイル名・お知らせには「案件の受注番号-記号」を出す**（`_docDisplayNum`）。例：P26142 の見積書2枚 → `P26142-A`／`P26142-B`。
+- 記号は**作ったときに `estLetter` として書き込み、あとから変えない**（`_nextEstLetter`＝同じ案件の見積書のいちばん後ろの次。ゴミ箱 `trash_EST-` の分も数える＝消した記号を使い回さない）。記号の無い昔の見積書は、同じ案件の見積書を EST- 番号順に並べた順で A, B… とみなす（`_estLetterOf`／`_estSiblings`）。`-数字` は追加請求の枝番なので見積書には使わない。
+- 記号を付ける場所：ワークシートの「🧮 見積書」（`_createEstimateFromWS`）、見積書のコピー（`_copyInvDocExec`）、保存時（`saveInvDoc`：parentNum があって estLetter が無ければ付ける）。
+- **案件の無い見積書も受注番号（T/E/P）を選んで作る**（見積もりが通らなければ欠番＝本人了承）：ホーム「見積書をつくる」・見積書一覧の「新規作成」・見積書テンプレートは、請求書と同じく受注番号を選べる新規（`_invIsNew`）で開く。保存すると `saveInvDoc` の `_caselessEstParent` で**新しい EST- の書類として保存し、受注番号は `parentNum`、記号は A**（claimNew は付けない）。見積書⇔請求書の切り替えは番号そのまま。
+- 受注番号の採番・重複判定は、見積書だけが使っている受注番号も数える（`_estParentNums` を `getNextOrderNum`／`_orderNumExists` に追加）。案件の受注番号を変えたら見積書の `parentNum` も付け替える（`renameOrderNum` 2b）。
+- 案件の見積書を開く流れ（見積書一覧で案件を選ぶ／保存済みの案件の請求書で「見積書」）は `_openCaseEstimate`（あればいちばん新しい EST- を開く。無ければ未保存の新しい見積書・保存で parentNum と記号）。未保存の新しい書類では「見積書」を押しても別の見積書を開きに行かない（`!_invIsNew`）。
+- 案件の無い**昔の** EST-（例 EST-26002）は番号そのまま表示。そこで「請求書」を押すと新しい受注番号の請求書を作る（`_openNewInvoiceFromEstimate`）。
+- テスト：`tests/invoice/test-est-display.js`（記号・見せる番号・採番）、`tests/invoice/test-est-unify.js`。
 
 ### 📄 見積書・請求書のコピー（2026-11-12）
 請求書編集画面の上部「📄 コピーして新規」（`copyInvDocAsNew` → `_copyInvDocExec`）。中身は純関数 `_buildInvDocCopy`（テスト `tests/invoice/test-copy-doc.js`）。
@@ -313,4 +315,4 @@ const USER_STAFF = {
 
 ---
 
-最終更新：2026-11-16
+最終更新：2026-11-18

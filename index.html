@@ -9712,6 +9712,72 @@
     return head + String(nextSeq).padStart(3, '0');
   }
 
+  // ===== 見積書の表示番号（2026-11-18・本人決定） =====
+  // 中の管理番号は EST- のまま（保存・同期のキー）。画面・一覧・印刷には「案件の受注番号-A/B/C」を出す。
+  // 記号は作ったときに estLetter として書き込み、あとから変えない（B を消しても C は C のまま）。
+  // estLetter の無い昔の見積書は、同じ案件の見積書を EST- 番号順に並べた順番で A, B, C… とみなす。
+  function _estLetterAt(i) { return i < 26 ? String.fromCharCode(65 + i) : 'Z' + (i - 25); }
+  function _estLetterIdx(L) {
+    const m = String(L || '').toUpperCase().match(/^([A-Z])(\d*)$/);
+    if (!m) return -1;
+    return m[1] === 'Z' && m[2] ? 25 + Number(m[2]) : m[1].charCodeAt(0) - 65;
+  }
+  // 同じ案件の見積書（ゴミ箱の分も含む＝記号を使い回さない）を EST- 番号順に
+  function _estSiblings(parent) {
+    parent = String(parent || '').trim();
+    const out = [];
+    if (!parent) return out;
+    try {
+      Object.keys(localStorage).forEach(k => {
+        let n = '', st = null;
+        if (k.indexOf('inv_EST-') === 0) { n = k.slice(4); try { st = JSON.parse(localStorage.getItem(k)) || {}; } catch (e) { st = {}; } }
+        else if (k.indexOf('trash_EST-') === 0) { n = k.slice(6); try { st = (JSON.parse(localStorage.getItem(k)) || {}).inv || {}; } catch (e) { st = {}; } }
+        else return;
+        if (String(st.parentNum || '').trim() !== parent) return;
+        if (out.some(x => x.num === n)) return;
+        out.push({ num: n, st });
+      });
+    } catch (e) {}
+    return out.sort((a, b) => String(a.num).localeCompare(String(b.num), 'ja', { numeric: true }));
+  }
+  function _estLetterOf(num, st) {
+    st = st || {};
+    if (st.estLetter) return String(st.estLetter);
+    const sib = _estSiblings(st.parentNum);
+    const i = sib.findIndex(x => x.num === num);
+    return _estLetterAt(i < 0 ? sib.length : i);
+  }
+  // その案件で次に付ける記号（いちばん後ろの次。消した分は詰めない）
+  function _nextEstLetter(parent, exceptNum) {
+    let max = -1;
+    _estSiblings(parent).forEach((x, i) => {
+      if (x.num === exceptNum) return;
+      const idx = x.st.estLetter ? _estLetterIdx(x.st.estLetter) : i;
+      if (idx > max) max = idx;
+    });
+    return _estLetterAt(max + 1);
+  }
+  // 書類の見せる番号。見積書（EST-）で案件があれば「T26150-A」、それ以外は番号そのまま
+  function _docDisplayNum(num) {
+    num = String(num || '');
+    if (!/^EST-/.test(num)) return num;
+    let st = {};
+    try { st = loadInvStatus(num) || {}; } catch (e) {}
+    const p = String(st.parentNum || '').trim();
+    return p ? p + '-' + _estLetterOf(num, st) : num;
+  }
+  // 見積書が使っている受注番号（案件の無い見積書にも受注番号を割り当てるため、採番で被らないように）
+  function _estParentNums() {
+    const out = [];
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('inv_EST-') !== 0) return;
+        try { const p = String((JSON.parse(localStorage.getItem(k)) || {}).parentNum || '').trim(); if (p) out.push(p); } catch (e) {}
+      });
+    } catch (e) {}
+    return out;
+  }
+
   // ===== 単独で作る書類の受注番号（T/E/Pに統一・ワークシートと連番共有） =====
   let _invIsNew = false;       // 新規作成中（番号を編集できる）か
   let _invOrderPrefix = 'T';   // 受注番号の接頭辞
@@ -9729,6 +9795,7 @@
     if (localStorage.getItem('inv_' + num)) return true;
     if (typeof wsData === 'object' && wsData && wsData[num]) return true;
     try { if (getSavedProjects().some(p => String(p.num) === String(num))) return true; } catch (e) {}
+    try { if (_estParentNums().indexOf(String(num)) >= 0) return true; } catch (e) {} // 見積書が使っている受注番号（2026-11-18）
     return false;
   }
 
@@ -9902,6 +9969,17 @@
       if (typeof saveInvStatus === 'function') saveInvStatus(newNum, invContent);
       else localStorage.setItem('inv_' + newNum, invRaw);
     }
+    // 2b. この案件の見積書（EST-）も新しい番号に付け替える（表示番号「案件番号-A」が一緒に変わる・2026-11-18）
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('inv_EST-') !== 0) return;
+        const en = k.slice(4);
+        const es = loadInvStatus(en) || {};
+        if (String(es.parentNum || '').trim() !== String(oldNum)) return;
+        es.parentNum = newNum;
+        if (typeof saveInvStatus === 'function') saveInvStatus(en, es); else localStorage.setItem(k, JSON.stringify(es));
+      });
+    } catch (e) { console.warn('見積書の番号の付け替えに失敗', e); }
 
     // 3. projects_saved
     try {
@@ -10350,7 +10428,8 @@
     } else {
       editWrap.style.display = 'none';
       ro.style.display = 'inline';
-      ro.textContent = num || '';
+      ro.textContent = _docDisplayNum(num) || ''; // 見積書は「受注番号-A」で見せる（中は EST-）
+      try { const sn = document.getElementById('inv-screen-num'); if (sn) sn.textContent = _docDisplayNum(num) || ''; } catch (e) {}
     }
     // ✏️変更ボタン：単独請求書（inv_あり・ws_なし）かつ表示モードのときだけ出す
     const editBtn = document.getElementById('inv-order-edit-btn');
@@ -10396,12 +10475,12 @@
     const today = new Date().toLocaleDateString('ja-JP',
       {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
     // 受注番号を T/E/P で自動採番（ワークシートと連番を共有・重複しない）。新規は編集可
-    // 【2026-11-16】見積書は必ず EST- 番号（受注番号 T/E/P は請求書と案件だけが使う＝見積もりが通らなくても欠番が出ない）
-    const isEst = _actionToMode(action) === 'estimate';
-    _invIsNew = !isEst;
+    // 【2026-11-18】見積書も受注番号（T/E/P）を選んで作る。保存すると中身は EST- の書類になり、
+    // 見せる番号は「受注番号-A」（saveInvDoc の _caselessEstParent）。見積もりが通らなければその受注番号は欠番になる（本人了承）
+    _invIsNew = true;
     _invRemoteChecked = false; // 新規請求書：シート最新での番号確認を未実施に戻す
     _invOrderPrefix = 'T';
-    const newNum = isEst ? generateNewInvNum('estimate') : 'T' + getNextOrderNum('T');
+    const newNum = 'T' + getNextOrderNum('T');
     document.getElementById('inv-screen-num').textContent     = newNum;
     _setInvClientFields('', '');
     document.getElementById('inv-screen-zip').textContent     = '';
@@ -10411,8 +10490,7 @@
     document.getElementById('inv-screen-staff').value         = '';
     document.getElementById('inv-screen-invdate').value       = today;
     document.getElementById('inv-detail-num').textContent     = newNum;
-    _setInvOrderField(newNum, !isEst); // 受注番号フィールド（請求書は編集可・見積書は EST- 番号の表示のみ）
-    if (isEst) _invEstNew = true;      // _setInvOrderField で false に戻った後に立てる
+    _setInvOrderField(newNum, true); // 受注番号フィールド（編集可）
     const memoEl2 = document.getElementById('inv-screen-memo');
     if (memoEl2) memoEl2.value = '';
     renderInvLines([], [{ code:'', name:'', qty:1, unit:'式', price:0 }], false);
@@ -10874,17 +10952,15 @@
     const today = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\//g, '/');
 
     // 新規・編集可で採番（保存時に重複チェック _verifyOrderNumFreeRemote が効く）
-    // 【2026-11-16】見積書のテンプレートは EST- 番号（見積書は必ず EST-）
-    const isEst = tpl.docMode === 'estimate';
-    _invIsNew = !isEst;
+    // 見積書のテンプレートも受注番号を選んで作る（保存で「受注番号-A」の見積書になる・2026-11-18）
+    _invIsNew = true;
     _invRemoteChecked = false;
     _invOrderPrefix = 'T';
-    const newNum = isEst ? generateNewInvNum('estimate') : 'T' + getNextOrderNum('T');
+    const newNum = 'T' + getNextOrderNum('T');
 
     document.getElementById('inv-screen-num').textContent  = newNum;
     document.getElementById('inv-detail-num').textContent  = newNum;
-    _setInvOrderField(newNum, !isEst); // 受注番号（新規の請求書＝編集可／見積書＝EST- の表示のみ）
-    if (isEst) _invEstNew = true;
+    _setInvOrderField(newNum, true); // 受注番号（新規＝編集可）
 
     // テンプレの宛先・件名・担当・備考を流し込む（請求日は今日、作業日は空）
     _setInvClientFields(tpl.company || '', tpl.contact || '', tpl.honorific || '御中', tpl.dept || '');
@@ -11141,7 +11217,7 @@
     const st = num ? (loadInvStatus(num) || {}) : {};
     let src = String(_invCopySrc || st.copiedFrom || '').trim(), fromEst = false;
     if (!src) { src = String(_invFromEstimate || st.fromEstimate || '').trim(); fromEst = !!src; }
-    const html = _invCopyBannerHtml(num, src, _invCopyFresh, !!_invIsNew, _docMode || st.docMode || 'invoice', fromEst);
+    const html = _invCopyBannerHtml(_docDisplayNum(num), _docDisplayNum(src), _invCopyFresh, !!_invIsNew, _docMode || st.docMode || 'invoice', fromEst);
     if (!html) { el.style.display = 'none'; el.innerHTML = ''; el.classList.remove('fresh'); return; }
     el.innerHTML = html;
     el.style.cssText = _invCopyFresh
@@ -11194,6 +11270,7 @@
       newNum = prefix + getNextOrderNum(prefix);           // 請求書は未保存の新規（保存時に番号チェック）
     } else {
       newNum = generateNewInvNum(mode);
+      if (mode === 'estimate' && st.parentNum) st.estLetter = _nextEstLetter(st.parentNum, newNum); // 同じ案件の次の記号（B, C…）
       saveInvStatus(newNum, st);                          // 見積書・納品書はすぐ保存（シート送信は内部で実施）
     }
     _invCopyAnimate(() => {
@@ -11205,13 +11282,13 @@
       else { try { _markClean('inv-detail-screen'); } catch (e) {} }
       _updateInvCopyBanner(newNum);
       try { if (typeof renderDocList === 'function') renderDocList(); } catch (e) {}
-      try { if (typeof showToast === 'function') showToast('📄 ' + srcNum + ' → ' + newNum + '（コピー）'); } catch (e) {}
+      try { if (typeof showToast === 'function') showToast('📄 ' + _docDisplayNum(srcNum) + ' → ' + _docDisplayNum(newNum) + '（コピー）'); } catch (e) {}
     });
   }
 
 
   function saveInvDoc() {
-    const num = document.getElementById('inv-detail-num').textContent || '';
+    let num = document.getElementById('inv-detail-num').textContent || '';
     if (!num || num === '新規') {
       alert('受注Noが未設定のため保存できません。\nワークシートから請求書を作成すると保存可能になります。');
       return;
@@ -11258,6 +11335,14 @@
       }
       if (_renumberNewEstimateIfTaken(num)) { saveInvDoc(); return; }
     }
+    // 【2026-11-18】受注番号を選んで作った新しい見積書：中身は新しい EST- の書類として保存し、受注番号は parentNum に入れる。
+    // （受注番号の重複チェックは上の _invIsNew の確認で済んでいる。EST- 番号はその確認でシート最新を取り込んだ後に採番する）
+    let _caselessEstParent = '';
+    if (_invIsNew && _docMode === 'estimate') {
+      _caselessEstParent = num;
+      num = generateNewInvNum('estimate');
+      ['inv-detail-num', 'inv-screen-num'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = num; });
+    }
     // 明細行を収集（共通関数）
     const lines = _collectInvLines();
     // ステータスを更新（既存のフラグは保持）
@@ -11286,10 +11371,13 @@
     if (_invIsNew && _invCopySrc && !status.copiedFrom) status.copiedFrom = _invCopySrc; // コピーで作った請求書なら元番号を残す
     const _estParent = (_invEstNew && _invEstParent) ? _invEstParent : ''; // 案件の新しい見積書（未保存だったもの）
     if (_estParent && !String(status.parentNum || '').trim()) status.parentNum = _estParent;
+    if (_caselessEstParent) status.parentNum = _caselessEstParent;
+    // 見積書の記号（A/B/C）は最初の保存で決めて、あとから変えない
+    if (/^EST-/.test(num) && status.parentNum && !status.estLetter) status.estLetter = _nextEstLetter(status.parentNum, num);
     const _estLink = (_invIsNew && _invFromEstimate) ? _invFromEstimate : ''; // 案件の無い見積書から作った請求書
     if (_estLink) { status.fromEstimate = _estLink; status.estimated = true; }
     status.savedAt  = new Date().toLocaleString('ja-JP');
-    saveInvStatus(num, status, { claimNew: _invIsNew }); // ← 打刻＋自動送信は内部で実施。新規時だけ番号の先取り主張を付ける
+    saveInvStatus(num, status, { claimNew: _invIsNew && !_caselessEstParent }); // ← 打刻＋自動送信は内部で実施。新規時だけ番号の先取り主張を付ける（見積書は EST- キーなので付けない）
     _invEstNew = false;
     if (_estParent) { _invEstParent = ''; _markCaseEstimated(_estParent); }
     // 元の見積書をこの案件に結ぶ（以後、その見積書で「請求書」を押すとこの請求書が開く）
@@ -12385,7 +12473,7 @@
     try {
       const labels = { invoice: '請求書', estimate: '見積書', delivery: '納品書' };
       const label = labels[(typeof _docMode !== 'undefined' ? _docMode : '')] || '';
-      const numTxt = (document.getElementById('inv-detail-num')?.textContent || '').trim();
+      const numTxt = _docDisplayNum((document.getElementById('inv-detail-num')?.textContent || '').trim()); // 見積書は「受注番号-A」
       printTitle = [label, numTxt].filter(Boolean).join('_') || '印刷';
     } catch (e) {}
     // === 余白の作り方をブラウザで変える（2026-07-31）===
@@ -15149,6 +15237,7 @@ ${_body}
       .filter(it => (typeof deptPass === 'function' ? deptPass(it.num) : true));
     const items = q ? all.filter(it =>
       String(it.num).toLowerCase().includes(q) ||
+      String(_docDisplayNum(it.num)).toLowerCase().includes(q) ||
       String(it.title).toLowerCase().includes(q) ||
       String(it.company).toLowerCase().includes(q)
     ) : all;
@@ -15200,13 +15289,13 @@ ${_body}
       html += `<div onclick="openDocFromList('${it.num}')"
         style="background:white;border:2px solid ${accentBg};border-left:5px solid ${accent};border-radius:4px;padding:10px 12px;margin-bottom:6px;cursor:pointer;box-shadow:2px 2px 0 ${accentBg};">
         <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
-          <div style="font-size:12px;color:${accent};font-weight:bold;">${escapeHtml(it.num)}</div>
+          <div style="font-size:12px;color:${accent};font-weight:bold;">${escapeHtml(_docDisplayNum(it.num))}</div>
           ${badge}
         </div>
         <div style="font-size:14px;font-weight:bold;color:#333;margin-top:3px;">${escapeHtml(it.title || '無題')}</div>
         <div style="font-size:11px;color:#666;margin-top:2px;">🏢 ${escapeHtml(it.company || '取引先未設定')}</div>
         ${it.date ? `<div style="font-size:11px;color:#888;margin-top:1px;">📅 ${escapeHtml(it.date)}</div>` : ''}
-        ${status && status.copiedFrom ? `<div style="font-size:10px;color:#a0703a;margin-top:2px;">📄 ${escapeHtml(status.copiedFrom)} からコピー</div>` : ''}
+        ${status && status.copiedFrom ? `<div style="font-size:10px;color:#a0703a;margin-top:2px;">📄 ${escapeHtml(_docDisplayNum(status.copiedFrom))} からコピー</div>` : ''}
       </div>`;
     });
     list.innerHTML = html;
@@ -16689,7 +16778,8 @@ ${tableHTML}
     const totalBg    = _L.totalBg || '#eef6f1';
 
     // 印刷用HTMLに流し込む文字は全てエスケープ（取引先名の「&」「<」等で印刷が崩れるのを防ぐ）
-    const num      = escapeHtml(document.getElementById('inv-detail-num').textContent);
+    const rawNum   = String(document.getElementById('inv-detail-num').textContent || '').trim();
+    const num      = escapeHtml(_docDisplayNum(rawNum)); // 見積書は「受注番号-A」で印刷（中は EST-・2026-11-18）
     const client   = escapeHtml(document.getElementById('inv-screen-client').textContent);
     const zip      = escapeHtml(document.getElementById('inv-screen-zip').textContent);
     const addr     = escapeHtml(document.getElementById('inv-screen-addr').textContent);
@@ -16837,7 +16927,7 @@ ${tableHTML}
         <div style="text-align:right;font-size:8pt;">
           <div>${dateLabel}：<strong>${docDate}</strong></div>
           <div>担当：${staff}</div>
-          <div style="color:#888;">${/^EST-/.test(num) ? '見積No.' : '受注No.'} ${num}</div>
+          <div style="color:#888;">${(/^EST-/.test(rawNum) || type === 'estimate') ? '見積No.' : '受注No.'} ${num}</div>
         </div>
       </div>
 
@@ -18497,7 +18587,8 @@ ${tableHTML}
     // 番号が絶対に被らないようにする（受注番号を T/E/P に一本化したため）
     const invKeyNums = Object.keys(localStorage)
       .filter(k => k.indexOf('inv_') === 0).map(k => k.slice(4));
-    const nums = [...Object.keys(wsData), ...saved.map(p => String(p.num || '')), ...invKeyNums]
+    const estParents = (typeof _estParentNums === 'function') ? _estParentNums() : []; // 見積書が使っている受注番号（2026-11-18）
+    const nums = [...Object.keys(wsData), ...saved.map(p => String(p.num || '')), ...invKeyNums, ...estParents]
       .map(k => { const m = String(k).match(re); return m ? parseInt(m[1], 10) : NaN; })
       .filter(n => !isNaN(n));
     const nextSeq = nums.length ? Math.max(...nums) + 1 : 1;
@@ -19010,7 +19101,7 @@ ${tableHTML}
     if (!hit) return;
     const lines = (hit.status.lines || []).filter(l => l && !l.spacer);
     const sub = lines.reduce((a, l) => a + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
-    el.innerHTML = '🧮 この案件には <b>見積書 ' + escapeHtml(hit.num) + '</b>（明細 ' + lines.length + ' 行・税抜 ¥' + sub.toLocaleString() + '）があります。' +
+    el.innerHTML = '🧮 この案件には <b>見積書 ' + escapeHtml(_docDisplayNum(hit.num)) + '</b>（明細 ' + lines.length + ' 行・税抜 ¥' + sub.toLocaleString() + '）があります。' +
       '請求書はまだ空です。<br>' +
       '<button type="button" onclick="importEstimateIntoInvoice()" style="margin-top:6px;font-family:\'DotGothic16\',monospace;font-size:13px;background:#e67e22;border:2px solid #b3650f;color:white;padding:7px 14px;border-radius:3px;cursor:pointer;box-shadow:2px 2px 0 #7e4906;">📥 見積書の内容をこの請求書に取り込む</button>' +
       '<span style="font-size:11px;color:#a0703a;margin-left:8px;">取り込んだあと「編集内容を保存」で確定します（見積書はそのまま残ります）</span>';
@@ -19050,12 +19141,11 @@ ${tableHTML}
   // → 元の案件がある見積書は、その案件の請求書を今の内容で開く。見積書は書き換えない。
   function onDocModeBtn(mode) {
     const num = (document.getElementById('inv-detail-num')?.textContent || '').trim();
-    // 【2026-11-16】見積書は必ず EST- 番号、請求書は T/E/P。まだ保存していない新しい書類は、種類を変えたら番号も付け替える
-    if (mode === 'estimate' && _invIsNew && _docMode !== 'estimate') { _switchNewDocNumber('estimate'); return; }
+    // まだ保存していない新しい書類（受注番号を選んでいる途中）は、見積書⇔請求書をそのまま切り替える。
+    // 見積書のまま保存すると「受注番号-A」の見積書になる（saveInvDoc・2026-11-18）
     if (mode === 'invoice' && _invEstNew && _invEstParent && _docMode !== 'invoice') { _openParentInvoiceFromEstimate(num, _invEstParent); return; }
-    if (mode === 'invoice' && _invEstNew && _docMode !== 'invoice') { _switchNewDocNumber('invoice'); return; }
     // 保存済みの案件（T/E/P）の請求書・納品書で「見積書」：案件の見積書（EST-）を開く。無ければ今の内容で作る
-    if (mode === 'estimate' && _docMode !== 'estimate' && /^[TEPDB]\d/i.test(num)) {
+    if (mode === 'estimate' && _docMode !== 'estimate' && !_invIsNew && /^[TEPDB]\d/i.test(num)) {
       const content = _collectInvEditorContent();
       _guardedClose('inv-detail-screen', 'この書類', saveInvDoc, () => _openCaseEstimate(num, content));
       return;
@@ -19070,25 +19160,13 @@ ${tableHTML}
     }
     setDocMode(mode);
   }
-  // 未保存の新しい書類の番号を、書類の種類に合わせて付け替える（入力した中身はそのまま）
-  function _switchNewDocNumber(mode) {
-    const n = mode === 'estimate' ? generateNewInvNum('estimate') : 'T' + getNextOrderNum('T');
-    ['inv-detail-num', 'inv-screen-num'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = n; });
-    _invIsNew = mode !== 'estimate';
-    _invRemoteChecked = false;
-    _invOrderPrefix = 'T';
-    _setInvOrderField(n, mode !== 'estimate');
-    if (mode === 'estimate') _invEstNew = true; // _setInvOrderField で false に戻った後に立てる
-    setDocMode(mode);
-    try { if (typeof showToast === 'function') showToast(mode === 'estimate' ? '🧮 見積書なので見積番号 ' + n + ' にしました' : '🧾 請求書なので受注番号 ' + n + ' にしました（T/E/P を選べます）'); } catch (e) {}
-  }
   // 案件（T/E/P）の見積書を開く。既にあればいちばん新しいものを開く。
   // 無ければ新しい EST- 番号の見積書を“未保存”で開く（中身は content、無ければ案件から）。「編集内容を保存」で確定。
   function _openCaseEstimate(num, content) {
     const existing = _findEstimateForCase(num);
     if (existing) {
       _openBlankInvFromWS(existing, 'estimate');
-      try { if (typeof showToast === 'function') showToast('🧮 案件 ' + num + ' の見積書 ' + existing + ' を開きました'); } catch (e) {}
+      try { if (typeof showToast === 'function') showToast('🧮 案件 ' + num + ' の見積書 ' + _docDisplayNum(existing) + ' を開きました'); } catch (e) {}
       return;
     }
     let st;
@@ -19108,9 +19186,11 @@ ${tableHTML}
       if (typeof _attachInvCompanyAc === 'function') _attachInvCompanyAc();
       _showInvCopyInEditor(est, st, false);
       _invEstNew = true; _invEstParent = num; // _setInvOrderField で空に戻った後に入れる
+      const disp = num + '-' + _nextEstLetter(num); // 保存したときに付く番号（見せるだけ）
+      ['inv-order-readonly', 'inv-screen-num'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = disp; });
       try { _markDirty('inv-detail-screen'); } catch (e) {}
       if (scr && !wasOpen) { scr.style.transform = 'translateX(0)'; if (typeof syncCancelBtn === 'function') syncCancelBtn(false); }
-      try { if (typeof showToast === 'function') showToast('🧮 案件 ' + num + ' の見積書 ' + est + ' を作ります（保存で確定）'); } catch (e) {}
+      try { if (typeof showToast === 'function') showToast('🧮 案件 ' + num + ' の見積書 ' + num + '-' + _nextEstLetter(num) + ' を作ります（保存で確定）'); } catch (e) {}
     };
     if (wasOpen) _invCopyAnimate(show); else show();
   }
@@ -19119,8 +19199,8 @@ ${tableHTML}
     const pst = loadInvStatus(parent) || {};
     const hasInv = Array.isArray(pst.lines) && pst.lines.length > 0;
     const msg = hasInv
-      ? '案件 ' + parent + ' の請求書は既に作られています。\nそちらを開きますか？（見積書 ' + estNum + ' はそのまま残ります）'
-      : 'この見積書の内容で、案件 ' + parent + ' の請求書を作ります。\n（見積書 ' + estNum + ' はそのまま残ります。請求書は「編集内容を保存」で確定します）';
+      ? '案件 ' + parent + ' の請求書は既に作られています。\nそちらを開きますか？（見積書 ' + _docDisplayNum(estNum) + ' はそのまま残ります）'
+      : 'この見積書の内容で、案件 ' + parent + ' の請求書を作ります。\n（見積書 ' + _docDisplayNum(estNum) + ' はそのまま残ります。請求書は「編集内容を保存」で確定します）';
     if (!confirm(msg)) return;
     try { _markClean('inv-detail-screen'); } catch (e) {}
     _openBlankInvFromWS(parent, 'invoice');
@@ -19209,6 +19289,7 @@ ${tableHTML}
       const src   = (typeof loadInvStatus === 'function') ? (loadInvStatus(num) || {}) : {};
       const newNum = generateNewInvNum('estimate');
       const status = _buildEstimateStatusForCase(num);
+      status.estLetter = _nextEstLetter(num, newNum); // 見せる番号「案件番号-A」の記号（2026-11-18）
       saveInvStatus(newNum, status);   // シートへの送信は saveInvStatus が内部で実施
       // 元の案件に「見積書を作った」印を残す（受注ノートの発行状況チェックで使う）
       // 【2026-10-04】元の請求書にまだ明細が無いときは、印だけの空レコードを「新しい更新時刻」で保存・送信しない。
@@ -19221,7 +19302,7 @@ ${tableHTML}
           else localStorage.setItem('inv_' + num, JSON.stringify(src));
         } catch (e) {}
       }
-      try { if (typeof showToast === 'function') showToast('🧮 見積書 ' + newNum + ' を起こしました'); } catch (e) {}
+      try { if (typeof showToast === 'function') showToast('🧮 見積書 ' + num + '-' + status.estLetter + ' を起こしました'); } catch (e) {}
       return newNum;
     } catch (e) {
       console.error('見積書の作成に失敗', e);

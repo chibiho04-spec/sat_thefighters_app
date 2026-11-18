@@ -11,28 +11,12 @@ function storage(init) {
   return s;
 }
 
-console.log('=== 入口：新しく作る見積書は EST- ===');
+console.log('=== 入口：案件の無い見積書も受注番号を選んで作る（2026-11-18） ===');
 const blank = grabFunction(src, '_openBlankInvScreen');
-ok(/const isEst = _actionToMode\(action\) === 'estimate';/.test(blank) && /const newNum = isEst \? generateNewInvNum\('estimate'\) : 'T' \+ getNextOrderNum\('T'\);/.test(blank), 'ホーム・一覧の「新規作成」：見積書は EST-、請求書は T/E/P');
-ok(/_setInvOrderField\(newNum, !isEst\);[^\n]*\n\s*if \(isEst\) _invEstNew = true;/.test(blank), '見積書は番号の表示のみ＋「新しい見積書」の印（保存時に番号を確かめる）');
+ok(/_invIsNew = true;/.test(blank) && /const newNum = 'T' \+ getNextOrderNum\('T'\);/.test(blank) && /_setInvOrderField\(newNum, true\)/.test(blank) && !/generateNewInvNum/.test(blank), 'ホーム・一覧の「新規作成」：見積書も受注番号（T/E/P を選べる）');
 const tpl = grabFunction(src, 'createInvoiceFromTemplate');
-ok(/const isEst = tpl\.docMode === 'estimate';/.test(tpl) && /isEst \? generateNewInvNum\('estimate'\)/.test(tpl) && /if \(isEst\) _invEstNew = true;/.test(tpl), '見積書のテンプレートも EST-');
-
-console.log('\n=== 種類の切り替えで番号を付け替える ===');
-(0, eval)(grabFunction(src, '_switchNewDocNumber'));
-const els = { 'inv-detail-num': { textContent: 'T26151' }, 'inv-screen-num': { textContent: 'T26151' } };
-global.document = { getElementById: id => els[id] || null };
-let fieldCalls = [], modeCalls = [];
-global.generateNewInvNum = () => 'EST-26020';
-global.getNextOrderNum = () => '26152';
-global._setInvOrderField = (n, ed) => { fieldCalls.push(n + ':' + ed); global._invEstNew = false; };
-global.setDocMode = m => modeCalls.push(m);
-global.showToast = () => {};
-global._invIsNew = true; global._invEstNew = false;
-_switchNewDocNumber('estimate');
-ok(els['inv-detail-num'].textContent === 'EST-26020' && _invIsNew === false && _invEstNew === true && fieldCalls[0] === 'EST-26020:false' && modeCalls[0] === 'estimate', '請求書→見積書：EST- の表示のみ・新しい見積書の印');
-_switchNewDocNumber('invoice');
-ok(els['inv-detail-num'].textContent === 'T26152' && _invIsNew === true && _invEstNew === false && fieldCalls[1] === 'T26152:true' && modeCalls[1] === 'invoice', '見積書→請求書：受注番号（T/E/P を選べる）');
+ok(/_invIsNew = true;/.test(tpl) && /'T' \+ getNextOrderNum\('T'\)/.test(tpl) && !/generateNewInvNum/.test(tpl), '見積書のテンプレートも受注番号を選んで作る');
+ok(src.indexOf('function _switchNewDocNumber(') < 0, '種類を変えても番号は付け替えない（受注番号のまま）');
 
 console.log('\n=== 保存：EST- 番号が他の端末と被っていないか ===');
 (0, eval)(grabFunction(src, '_renumberNewEstimateIfTaken'));
@@ -43,6 +27,9 @@ global.generateNewInvNum = () => 'EST-26021';
 ok(_renumberNewEstimateIfTaken('EST-26020') === true && e3['inv-detail-num'].textContent === 'EST-26021' && e3['inv-order-readonly'].textContent === 'EST-26021', '使われていたら空いている EST- 番号に付け替える');
 ok(_renumberNewEstimateIfTaken('EST-26099') === false, '空いていればそのまま');
 const save = grabFunction(src, 'saveInvDoc');
+ok(/if \(_invIsNew && _docMode === 'estimate'\) \{\s*_caselessEstParent = num;\s*num = generateNewInvNum\('estimate'\);/.test(save), '受注番号を選んだ新しい見積書は、保存のとき中身を EST- の書類にする');
+ok(/if \(_caselessEstParent\) status\.parentNum = _caselessEstParent;/.test(save) && /status\.estLetter = _nextEstLetter\(status\.parentNum, num\)/.test(save), '受注番号は parentNum に、記号（A）は最初の保存で決める');
+ok(/claimNew: _invIsNew && !_caselessEstParent/.test(save), '見積書は受注番号の先取り主張を付けない（EST- のキーで保存するため）');
 ok(/if \(_invEstNew && !_invIsNew\) \{[\s\S]*?pullKind\('invoice'\)[\s\S]*?_renumberNewEstimateIfTaken\(num\);\s*saveInvDoc\(\);/.test(save), 'シート最新を取り込んでから確かめ、もう一度保存する');
 ok(/status\.fromEstimate = _estLink/.test(save) && /es\.parentNum = num; saveInvStatus\(_estLink, es\)/.test(save), '見積書から作った請求書を保存したら、見積書をその案件に結ぶ');
 ok(/if \(_estParent && !String\(status\.parentNum \|\| ''\)\.trim\(\)\) status\.parentNum = _estParent;/.test(save) && /_markCaseEstimated\(_estParent\)/.test(save), '案件の新しい見積書を保存したら parentNum を入れ、案件に「見積書あり」の印');
@@ -65,6 +52,7 @@ ok(_invFromEstimate === 'EST-26008' && marks.includes('dirty'), '元の見積書
 
 console.log('\n=== 案件の見積書を開く ===');
 (0, eval)(grabFunction(src, '_openCaseEstimate'));
+global._nextEstLetter = () => 'A';
 let opened = [];
 global._findEstimateForCase = n => (n === 'T26100' ? 'EST-26005' : '');
 global._openBlankInvFromWS = (n, a) => opened.push(n + ':' + a);
@@ -85,7 +73,7 @@ ok(shown.st.title === 'WSから', '今の画面が空なら、ワークシート
 console.log('\n=== 配線 ===');
 const list = grabFunction(src, 'openDocFromList');
 ok(/action === 'estimate' && \/\^\[TEPDB\]\\d\/i\.test\(String\(num\)\) && \(loadInvStatus\(num\) \|\| \{\}\)\.docMode !== 'estimate'/.test(list) && /_openCaseEstimate\(String\(num\)\)/.test(list), '見積書一覧で案件を選ぶと、その案件の EST- 見積書（昔の受注番号の見積書はそのまま）');
-ok(/\$\{\/\^EST-\/\.test\(num\) \? '見積No\.' : '受注No\.'\} \$\{num\}/.test(src), '印刷物：EST- は「見積No.」');
+ok(/\$\{\(\/\^EST-\/\.test\(rawNum\) \|\| type === 'estimate'\) \? '見積No\.' : '受注No\.'\} \$\{num\}/.test(src) && /const num      = escapeHtml\(_docDisplayNum\(rawNum\)\)/.test(src), '印刷物：見積書は「見積No. T26150-A」');
 const fld = grabFunction(src, '_setInvOrderField');
 ok(/lb\.textContent = \/\^EST-\/\.test\(String\(num \|\| ''\)\) \? '見積番号' : '受注番号'/.test(fld) && /_invEstNew = false;/.test(fld) && /_invEstParent = '';/.test(fld) && /_invFromEstimate = '';/.test(fld), '編集画面の見出しも「見積番号」。開き直すたびに控えを消す');
 ok(src.indexOf('var _invEstNew') > 0 && src.indexOf('var _invEstNew') < src.indexOf('function _setInvOrderField('), '控えの変数は使う関数より前で宣言');
