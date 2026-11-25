@@ -9758,11 +9758,10 @@
     return _estLetterAt(max + 1);
   }
   // 書類の見せる番号。見積書（EST-）で案件があれば「T26150-A」、それ以外は番号そのまま
-  function _docDisplayNum(num) {
+  function _docDisplayNum(num, st) {
     num = String(num || '');
     if (!/^EST-/.test(num)) return num;
-    let st = {};
-    try { st = loadInvStatus(num) || {}; } catch (e) {}
+    if (!st) { st = {}; try { st = loadInvStatus(num) || {}; } catch (e) {} } // ゴミ箱など保存場所が違うときは st を渡す
     const p = String(st.parentNum || '').trim();
     return p ? p + '-' + _estLetterOf(num, st) : num;
   }
@@ -11060,7 +11059,7 @@
     const free = generateNewInvNum('estimate');
     if (!free || free === num) return false;
     ['inv-detail-num', 'inv-screen-num', 'inv-order-readonly'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = free; });
-    try { if (typeof showToast === 'function') showToast('見積番号 ' + num + ' は他の端末で使われていたので ' + free + ' にしました'); } catch (e) {}
+    try { if (typeof showToast === 'function') showToast('他の端末と管理番号が重なっていたので付け直しました（見積書の番号は変わりません）'); } catch (e) {}
     return true;
   }
 
@@ -12228,7 +12227,7 @@
       return `
       <div style="background:white;border:2px solid #d5d8dc;border-left:4px solid #808b96;border-radius:3px;padding:10px 12px;margin-bottom:8px;opacity:0.85;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px;">
-          <div style="font-family:'DotGothic16',monospace;font-size:12px;color:#808b96;">${num}</div>
+          <div style="font-family:'DotGothic16',monospace;font-size:12px;color:#808b96;">${escapeHtml(_docDisplayNum(num, status))}</div>
           ${totalStr ? `<div style="font-family:'DotGothic16',monospace;font-size:13px;color:#555;">${totalStr}</div>` : ''}
         </div>
         ${clientName ? `<div style="font-weight:bold;font-size:14px;color:#444;margin-bottom:2px;">${escapeHtml(clientName)}</div>` : ''}

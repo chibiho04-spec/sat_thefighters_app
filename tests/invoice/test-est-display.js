@@ -59,4 +59,8 @@ ok(/status\.estLetter = _nextEstLetter\(num, newNum\)/.test(grabFunction(src, '_
 ok(/if \(mode === 'estimate' && st\.parentNum\) st\.estLetter = _nextEstLetter\(st\.parentNum, newNum\)/.test(grabFunction(src, '_copyInvDocExec')), 'コピーで作る見積書は次の記号');
 ok(/!_invIsNew && \/\^\[TEPDB\]\\d\/i\.test\(num\)/.test(grabFunction(src, 'onDocModeBtn')), '未保存の新しい書類で「見積書」を押しても、別の見積書を開きに行かない');
 
+ok(_docDisplayNum('EST-26099', { parentNum: 'T26150', estLetter: 'B' }) === 'T26150-B', 'ゴミ箱の見積書も、渡した中身から「受注番号-記号」で出せる');
+const trash = grabFunction(src, 'renderTrashCards');
+ok(/escapeHtml\(_docDisplayNum\(num, status\)\)/.test(trash), '削除した書類の一覧も見せる番号');
+ok(!/'見積番号 ' \+ num/.test(src), '保存時のお知らせに EST- 番号を出さない');
 ok.done();
